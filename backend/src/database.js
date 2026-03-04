@@ -224,6 +224,37 @@ function initDatabase() {
       saveDb();
     } catch (e) {}
 
+    // Einheiten-Tabelle
+    db.run(`
+      CREATE TABLE IF NOT EXISTS units (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        abbreviation TEXT NOT NULL UNIQUE
+      )
+    `);
+
+    // Standard-Einheiten anlegen (nur wenn Tabelle leer)
+    try {
+      const unitCount = db.prepare('SELECT COUNT(*) as cnt FROM units');
+      unitCount.step();
+      const cnt = unitCount.getAsObject().cnt;
+      unitCount.free();
+      if (cnt === 0) {
+        const defaultUnits = [
+          ['Meter', 'm'], ['Stueck', 'Stk'], ['Stunde', 'Std'], ['Pauschale', 'psch'],
+          ['Liter', 'l'], ['Kilogramm', 'kg'], ['Tonne', 't'], ['Kubikmeter', 'm3'],
+          ['Laufmeter', 'lfm'], ['Quadratmeter', 'm2'], ['Tag', 'Tag'], ['Satz', 'Satz'],
+          ['Set', 'Set'], ['Rolle', 'Rolle'], ['Beutel', 'Btl'],
+        ];
+        for (const [name, abbr] of defaultUnits) {
+          db.run('INSERT INTO units (name, abbreviation) VALUES (?, ?)', [name, abbr]);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Migration: sort_order fuer BOM
+    try { db.run('ALTER TABLE well_type_bom ADD COLUMN sort_order INTEGER DEFAULT 0'); } catch (e) { /* exists */ }
+
     // Lieferanten-Tabelle
     db.run(`
       CREATE TABLE IF NOT EXISTS suppliers (

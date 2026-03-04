@@ -23,19 +23,34 @@ export default function AdminCosts() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState([]);
-  const [editItem, setEditItem] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' });
   const [selectedBomType, setSelectedBomType] = useState('gespuelt');
   const [bom, setBom] = useState([]);
-  const [tab, setTab] = useState(searchParams.get('tab') || 'items'); // 'items' | 'bom'
+  const [tab, setTab] = useState(searchParams.get('tab') || 'items');
   const [allSuppliers, setAllSuppliers] = useState([]);
-  const [itemSuppliers, setItemSuppliers] = useState({}); // { costItemId: [...] }
+  const [itemSuppliers, setItemSuppliers] = useState({});
   const [expandedItem, setExpandedItem] = useState(null);
+  const [units, setUnits] = useState([]);
+
+  // Inline edit state for cost items
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineForm, setInlineForm] = useState({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' });
+
+  // New item form (shown at bottom of category or standalone)
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newForm, setNewForm] = useState({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' });
+
+  // BOM inline edit
+  const [bomEditId, setBomEditId] = useState(null);
+  const [bomEditForm, setBomEditForm] = useState({ quantity_min: '', quantity_max: '', notes: '', sort_order: '' });
+
+  // Unit management
+  const [showUnitForm, setShowUnitForm] = useState(false);
+  const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '' });
 
   useEffect(() => {
     loadItems();
     loadAllSuppliers();
+    loadUnits();
   }, []);
 
   useEffect(() => {
@@ -58,12 +73,123 @@ export default function AdminCosts() {
     if (res.ok) setAllSuppliers(await res.json());
   };
 
+  const loadUnits = async () => {
+    const res = await apiGet('/api/costs/units');
+    if (res.ok) setUnits(await res.json());
+  };
+
   const loadItemSuppliers = async (costItemId) => {
     const res = await apiGet(`/api/inventory/item-suppliers/${costItemId}`);
     if (res.ok) {
       const data = await res.json();
       setItemSuppliers((prev) => ({ ...prev, [costItemId]: data }));
     }
+  };
+
+  // === Unit helpers ===
+  const unitOptions = units.map((u) => u.abbreviation);
+
+  function UnitSelect({ value, onChange, className }) {
+    return (
+      <select value={value} onChange={onChange} className={className || 'form-input'}>
+        <option value="">-- Einheit --</option>
+        {units.map((u) => (
+          <option key={u.id} value={u.abbreviation}>{u.abbreviation} ({u.name})</option>
+        ))}
+      </select>
+    );
+  }
+
+  const handleAddUnit = async () => {
+    if (!newUnit.name.trim() || !newUnit.abbreviation.trim()) return;
+    const res = await apiPost('/api/costs/units', newUnit);
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+    setNewUnit({ name: '', abbreviation: '' });
+    setShowUnitForm(false);
+    loadUnits();
+  };
+
+  const handleDeleteUnit = async (id) => {
+    if (!confirm('Einheit loeschen?')) return;
+    await apiDelete(`/api/costs/units/${id}`);
+    loadUnits();
+  };
+
+  // === Cost item handlers ===
+  const handleInlineSave = async () => {
+    if (!inlineForm.name.trim() || !inlineForm.unit || !inlineForm.unit_price) return;
+    const payload = { ...inlineForm, unit_price: parseFloat(inlineForm.unit_price) };
+    await apiPut(`/api/costs/items/${inlineEditId}`, payload);
+    setInlineEditId(null);
+    loadItems();
+  };
+
+  const handleInlineCancel = () => {
+    setInlineEditId(null);
+  };
+
+  const startInlineEdit = (item) => {
+    setInlineEditId(item.id);
+    setInlineForm({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      unit_price: String(item.unit_price),
+      description: item.description || '',
+      supplier: item.supplier || '',
+    });
+  };
+
+  const handleNewSave = async () => {
+    if (!newForm.name.trim() || !newForm.unit || !newForm.unit_price) return;
+    const payload = { ...newForm, unit_price: parseFloat(newForm.unit_price) };
+    await apiPost('/api/costs/items', payload);
+    setShowNewForm(false);
+    setNewForm({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' });
+    loadItems();
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Position wirklich loeschen?')) return;
+    await apiDelete(`/api/costs/items/${id}`);
+    loadItems();
+  };
+
+  // === BOM handlers ===
+  const handleAddBom = async (costItemId) => {
+    await apiPost('/api/costs/bom', {
+      well_type: selectedBomType,
+      cost_item_id: costItemId,
+      quantity_min: 1,
+      quantity_max: 1,
+    });
+    loadBom();
+  };
+
+  const startBomEdit = (b) => {
+    setBomEditId(b.id);
+    setBomEditForm({
+      quantity_min: String(b.quantity_min),
+      quantity_max: String(b.quantity_max),
+      notes: b.notes || '',
+      sort_order: String(b.sort_order || 0),
+    });
+  };
+
+  const handleBomSave = async () => {
+    await apiPut(`/api/costs/bom/${bomEditId}`, {
+      quantity_min: parseFloat(bomEditForm.quantity_min) || 1,
+      quantity_max: parseFloat(bomEditForm.quantity_max) || 1,
+      notes: bomEditForm.notes,
+      sort_order: parseInt(bomEditForm.sort_order, 10) || 0,
+    });
+    setBomEditId(null);
+    loadBom();
+  };
+
+  const handleDeleteBom = async (id) => {
+    await apiDelete(`/api/costs/bom/${id}`);
+    loadBom();
   };
 
   const handleAddItemSupplier = async (costItemId, supplierId, articleNumber, price) => {
@@ -81,60 +207,17 @@ export default function AdminCosts() {
     loadItemSuppliers(costItemId);
   };
 
-  const handleSave = async () => {
-    const payload = { ...form, unit_price: parseFloat(form.unit_price) };
-    if (editItem) {
-      await apiPut(`/api/costs/items/${editItem.id}`, payload);
-    } else {
-      await apiPost('/api/costs/items', payload);
-    }
-    setShowForm(false);
-    setEditItem(null);
-    setForm({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' });
-    loadItems();
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm('Position wirklich loeschen?')) return;
-    await apiDelete(`/api/costs/items/${id}`);
-    loadItems();
-  };
-
-  const handleEdit = (item) => {
-    setEditItem(item);
-    setForm({
-      name: item.name,
-      category: item.category,
-      unit: item.unit,
-      unit_price: String(item.unit_price),
-      description: item.description || '',
-      supplier: item.supplier || '',
-    });
-    setShowForm(true);
-  };
-
-  const handleDeleteBom = async (id) => {
-    await apiDelete(`/api/costs/bom/${id}`);
-    loadBom();
-  };
-
-  const handleAddBom = async (costItemId) => {
-    await apiPost('/api/costs/bom', {
-      well_type: selectedBomType,
-      cost_item_id: costItemId,
-      quantity_min: 1,
-      quantity_max: 1,
-    });
-    loadBom();
-  };
-
   const groupedItems = CATEGORIES.map((cat) => ({
     ...cat,
     items: items.filter((i) => i.category === cat.value),
   }));
 
+  const IF = (field, value) => setInlineForm((prev) => ({ ...prev, [field]: value }));
+  const NF = (field, value) => setNewForm((prev) => ({ ...prev, [field]: value }));
+  const BF = (field, value) => setBomEditForm((prev) => ({ ...prev, [field]: value }));
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -146,67 +229,49 @@ export default function AdminCosts() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTab('items')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'items' ? 'bg-primary-500 text-white' : 'bg-earth-100 text-gray-600 hover:bg-earth-200'
-          }`}
-        >
-          Kostenpositionen
-        </button>
-        <button
-          onClick={() => setTab('bom')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'bom' ? 'bg-primary-500 text-white' : 'bg-earth-100 text-gray-600 hover:bg-earth-200'
-          }`}
-        >
-          Stuecklisten (BOM)
-        </button>
+        {[
+          { key: 'items', label: 'Kostenpositionen' },
+          { key: 'bom', label: 'Stuecklisten (BOM)' },
+          { key: 'units', label: 'Einheiten' },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t.key ? 'bg-primary-500 text-white' : 'bg-earth-100 text-gray-600 hover:bg-earth-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
+      {/* ==================== KOSTENPOSITIONEN ==================== */}
       {tab === 'items' && (
         <>
           <button
-            onClick={() => { setShowForm(true); setEditItem(null); setForm({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' }); }}
+            onClick={() => { setShowNewForm(true); setNewForm({ name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '' }); }}
             className="btn-primary text-sm py-2 px-4 mb-4"
           >
             + Neue Position
           </button>
 
-          {showForm && (
-            <div className="card mb-6">
-              <h2 className="text-lg font-semibold mb-3">{editItem ? 'Position bearbeiten' : 'Neue Position'}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="form-label">Name *</label>
-                  <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="form-input" />
+          {/* New item form */}
+          {showNewForm && (
+            <div className="card mb-4 border-l-4 border-green-400">
+              <h3 className="text-sm font-semibold text-green-700 mb-2">Neue Position anlegen</h3>
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                <input type="text" value={newForm.name} onChange={(e) => NF('name', e.target.value)} className="form-input text-sm" placeholder="Name *" />
+                <select value={newForm.category} onChange={(e) => NF('category', e.target.value)} className="form-input text-sm">
+                  {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+                <UnitSelect value={newForm.unit} onChange={(e) => NF('unit', e.target.value)} className="form-input text-sm" />
+                <input type="number" step="0.01" value={newForm.unit_price} onChange={(e) => NF('unit_price', e.target.value)} className="form-input text-sm" placeholder="Preis *" />
+                <input type="text" value={newForm.description} onChange={(e) => NF('description', e.target.value)} className="form-input text-sm" placeholder="Beschreibung" />
+                <div className="flex gap-1">
+                  <button onClick={handleNewSave} className="btn-primary text-xs py-1 px-3">Speichern</button>
+                  <button onClick={() => setShowNewForm(false)} className="btn-secondary text-xs py-1 px-3">Abbrechen</button>
                 </div>
-                <div>
-                  <label className="form-label">Kategorie</label>
-                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="form-input">
-                    {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Einheit *</label>
-                  <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="form-input" placeholder="m, Stueck, Std..." />
-                </div>
-                <div>
-                  <label className="form-label">Preis pro Einheit (EUR) *</label>
-                  <input type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Beschreibung</label>
-                  <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Lieferant (alt)</label>
-                  <input type="text" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="form-input" placeholder="Nutze Multi-Lieferanten unten" />
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button onClick={handleSave} className="btn-primary text-sm py-2 px-4">Speichern</button>
-                <button onClick={() => { setShowForm(false); setEditItem(null); }} className="btn-secondary text-sm py-2 px-4">Abbrechen</button>
               </div>
             </div>
           )}
@@ -229,24 +294,48 @@ export default function AdminCosts() {
                     <tbody>
                       {group.items.map((item) => (
                         <React.Fragment key={item.id}>
-                          <tr className="border-b border-earth-100">
-                            <td className="py-2 font-medium">{item.name}</td>
-                            <td className="py-2">{item.unit}</td>
-                            <td className="py-2 text-right">{item.unit_price.toFixed(2)} EUR</td>
-                            <td className="py-2 text-gray-500">{item.description}</td>
-                            <td className="py-2 text-right whitespace-nowrap">
-                              <button
-                                onClick={() => {
-                                  if (expandedItem === item.id) { setExpandedItem(null); } else { setExpandedItem(item.id); loadItemSuppliers(item.id); }
-                                }}
-                                className="text-emerald-500 hover:text-emerald-600 mr-2"
-                              >
-                                Lieferanten
-                              </button>
-                              <button onClick={() => handleEdit(item)} className="text-primary-500 hover:text-primary-600 mr-2">Bearbeiten</button>
-                              <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-600">Loeschen</button>
-                            </td>
-                          </tr>
+                          {inlineEditId === item.id ? (
+                            /* === INLINE EDIT MODE === */
+                            <tr className="border-b border-earth-100 bg-blue-50">
+                              <td className="py-1">
+                                <input type="text" value={inlineForm.name} onChange={(e) => IF('name', e.target.value)} className="form-input text-sm py-1 w-full" />
+                              </td>
+                              <td className="py-1">
+                                <UnitSelect value={inlineForm.unit} onChange={(e) => IF('unit', e.target.value)} className="form-input text-sm py-1" />
+                              </td>
+                              <td className="py-1">
+                                <input type="number" step="0.01" value={inlineForm.unit_price} onChange={(e) => IF('unit_price', e.target.value)} className="form-input text-sm py-1 w-24 text-right" />
+                              </td>
+                              <td className="py-1">
+                                <input type="text" value={inlineForm.description} onChange={(e) => IF('description', e.target.value)} className="form-input text-sm py-1 w-full" />
+                              </td>
+                              <td className="py-1 text-right whitespace-nowrap">
+                                <button onClick={handleInlineSave} className="text-green-600 hover:text-green-700 mr-1 text-xs font-medium">Speichern</button>
+                                <button onClick={handleInlineCancel} className="text-gray-500 hover:text-gray-700 text-xs">Abbrechen</button>
+                              </td>
+                            </tr>
+                          ) : (
+                            /* === DISPLAY MODE === */
+                            <tr className="border-b border-earth-100 hover:bg-earth-50 cursor-pointer group" onDoubleClick={() => startInlineEdit(item)}>
+                              <td className="py-2 font-medium">{item.name}</td>
+                              <td className="py-2">{item.unit}</td>
+                              <td className="py-2 text-right">{item.unit_price.toFixed(2)} EUR</td>
+                              <td className="py-2 text-gray-500">{item.description}</td>
+                              <td className="py-2 text-right whitespace-nowrap">
+                                <button
+                                  onClick={() => {
+                                    if (expandedItem === item.id) { setExpandedItem(null); } else { setExpandedItem(item.id); loadItemSuppliers(item.id); }
+                                  }}
+                                  className="text-emerald-500 hover:text-emerald-600 mr-1 text-xs"
+                                >
+                                  Lieferanten
+                                </button>
+                                <button onClick={() => startInlineEdit(item)} className="text-primary-500 hover:text-primary-600 mr-1 text-xs">Bearbeiten</button>
+                                <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-600 text-xs">Loeschen</button>
+                              </td>
+                            </tr>
+                          )}
+                          {/* Supplier expansion */}
                           {expandedItem === item.id && (
                             <tr>
                               <td colSpan={5} className="bg-earth-50 px-4 py-3">
@@ -311,6 +400,7 @@ export default function AdminCosts() {
         </>
       )}
 
+      {/* ==================== STUECKLISTEN (BOM) ==================== */}
       {tab === 'bom' && (
         <>
           <div className="mb-4">
@@ -324,6 +414,7 @@ export default function AdminCosts() {
             <h3 className="text-md font-semibold text-gray-700 mb-3">
               Stueckliste: {WELL_TYPES.find((t) => t.value === selectedBomType)?.label}
             </h3>
+            <p className="text-xs text-gray-400 mb-2">Doppelklick auf eine Zeile zum Bearbeiten. Position-Nr. bestimmt die Sortierung.</p>
 
             {bom.length === 0 ? (
               <p className="text-sm text-gray-500">Keine Positionen zugewiesen.</p>
@@ -331,38 +422,73 @@ export default function AdminCosts() {
               <table className="w-full text-sm mb-4">
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
+                    <th className="pb-2 w-16">Pos.</th>
                     <th className="pb-2">Position</th>
                     <th className="pb-2">Einheit</th>
                     <th className="pb-2 text-right">Preis/Einheit</th>
                     <th className="pb-2 text-right">Menge (min–max)</th>
                     <th className="pb-2 text-right">Kosten (min–max)</th>
+                    <th className="pb-2">Notizen</th>
                     <th className="pb-2 text-right">Aktion</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bom.map((b) => (
-                    <tr key={b.id} className="border-b border-earth-100">
-                      <td className="py-2 font-medium">{b.name}</td>
-                      <td className="py-2">{b.unit}</td>
-                      <td className="py-2 text-right">{b.unit_price.toFixed(2)} EUR</td>
-                      <td className="py-2 text-right">{b.quantity_min} – {b.quantity_max}</td>
-                      <td className="py-2 text-right">
-                        {(b.unit_price * b.quantity_min).toFixed(0)} – {(b.unit_price * b.quantity_max).toFixed(0)} EUR
-                      </td>
-                      <td className="py-2 text-right">
-                        <button onClick={() => handleDeleteBom(b.id)} className="text-red-500 hover:text-red-600">Entfernen</button>
-                      </td>
-                    </tr>
+                  {bom.map((b, idx) => (
+                    bomEditId === b.id ? (
+                      /* === BOM INLINE EDIT === */
+                      <tr key={b.id} className="border-b border-earth-100 bg-blue-50">
+                        <td className="py-1">
+                          <input type="number" value={bomEditForm.sort_order} onChange={(e) => BF('sort_order', e.target.value)} className="form-input text-sm py-1 w-16 text-center" />
+                        </td>
+                        <td className="py-1 font-medium">{b.name}</td>
+                        <td className="py-1">{b.unit}</td>
+                        <td className="py-1 text-right">{b.unit_price.toFixed(2)} EUR</td>
+                        <td className="py-1 text-right">
+                          <div className="flex gap-1 justify-end">
+                            <input type="number" step="0.01" value={bomEditForm.quantity_min} onChange={(e) => BF('quantity_min', e.target.value)} className="form-input text-sm py-1 w-20 text-right" />
+                            <span className="self-center">–</span>
+                            <input type="number" step="0.01" value={bomEditForm.quantity_max} onChange={(e) => BF('quantity_max', e.target.value)} className="form-input text-sm py-1 w-20 text-right" />
+                          </div>
+                        </td>
+                        <td className="py-1 text-right text-gray-400">
+                          {(b.unit_price * (parseFloat(bomEditForm.quantity_min) || 0)).toFixed(0)} – {(b.unit_price * (parseFloat(bomEditForm.quantity_max) || 0)).toFixed(0)} EUR
+                        </td>
+                        <td className="py-1">
+                          <input type="text" value={bomEditForm.notes} onChange={(e) => BF('notes', e.target.value)} className="form-input text-sm py-1 w-full" placeholder="Notizen..." />
+                        </td>
+                        <td className="py-1 text-right whitespace-nowrap">
+                          <button onClick={handleBomSave} className="text-green-600 hover:text-green-700 mr-1 text-xs font-medium">Speichern</button>
+                          <button onClick={() => setBomEditId(null)} className="text-gray-500 hover:text-gray-700 text-xs">Abbrechen</button>
+                        </td>
+                      </tr>
+                    ) : (
+                      /* === BOM DISPLAY === */
+                      <tr key={b.id} className="border-b border-earth-100 hover:bg-earth-50 cursor-pointer" onDoubleClick={() => startBomEdit(b)}>
+                        <td className="py-2 text-center text-gray-400 font-mono text-xs">{b.sort_order || (idx + 1) * 10}</td>
+                        <td className="py-2 font-medium">{b.name}</td>
+                        <td className="py-2">{b.unit}</td>
+                        <td className="py-2 text-right">{b.unit_price.toFixed(2)} EUR</td>
+                        <td className="py-2 text-right">{b.quantity_min} – {b.quantity_max}</td>
+                        <td className="py-2 text-right">
+                          {(b.unit_price * b.quantity_min).toFixed(0)} – {(b.unit_price * b.quantity_max).toFixed(0)} EUR
+                        </td>
+                        <td className="py-2 text-gray-400 text-xs">{b.notes || ''}</td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <button onClick={() => startBomEdit(b)} className="text-primary-500 hover:text-primary-600 mr-1 text-xs">Bearbeiten</button>
+                          <button onClick={() => handleDeleteBom(b.id)} className="text-red-500 hover:text-red-600 text-xs">Entfernen</button>
+                        </td>
+                      </tr>
+                    )
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="font-bold">
-                    <td className="pt-2" colSpan={4}>Gesamt</td>
+                    <td className="pt-2" colSpan={5}>Gesamt</td>
                     <td className="pt-2 text-right">
                       {bom.reduce((s, b) => s + b.unit_price * b.quantity_min, 0).toFixed(0)} –{' '}
                       {bom.reduce((s, b) => s + b.unit_price * b.quantity_max, 0).toFixed(0)} EUR
                     </td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 </tfoot>
               </table>
@@ -393,6 +519,67 @@ export default function AdminCosts() {
                 </button>
               </div>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* ==================== EINHEITEN ==================== */}
+      {tab === 'units' && (
+        <>
+          <button
+            onClick={() => setShowUnitForm(true)}
+            className="btn-primary text-sm py-2 px-4 mb-4"
+          >
+            + Neue Einheit
+          </button>
+
+          {showUnitForm && (
+            <div className="card mb-4 border-l-4 border-green-400">
+              <h3 className="text-sm font-semibold text-green-700 mb-2">Neue Einheit anlegen</h3>
+              <div className="flex gap-3 items-end">
+                <div>
+                  <label className="form-label">Name *</label>
+                  <input type="text" value={newUnit.name} onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })} className="form-input" placeholder="z.B. Kubikmeter" />
+                </div>
+                <div>
+                  <label className="form-label">Abkuerzung *</label>
+                  <input type="text" value={newUnit.abbreviation} onChange={(e) => setNewUnit({ ...newUnit, abbreviation: e.target.value })} className="form-input" placeholder="z.B. m3" />
+                </div>
+                <button onClick={handleAddUnit} className="btn-primary text-sm py-2 px-4">Speichern</button>
+                <button onClick={() => { setShowUnitForm(false); setNewUnit({ name: '', abbreviation: '' }); }} className="btn-secondary text-sm py-2 px-4">Abbrechen</button>
+              </div>
+            </div>
+          )}
+
+          <div className="card">
+            <h3 className="text-md font-semibold text-gray-700 mb-3">Verfuegbare Einheiten</h3>
+            <p className="text-xs text-gray-400 mb-3">Diese Einheiten stehen in den Dropdown-Menues bei Kostenpositionen und Stuecklisten zur Verfuegung.</p>
+            {units.length === 0 ? (
+              <p className="text-sm text-gray-500">Keine Einheiten vorhanden.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b">
+                      <th className="pb-2">Name</th>
+                      <th className="pb-2">Abkuerzung</th>
+                      <th className="pb-2 text-right">Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {units.map((u) => (
+                      <tr key={u.id} className="border-b border-earth-100">
+                        <td className="py-2">{u.name}</td>
+                        <td className="py-2 font-mono font-medium">{u.abbreviation}</td>
+                        <td className="py-2 text-right">
+                          <button onClick={() => handleDeleteUnit(u.id)} className="text-red-500 hover:text-red-600 text-xs">Loeschen</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}
