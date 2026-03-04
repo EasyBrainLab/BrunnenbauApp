@@ -65,6 +65,36 @@ const RULES = [
     message:
       'Eine Handpumpe ist fuer die Versorgung von Haushaltswasser (Toilette, Waschmaschine) nicht geeignet, da hierfuer ein konstanter Wasserdruck benoetigt wird. Wir empfehlen ein Hauswasserwerk oder einen Tiefbrunnen.',
   },
+  {
+    id: 'commercial_permit_warning',
+    steps: ['usage'],
+    check: (data) => {
+      return hasPurpose(data.usage_purposes, 'Gewerbliche / industrielle Nutzung');
+    },
+    type: 'warning',
+    message:
+      'Gewerbliche und industrielle Nutzung unterliegt erhoehten Anforderungen. Es koennen spezielle Genehmigungen und Auflagen erforderlich sein. Wir empfehlen in diesem Fall einen Industriebrunnen und beraten Sie gerne zu den behoerdlichen Vorgaben.',
+  },
+  {
+    id: 'agricultural_permit_warning',
+    steps: ['usage'],
+    check: (data) => {
+      return hasPurpose(data.usage_purposes, 'Bewässerung landwirtschaftlicher Flächen');
+    },
+    type: 'info',
+    message:
+      'Die Bewaesserung landwirtschaftlicher Flaechen erfordert in der Regel grosse Foerdermengen. Bitte beachten Sie, dass hierfuer eine wasserrechtliche Erlaubnis der zustaendigen Behoerde erforderlich sein kann.',
+  },
+  {
+    id: 'fire_reserve_warning',
+    steps: ['usage'],
+    check: (data) => {
+      return hasPurpose(data.usage_purposes, 'Löschwasserreserve');
+    },
+    type: 'warning',
+    message:
+      'Eine Loeschwasserreserve unterliegt behoerdlichen Auflagen und erfordert eine Mindest-Foerdermenge. Bitte stimmen Sie sich mit Ihrer oertlichen Feuerwehr oder Baubehoerde ab. Wir beraten Sie gerne zu den technischen Anforderungen.',
+  },
 ];
 
 /**

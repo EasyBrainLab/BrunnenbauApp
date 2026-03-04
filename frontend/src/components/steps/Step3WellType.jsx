@@ -1,6 +1,115 @@
 import { useState } from 'react';
-import { WELL_TYPES, getWellTypeCategory } from '../../data/wellTypeData.jsx';
+import { WELL_TYPES, getWellTypeCategory, WELL_ADVISOR_QUESTIONS, calculateWellRecommendation } from '../../data/wellTypeData.jsx';
 import { runPlausibilityChecks } from '../../data/plausibilityRules';
+import CostComparison from '../CostComparison';
+import HauswasserwerkPanel from './HauswasserwerkPanel';
+
+function WellAdvisor({ onSelect }) {
+  const [answers, setAnswers] = useState({});
+  const [result, setResult] = useState(null);
+
+  const answeredAll = WELL_ADVISOR_QUESTIONS.every((q) => answers[q.id] !== undefined);
+
+  const handleAnswer = (questionId, optionIndex) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
+    setResult(null);
+  };
+
+  const calculate = () => {
+    setResult(calculateWellRecommendation(answers));
+  };
+
+  const reset = () => {
+    setAnswers({});
+    setResult(null);
+  };
+
+  return (
+    <div className="bg-accent-50 border border-accent-200 rounded-xl p-5">
+      <p className="text-sm text-gray-600 mb-4">Beantworten Sie 5 kurze Fragen und wir empfehlen Ihnen den passenden Brunnentyp.</p>
+
+      {!result && (
+        <div className="space-y-4">
+          {WELL_ADVISOR_QUESTIONS.map((q, qi) => (
+            <div key={q.id}>
+              <p className="text-sm font-medium text-gray-700 mb-2">{qi + 1}. {q.question}</p>
+              <div className="space-y-1.5">
+                {q.options.map((opt, oi) => (
+                  <label key={oi} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer text-sm transition-colors ${
+                    answers[q.id] === oi ? 'bg-accent-100 border border-accent-300' : 'bg-white border border-earth-200 hover:bg-earth-50'
+                  }`}>
+                    <input
+                      type="radio"
+                      name={`well_advisor_${q.id}`}
+                      checked={answers[q.id] === oi}
+                      onChange={() => handleAnswer(q.id, oi)}
+                      className="w-3.5 h-3.5 text-accent-500"
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={calculate}
+              disabled={!answeredAll}
+              className="btn-accent text-sm py-2 px-4 disabled:opacity-40"
+            >
+              Empfehlung berechnen
+            </button>
+            {Object.keys(answers).length > 0 && (
+              <button type="button" onClick={reset} className="text-sm text-gray-500 hover:text-gray-700">
+                Zuruecksetzen
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="space-y-3">
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="font-semibold text-green-800 mb-1">Unsere Empfehlung: {result[0].title}</p>
+            <p className="text-sm text-green-700">{result[0].laypersonDescription}</p>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => onSelect(result[0].value)}
+                className="bg-green-600 text-white text-sm py-1.5 px-4 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Uebernehmen
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 font-medium">Alle Ergebnisse:</p>
+          {result.map((wt, i) => (
+            <div key={wt.value} className="flex items-center gap-3 text-sm">
+              <span className="w-5 text-center font-medium text-gray-400">{i + 1}.</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{wt.title}</span>
+                  <span className="text-xs text-gray-400">{wt.percentage}%</span>
+                </div>
+                <div className="w-full bg-earth-100 rounded-full h-1.5 mt-1">
+                  <div className="bg-accent-500 h-1.5 rounded-full transition-all" style={{ width: `${wt.percentage}%` }} />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button type="button" onClick={reset} className="text-sm text-accent-600 hover:text-accent-700 mt-2">
+            Nochmal beantworten
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PlausibilityWarnings({ warnings }) {
   if (!warnings || warnings.length === 0) return null;
@@ -49,6 +158,8 @@ function CategoryBadge({ category }) {
 
 export default function Step3WellType({ data, errors, onChange }) {
   const [expandedType, setExpandedType] = useState(null);
+  const [showCostComparison, setShowCostComparison] = useState(false);
+  const [wellAdvisorOpen, setWellAdvisorOpen] = useState(false);
 
   // Plausibilitaetswarnungen berechnen
   const warnings = runPlausibilityChecks(data, 'welltype');
@@ -69,12 +180,37 @@ export default function Step3WellType({ data, errors, onChange }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Brunnenart und Ausfuehrung</h2>
+      <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Brunnenart und Ausfuehrung</h2>
       <p className="text-gray-600 mb-6">
         Basierend auf Ihrem Verwendungszweck haben wir passende Brunnentypen fuer Sie hervorgehoben. Bei Unsicherheit beraten wir Sie gerne.
       </p>
 
       <PlausibilityWarnings warnings={warnings} />
+
+      {/* Brunnenberater – aufklappbar */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => setWellAdvisorOpen(!wellAdvisorOpen)}
+          className="flex items-center gap-2 w-full text-left font-semibold text-accent-700 hover:text-accent-800 transition-colors"
+        >
+          <svg className={`w-5 h-5 transition-transform ${wellAdvisorOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          Brunnenberater — Finden Sie den passenden Brunnentyp
+        </button>
+        {wellAdvisorOpen && (
+          <div className="mt-3">
+            <WellAdvisor onSelect={(value) => {
+              onChange('well_type', value);
+              setExpandedType(value);
+            }} />
+          </div>
+        )}
+      </div>
 
       <div className="space-y-3">
         {sortedTypes.map((type) => {
@@ -166,6 +302,25 @@ export default function Step3WellType({ data, errors, onChange }) {
       </div>
 
       {errors.well_type && <p className="text-red-500 text-sm mt-3">{errors.well_type}</p>}
+
+      {data.well_type === 'hauswasserwerk' && (
+        <HauswasserwerkPanel data={data} onChange={onChange} />
+      )}
+
+      {/* Kostenvergleich Toggle */}
+      <div className="mt-6">
+        <button
+          type="button"
+          onClick={() => setShowCostComparison(!showCostComparison)}
+          className="btn-secondary flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 15.536c-1.171 1.952-3.07 1.952-4.242 0-1.172-1.953-1.172-5.119 0-7.072 1.171-1.952 3.07-1.952 4.242 0M8 10.5h4m-4 3h4m9-1.5a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {showCostComparison ? 'Kostenvergleich verbergen' : 'Kostenvergleich anzeigen'}
+        </button>
+        {showCostComparison && <CostComparison selectedType={data.well_type} />}
+      </div>
     </div>
   );
 }

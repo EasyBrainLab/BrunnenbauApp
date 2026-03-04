@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { generateIcs } = require('./icsGenerator');
 
 // E-Mail-Transporter erstellen
 function createTransporter() {
@@ -64,13 +65,43 @@ async function sendCustomerConfirmation(inquiry) {
     </p>
   `;
 
-  await transporter.sendMail({
+  const mailOptions = {
     from: process.env.EMAIL_FROM || 'info@brunnenbau.de',
     to: inquiry.email,
     subject: `Ihre Brunnen-Anfrage ${inquiry.inquiry_id} – Eingangsbestätigung`,
     html,
     text: `Vielen Dank für Ihre Anfrage!\n\nAnfrage-ID: ${inquiry.inquiry_id}\nBrunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\n\nWir melden uns zeitnah bei Ihnen.\n\nMit freundlichen Grüßen\nIhr Brunnenbau-Team`,
-  });
+  };
+
+  // .ics Anhang bei Vor-Ort-Termin
+  if (inquiry.site_visit_requested && inquiry.preferred_date) {
+    try {
+      const startDate = new Date(inquiry.preferred_date);
+      // Default-Uhrzeit 10:00 falls nur Datum angegeben
+      if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
+        startDate.setHours(10, 0, 0, 0);
+      }
+
+      const location = `${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}`.trim();
+      const icsString = generateIcs({
+        title: `Brunnenbau Vor-Ort-Besichtigung – ${inquiry.first_name} ${inquiry.last_name}`,
+        startDate,
+        location,
+        description: `Brunnentyp: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\nAnfrage-ID: ${inquiry.inquiry_id}`,
+        organizer: process.env.EMAIL_FROM || 'info@brunnenbau.de',
+      });
+
+      mailOptions.attachments = [{
+        filename: 'termin.ics',
+        content: icsString,
+        contentType: 'text/calendar',
+      }];
+    } catch (err) {
+      console.error('Fehler beim Erstellen des iCal-Anhangs:', err);
+    }
+  }
+
+  await transporter.sendMail(mailOptions);
 }
 
 // Benachrichtigungs-E-Mail an Unternehmen

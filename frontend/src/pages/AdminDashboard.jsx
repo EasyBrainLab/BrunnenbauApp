@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../api';
 
+
 const STATUS_LABELS = {
   neu: { label: 'Neu', color: 'bg-blue-100 text-blue-700' },
   in_bearbeitung: { label: 'In Bearbeitung', color: 'bg-yellow-100 text-yellow-700' },
   angebot_erstellt: { label: 'Angebot erstellt', color: 'bg-purple-100 text-purple-700' },
+  auftrag_erteilt: { label: 'Auftrag erteilt', color: 'bg-emerald-100 text-emerald-700' },
   abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
   abgesagt: { label: 'Abgesagt', color: 'bg-red-100 text-red-700' },
 };
@@ -67,10 +69,16 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-primary-500">Dashboard</h1>
+          <h1 className="text-2xl font-heading font-semibold text-primary-500">Dashboard</h1>
           <p className="text-gray-500">Verwaltung aller Brunnenanfragen</p>
         </div>
         <div className="flex gap-3 mt-4 md:mt-0">
+          <Link to="/admin/kalender" className="btn-secondary text-sm py-2 px-4 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Kalender
+          </Link>
           <button onClick={exportCsv} className="btn-secondary text-sm py-2 px-4 flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

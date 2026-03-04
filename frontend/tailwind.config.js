@@ -45,7 +45,7 @@ export default {
       },
       fontFamily: {
         sans: ['Roboto', 'system-ui', '-apple-system', 'sans-serif'],
-        heading: ['"Alfa Slab One"', 'Georgia', 'serif'],
+        heading: ['Roboto', 'system-ui', '-apple-system', 'sans-serif'],
       },
     },
   },

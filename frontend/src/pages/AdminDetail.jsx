@@ -1,11 +1,56 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPut } from '../api';
+import ResponsePanel from '../components/ResponsePanel';
+import QuoteGenerator from '../components/QuoteGenerator';
+import ChatHistory from '../components/ChatHistory';
+
+function RegulationsInfo({ zip }) {
+  const [regulations, setRegulations] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!zip || zip.length < 2) return;
+    apiGet(`/api/admin/regulations?zip=${zip}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setRegulations(data);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, [zip]);
+
+  if (!loaded || regulations.length === 0) return null;
+
+  return (
+    <div className="card mb-6">
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">Vorschriften & Zustaendige Behoerde</h2>
+      {regulations.map((r, i) => (
+        <div key={i} className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-2 text-sm">
+          <p className="font-medium text-blue-800">{r.state}</p>
+          {r.authority_name && <p className="text-blue-700">Behoerde: {r.authority_name}</p>}
+          {r.authority_url && (
+            <p>
+              <a href={r.authority_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                {r.authority_url}
+              </a>
+            </p>
+          )}
+          {r.authority_phone && <p className="text-blue-700">Tel: {r.authority_phone}</p>}
+          {r.permit_type && <p className="text-blue-700">Genehmigung: {r.permit_type}</p>}
+          {r.max_depth && <p className="text-blue-700">Max. Tiefe: {r.max_depth} m</p>}
+          {r.special_rules && <p className="text-blue-600 mt-1">{r.special_rules}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: 'neu', label: 'Neu' },
   { value: 'in_bearbeitung', label: 'In Bearbeitung' },
   { value: 'angebot_erstellt', label: 'Angebot erstellt' },
+  { value: 'auftrag_erteilt', label: 'Auftrag erteilt' },
   { value: 'abgeschlossen', label: 'Abgeschlossen' },
   { value: 'abgesagt', label: 'Abgesagt' },
 ];
@@ -77,7 +122,7 @@ export default function AdminDetail() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-primary-500">
+          <h1 className="text-2xl font-heading font-semibold text-primary-500">
             Anfrage {inquiry.inquiry_id}
           </h1>
           <p className="text-sm text-gray-500">
@@ -98,15 +143,6 @@ export default function AdminDetail() {
             ))}
           </select>
 
-          <a
-            href={`mailto:${inquiry.email}?subject=Ihre Anfrage ${inquiry.inquiry_id}`}
-            className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            Antworten
-          </a>
         </div>
       </div>
 
@@ -129,6 +165,11 @@ export default function AdminDetail() {
           <DetailRow label="Bohrstandort" value={inquiry.drill_location} />
           <DetailRow label="Zufahrtssituation" value={inquiry.access_situation} />
           <DetailRow label="Zufahrt-Details" value={inquiry.access_restriction_details} />
+          <DetailRow label="Pumpentyp" value={inquiry.pump_type} />
+          <DetailRow label="Pumpen-Installation" value={inquiry.pump_installation_location} />
+          <DetailRow label="Stockwerk" value={inquiry.installation_floor} />
+          <DetailRow label="Wanddurchbruch" value={inquiry.wall_breakthrough} />
+          <DetailRow label="Steuergeraet" value={inquiry.control_device} />
         </dl>
       </div>
 
@@ -195,6 +236,18 @@ export default function AdminDetail() {
           </div>
         </div>
       )}
+
+      {/* Kommunikations-Archiv */}
+      <ChatHistory inquiryId={id} onStatusChange={(status) => setInquiry((prev) => ({ ...prev, status }))} />
+
+      {/* Antwort an Kunden */}
+      <ResponsePanel inquiryId={id} inquiry={inquiry} />
+
+      {/* Angebotsgenerator */}
+      <QuoteGenerator inquiryId={id} wellType={inquiry.well_type} />
+
+      {/* Vorschriften-Info */}
+      <RegulationsInfo zip={inquiry.zip_code} />
 
       {/* Admin-Notizen */}
       <div className="card">

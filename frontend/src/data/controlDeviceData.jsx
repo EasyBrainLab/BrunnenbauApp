@@ -1,0 +1,38 @@
+export const CONTROL_DEVICES = [
+  {
+    value: 'druckschalter',
+    name: 'Druckschalter',
+    description: 'Einfacher mechanischer Schalter, der die Pumpe bei Druckabfall ein- und bei Erreichen des Solldrucks ausschaltet.',
+    pros: ['Sehr guenstig', 'Einfache Installation', 'Robust und bewaehrt'],
+    cons: ['Kein Trockenlaufschutz', 'Druckschwankungen moeglich', 'Keine Fehlererkennung'],
+    isHighEnd: false,
+    whenToUse: 'Fuer einfache Gartenbewaesserung ohne besondere Anforderungen an Druckkonstanz.',
+  },
+  {
+    value: 'druckschalter_trockenlauf',
+    name: 'Druckschalter mit Trockenlaufschutz',
+    description: 'Wie ein normaler Druckschalter, aber mit integriertem Schutz gegen Trockenlauf – schaltet die Pumpe ab, wenn kein Wasser mehr foerdert.',
+    pros: ['Schuetzt die Pumpe vor Schaeden', 'Guenstiger als Frequenzumrichter', 'Einfache Nachruestung'],
+    cons: ['Druckschwankungen bleiben', 'Manuelle Neustart-Taste noetig', 'Keine Leistungsregelung'],
+    isHighEnd: false,
+    whenToUse: 'Empfohlener Mindeststandard fuer jede Hauswasseranlage. Pflicht bei tieferen Brunnen.',
+  },
+  {
+    value: 'frequenzumrichter',
+    name: 'Frequenzumrichter',
+    description: 'Elektronische Steuerung, die die Pumpendrehzahl stufenlos an den aktuellen Wasserbedarf anpasst. Konstanter Druck bei variablem Verbrauch.',
+    pros: ['Konstanter Wasserdruck', 'Energieersparnis bis 40%', 'Sanftanlauf schuetzt Pumpe und Leitungen', 'Integrierter Trockenlaufschutz'],
+    cons: ['Hoeherer Preis', 'Komplexere Installation', 'Reparatur nur vom Fachmann'],
+    isHighEnd: true,
+    whenToUse: 'Fuer Hauswasserversorgung mit Dusche/WC, bei wechselnden Abnahmemengen, oder wenn Energieeffizienz wichtig ist.',
+  },
+  {
+    value: 'schaltkasten_motorschutz',
+    name: 'Schaltkasten mit Motorschutz',
+    description: 'Professioneller Schaltschrank mit Motorschutzschalter, Phasenwaechter und optionalem Niveauschalter. Fuer groessere Anlagen.',
+    pros: ['Umfassender Pumpenschutz', 'Ueberlastschutz', 'Erweiterbar (Niveausensor, Fernueberwachung)', 'Professionelle Loesung'],
+    cons: ['Hoechster Preis', 'Fachmann fuer Installation noetig', 'Groesserer Platzbedarf'],
+    isHighEnd: true,
+    whenToUse: 'Fuer groessere Anlagen, gewerblichen Einsatz oder wenn maximale Betriebssicherheit gefordert ist.',
+  },
+];

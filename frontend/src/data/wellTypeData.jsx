@@ -11,6 +11,93 @@ export const WELL_TYPE_LABELS = {
   beratung: 'Beratungsgespraech gewuenscht',
 };
 
+// Kosteninformationen pro Brunnenart (Richtwerte)
+export const COST_INFO = {
+  gespuelt: {
+    rangeMin: 800,
+    rangeMax: 2500,
+    relativeIndex: 1,
+    breakdown: { material: 30, arbeit: 40, maschine: 20, genehmigung: 10 },
+    typicalItems: [
+      { name: 'Brunnenrohr DN 100 (6-8m)', price: '150-300' },
+      { name: 'Filterkies', price: '50-100' },
+      { name: 'Spuelbohrung Arbeit', price: '400-1200' },
+      { name: 'Genehmigung/Anzeige', price: '50-200' },
+    ],
+  },
+  handpumpe: {
+    rangeMin: 1200,
+    rangeMax: 3500,
+    relativeIndex: 1.4,
+    breakdown: { material: 35, arbeit: 35, maschine: 20, genehmigung: 10 },
+    typicalItems: [
+      { name: 'Schwengelpumpe', price: '200-600' },
+      { name: 'Brunnenrohr + Filter', price: '200-400' },
+      { name: 'Bohrung + Einbau', price: '500-1500' },
+      { name: 'Genehmigung', price: '50-200' },
+    ],
+  },
+  tauchpumpe: {
+    rangeMin: 2000,
+    rangeMax: 5000,
+    relativeIndex: 2,
+    breakdown: { material: 40, arbeit: 30, maschine: 20, genehmigung: 10 },
+    typicalItems: [
+      { name: 'Tauchpumpe', price: '300-800' },
+      { name: 'Brunnenrohr + Filter', price: '200-500' },
+      { name: 'Elektroinstallation', price: '200-400' },
+      { name: 'Bohrung + Einbau', price: '800-2000' },
+      { name: 'Genehmigung', price: '50-200' },
+    ],
+  },
+  hauswasserwerk: {
+    rangeMin: 3500,
+    rangeMax: 8000,
+    relativeIndex: 3,
+    breakdown: { material: 45, arbeit: 25, maschine: 20, genehmigung: 10 },
+    typicalItems: [
+      { name: 'Hauswasserwerk/Druckanlage', price: '800-2000' },
+      { name: 'Brunnenrohr + Filter', price: '300-600' },
+      { name: 'Verrohrung im Haus', price: '500-1500' },
+      { name: 'Bohrung', price: '1000-2500' },
+      { name: 'Genehmigung', price: '100-400' },
+    ],
+  },
+  tiefbrunnen: {
+    rangeMin: 5000,
+    rangeMax: 15000,
+    relativeIndex: 5,
+    breakdown: { material: 35, arbeit: 25, maschine: 30, genehmigung: 10 },
+    typicalItems: [
+      { name: 'Tiefenpumpe', price: '800-2500' },
+      { name: 'Brunnenausbau (Rohre, Filter)', price: '600-2000' },
+      { name: 'Bohrung (Rotary/Rammkerndrehbohrung)', price: '2000-6000' },
+      { name: 'Steuerung + Elektrik', price: '500-1500' },
+      { name: 'Genehmigung + Gutachten', price: '300-1000' },
+    ],
+  },
+  industrie: {
+    rangeMin: 10000,
+    rangeMax: 50000,
+    relativeIndex: 10,
+    breakdown: { material: 30, arbeit: 20, maschine: 35, genehmigung: 15 },
+    typicalItems: [
+      { name: 'Industriepumpe(n)', price: '2000-10000' },
+      { name: 'Brunnenausbau (gross)', price: '2000-8000' },
+      { name: 'Bohrung + Ausbau', price: '3000-15000' },
+      { name: 'Steuerung + Technik', price: '1000-5000' },
+      { name: 'Genehmigung + Gutachten + Monitoring', price: '1000-5000' },
+    ],
+  },
+  beratung: {
+    rangeMin: 0,
+    rangeMax: 0,
+    relativeIndex: 0,
+    breakdown: { material: 0, arbeit: 0, maschine: 0, genehmigung: 0 },
+    typicalItems: [],
+  },
+};
+
 export const WELL_TYPES = [
   {
     value: 'gespuelt',
@@ -205,6 +292,78 @@ export const WELL_TYPES = [
     ),
   },
 ];
+
+// ==================== Brunnenberater ====================
+
+export const WELL_ADVISOR_QUESTIONS = [
+  {
+    id: 'budget',
+    question: 'Wie hoch ist Ihr Budget fuer den Brunnenbau?',
+    options: [
+      { label: 'Moeglichst guenstig (unter 2.500 EUR)', scores: { gespuelt: 3, handpumpe: 3, tauchpumpe: 1, hauswasserwerk: 0, tiefbrunnen: 0, industrie: 0, beratung: 1 } },
+      { label: 'Mittleres Budget (2.500–8.000 EUR)', scores: { gespuelt: 1, handpumpe: 1, tauchpumpe: 3, hauswasserwerk: 3, tiefbrunnen: 1, industrie: 0, beratung: 1 } },
+      { label: 'Budget ist zweitrangig – Qualitaet zaehlt', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 1, hauswasserwerk: 2, tiefbrunnen: 3, industrie: 3, beratung: 1 } },
+    ],
+  },
+  {
+    id: 'water_amount',
+    question: 'Wie viel Wasser benoetigen Sie taeglich?',
+    options: [
+      { label: 'Wenig – nur Gartenbewaesserung', scores: { gespuelt: 3, handpumpe: 3, tauchpumpe: 2, hauswasserwerk: 1, tiefbrunnen: 0, industrie: 0, beratung: 1 } },
+      { label: 'Mittel – Haus und Garten', scores: { gespuelt: 1, handpumpe: 0, tauchpumpe: 2, hauswasserwerk: 3, tiefbrunnen: 2, industrie: 0, beratung: 1 } },
+      { label: 'Viel – Gewerbe oder grosse Flaechen', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 0, hauswasserwerk: 1, tiefbrunnen: 3, industrie: 3, beratung: 1 } },
+    ],
+  },
+  {
+    id: 'usage_type',
+    question: 'Wofuer moechten Sie den Brunnen hauptsaechlich nutzen?',
+    options: [
+      { label: 'Nur Gartenbewaesserung', scores: { gespuelt: 3, handpumpe: 3, tauchpumpe: 3, hauswasserwerk: 1, tiefbrunnen: 0, industrie: 0, beratung: 0 } },
+      { label: 'Haus und Garten (WC, Waschmaschine etc.)', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 1, hauswasserwerk: 3, tiefbrunnen: 2, industrie: 0, beratung: 1 } },
+      { label: 'Gewerbe / Landwirtschaft', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 0, hauswasserwerk: 0, tiefbrunnen: 2, industrie: 3, beratung: 1 } },
+    ],
+  },
+  {
+    id: 'automation',
+    question: 'Wie wichtig ist Ihnen automatischer Betrieb?',
+    options: [
+      { label: 'Manuell ist OK (Handpumpe / Schlauch)', scores: { gespuelt: 2, handpumpe: 3, tauchpumpe: 1, hauswasserwerk: 0, tiefbrunnen: 0, industrie: 0, beratung: 1 } },
+      { label: 'Automatisch gewuenscht (Pumpe mit Schalter)', scores: { gespuelt: 1, handpumpe: 0, tauchpumpe: 3, hauswasserwerk: 2, tiefbrunnen: 2, industrie: 1, beratung: 1 } },
+      { label: 'Vollautomatik (Druckanlage / Smart Home)', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 1, hauswasserwerk: 3, tiefbrunnen: 3, industrie: 3, beratung: 1 } },
+    ],
+  },
+  {
+    id: 'longevity',
+    question: 'Wie lange soll der Brunnen halten?',
+    options: [
+      { label: '5–10 Jahre reichen aus', scores: { gespuelt: 3, handpumpe: 2, tauchpumpe: 2, hauswasserwerk: 1, tiefbrunnen: 0, industrie: 0, beratung: 1 } },
+      { label: '10–20 Jahre waeren ideal', scores: { gespuelt: 1, handpumpe: 1, tauchpumpe: 2, hauswasserwerk: 3, tiefbrunnen: 2, industrie: 1, beratung: 1 } },
+      { label: '20+ Jahre – langfristige Investition', scores: { gespuelt: 0, handpumpe: 0, tauchpumpe: 1, hauswasserwerk: 2, tiefbrunnen: 3, industrie: 3, beratung: 1 } },
+    ],
+  },
+];
+
+export function calculateWellRecommendation(answers) {
+  const totals = { gespuelt: 0, handpumpe: 0, tauchpumpe: 0, hauswasserwerk: 0, tiefbrunnen: 0, industrie: 0, beratung: 0 };
+
+  for (const q of WELL_ADVISOR_QUESTIONS) {
+    const answerIndex = answers[q.id];
+    if (answerIndex !== undefined && q.options[answerIndex]) {
+      const scores = q.options[answerIndex].scores;
+      for (const [wellType, score] of Object.entries(scores)) {
+        totals[wellType] += score;
+      }
+    }
+  }
+
+  const maxScore = Math.max(...Object.values(totals));
+
+  return WELL_TYPES.map((wt) => ({
+    ...wt,
+    score: totals[wt.value],
+    percentage: maxScore > 0 ? Math.round((totals[wt.value] / maxScore) * 100) : 0,
+  })).sort((a, b) => b.score - a.score);
+}
 
 // Hilfsfunktion: Kategorie eines Brunnentyps basierend auf Nutzungszwecken
 // usagePurposesStr: Komma-separierter Roh-String aus dem Formular
