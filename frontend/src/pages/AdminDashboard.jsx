@@ -29,9 +29,11 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState('alle');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
     loadData();
+    loadAlerts();
   }, [filter, search]);
 
   const loadData = async () => {
@@ -53,6 +55,13 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAlerts = async () => {
+    try {
+      const res = await apiGet('/api/inventory/alerts');
+      if (res.ok) setAlerts(await res.json());
+    } catch (err) { /* ignore */ }
   };
 
   const logout = async () => {
@@ -106,6 +115,72 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Stammdaten Quick-Links */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Link to="/admin/kosten?tab=items" className="card hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Materialstammdaten</p>
+            <p className="text-xs text-gray-500">Kostenpositionen verwalten</p>
+          </div>
+        </Link>
+        <Link to="/admin/kosten?tab=bom" className="card hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Stuecklisten (BOM)</p>
+            <p className="text-xs text-gray-500">Brunnentyp-Zuordnungen</p>
+          </div>
+        </Link>
+        <Link to="/admin/lieferanten" className="card hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Lieferanten</p>
+            <p className="text-xs text-gray-500">Lieferanten & Bezugsquellen</p>
+          </div>
+        </Link>
+        <Link to="/admin/lager" className="card hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Lagerverwaltung</p>
+            <p className="text-xs text-gray-500">Bestand, Lagerorte & Bewegungen</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Bestandswarnungen */}
+      {alerts.length > 0 && (
+        <div className="card mb-8 border-l-4 border-yellow-400">
+          <h2 className="text-sm font-semibold text-yellow-700 mb-2">Bestandswarnungen ({alerts.length})</h2>
+          <div className="space-y-1">
+            {alerts.slice(0, 5).map((a) => (
+              <div key={a.id} className="flex justify-between text-sm">
+                <span className="font-medium">{a.item_name} <span className="text-gray-400">@ {a.location_name}</span></span>
+                <span className="text-yellow-600">Bestand: {a.quantity} / Meldebestand: {a.reorder_point}</span>
+              </div>
+            ))}
+            {alerts.length > 5 && (
+              <Link to="/admin/lager?tab=stock" className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter und Suche */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">

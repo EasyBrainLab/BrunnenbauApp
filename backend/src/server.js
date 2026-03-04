@@ -7,6 +7,9 @@ const path = require('path');
 const { initDatabase } = require('./database');
 const inquiryRoutes = require('./routes/inquiries');
 const adminRoutes = require('./routes/admin');
+const costRoutes = require('./routes/costs');
+const supplierRoutes = require('./routes/suppliers');
+const inventoryRoutes = require('./routes/inventory');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,6 +62,9 @@ function csrfProtection(req, res, next) {
 // API-Routen
 app.use('/api/inquiries', csrfProtection, inquiryRoutes);
 app.use('/api/admin', csrfProtection, adminRoutes);
+app.use('/api/costs', csrfProtection, costRoutes);
+app.use('/api/suppliers', csrfProtection, supplierRoutes);
+app.use('/api/inventory', csrfProtection, inventoryRoutes);
 
 // Gesundheitscheck
 app.get('/api/health', (req, res) => {
