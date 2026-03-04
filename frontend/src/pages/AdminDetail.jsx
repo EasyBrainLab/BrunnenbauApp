@@ -1,0 +1,215 @@
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { apiGet, apiPut } from '../api';
+
+const STATUS_OPTIONS = [
+  { value: 'neu', label: 'Neu' },
+  { value: 'in_bearbeitung', label: 'In Bearbeitung' },
+  { value: 'angebot_erstellt', label: 'Angebot erstellt' },
+  { value: 'abgeschlossen', label: 'Abgeschlossen' },
+  { value: 'abgesagt', label: 'Abgesagt' },
+];
+
+const WELL_TYPE_LABELS = {
+  gespuelt: 'Gespülter Brunnen (Einfachbrunnen)',
+  handpumpe: 'Gartenbrunnen mit Handpumpe',
+  tauchpumpe: 'Gartenbrunnen mit elektrischer Tauchpumpe',
+  hauswasserwerk: 'Hauswasserwerk / Druckanlage',
+  tiefbrunnen: 'Tiefbrunnen mit Tiefenpumpe (High-End)',
+  industrie: 'Industriebrunnen / gewerblicher Brunnen',
+  beratung: 'Beratungsgespräch gewünscht',
+};
+
+function DetailRow({ label, value }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="py-2 border-b border-earth-100 flex flex-col sm:flex-row sm:gap-4">
+      <dt className="sm:w-1/3 text-sm font-medium text-gray-500">{label}</dt>
+      <dd className="sm:w-2/3 text-sm text-gray-800">{String(value)}</dd>
+    </div>
+  );
+}
+
+export default function AdminDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [inquiry, setInquiry] = useState(null);
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadInquiry();
+  }, [id]);
+
+  const loadInquiry = async () => {
+    const res = await apiGet(`/api/admin/inquiries/${id}`);
+    if (res.status === 401) { navigate('/admin'); return; }
+    if (res.status === 404) { navigate('/admin/dashboard'); return; }
+    const data = await res.json();
+    setInquiry(data);
+    setNotes(data.admin_notes || '');
+  };
+
+  const updateStatus = async (status) => {
+    await apiPut(`/api/admin/inquiries/${id}/status`, { status });
+    setInquiry((prev) => ({ ...prev, status }));
+  };
+
+  const saveNotes = async () => {
+    setSaving(true);
+    await apiPut(`/api/admin/inquiries/${id}/notes`, { notes });
+    setSaving(false);
+  };
+
+  if (!inquiry) {
+    return <div className="text-center py-12 text-gray-500">Laden...</div>;
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Zurück zur Übersicht
+      </Link>
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-primary-500">
+            Anfrage {inquiry.inquiry_id}
+          </h1>
+          <p className="text-sm text-gray-500">
+            Eingegangen am {new Date(inquiry.created_at).toLocaleDateString('de-DE', {
+              year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 mt-4 md:mt-0">
+          <select
+            value={inquiry.status}
+            onChange={(e) => updateStatus(e.target.value)}
+            className="form-input w-auto text-sm"
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+
+          <a
+            href={`mailto:${inquiry.email}?subject=Ihre Anfrage ${inquiry.inquiry_id}`}
+            className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Antworten
+          </a>
+        </div>
+      </div>
+
+      {/* Kontaktdaten */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
+        <dl>
+          <DetailRow label="Name" value={`${inquiry.first_name} ${inquiry.last_name}`} />
+          <DetailRow label="E-Mail" value={inquiry.email} />
+          <DetailRow label="Telefon" value={inquiry.phone} />
+          <DetailRow label="Adresse" value={`${inquiry.street} ${inquiry.house_number}, ${inquiry.zip_code} ${inquiry.city}`} />
+        </dl>
+      </div>
+
+      {/* Brunnendetails */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Brunnendetails</h2>
+        <dl>
+          <DetailRow label="Brunnenart" value={WELL_TYPE_LABELS[inquiry.well_type]} />
+          <DetailRow label="Bohrstandort" value={inquiry.drill_location} />
+          <DetailRow label="Zufahrtssituation" value={inquiry.access_situation} />
+          <DetailRow label="Zufahrt-Details" value={inquiry.access_restriction_details} />
+        </dl>
+      </div>
+
+      {/* Bodenverhältnisse */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Bodenverhältnisse</h2>
+        <dl>
+          <DetailRow label="Grundwasser bekannt" value={inquiry.groundwater_known ? 'Ja' : 'Nein'} />
+          <DetailRow label="Grundwassertiefe" value={inquiry.groundwater_depth ? `${inquiry.groundwater_depth} m` : null} />
+          <DetailRow label="Bodengutachten" value={inquiry.soil_report_available ? 'Ja' : 'Nein'} />
+          <DetailRow label="Bodenarten" value={inquiry.soil_types} />
+        </dl>
+      </div>
+
+      {/* Versorgung */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Ver- und Entsorgung</h2>
+        <dl>
+          <DetailRow label="Wasseranschluss" value={inquiry.water_connection} />
+          <DetailRow label="Abwassereinlass" value={inquiry.sewage_connection} />
+        </dl>
+      </div>
+
+      {/* Nutzung */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Verwendungszweck</h2>
+        <dl>
+          <DetailRow label="Zweck" value={inquiry.usage_purposes} />
+          <DetailRow label="Sonstiges" value={inquiry.usage_other} />
+          <DetailRow label="Fördermenge" value={inquiry.flow_rate} />
+        </dl>
+      </div>
+
+      {/* Zusätzliches */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Zusätzliche Informationen</h2>
+        <dl>
+          <DetailRow label="Anmerkungen" value={inquiry.additional_notes} />
+          <DetailRow label="Vor-Ort-Termin" value={inquiry.site_visit_requested ? 'Ja' : 'Nein'} />
+          <DetailRow label="Bevorzugter Termin" value={inquiry.preferred_date} />
+        </dl>
+      </div>
+
+      {/* Dateien */}
+      {inquiry.files?.length > 0 && (
+        <div className="card mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">Hochgeladene Dateien</h2>
+          <div className="space-y-2">
+            {inquiry.files.map((file) => (
+              <a
+                key={file.id}
+                href={`/api/uploads/${file.stored_name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-3 bg-earth-50 rounded-lg hover:bg-earth-100 transition-colors"
+              >
+                <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-sm">{file.original_name}</span>
+                <span className="text-xs text-gray-400 ml-auto">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Admin-Notizen */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Interne Notizen</h2>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="form-input mb-3"
+          rows={4}
+          placeholder="Interne Notizen zu dieser Anfrage..."
+        />
+        <button onClick={saveNotes} disabled={saving} className="btn-primary text-sm py-2 px-4">
+          {saving ? 'Speichern...' : 'Notizen speichern'}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,22 @@
+{
+  "name": "brunnenbau-backend",
+  "version": "1.0.0",
+  "description": "Backend für das Brunnenbau-Anfrageportal",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "express-validator": "^7.2.1",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "sql.js": "^1.11.0",
+    "uuid": "^11.0.3"
+  }
+}

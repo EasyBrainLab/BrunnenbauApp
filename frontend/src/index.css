@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply leading-relaxed;
+  }
+
+  h1, h2, h3 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 text-white px-6 py-3 rounded-lg font-semibold
+           hover:bg-primary-600 transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-500 border-2 border-primary-500 px-6 py-3 rounded-lg font-semibold
+           hover:bg-primary-50 transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2;
+  }
+
+  .btn-accent {
+    @apply bg-accent-500 text-white px-6 py-3 rounded-lg font-semibold
+           hover:bg-accent-600 transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-accent-200 focus:ring-offset-2;
+  }
+
+  .form-input {
+    @apply w-full px-4 py-3 border border-earth-200 rounded-lg bg-white
+           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500
+           transition-colors duration-200 text-gray-800;
+  }
+
+  .form-input.error {
+    @apply border-red-400 ring-2 ring-red-200;
+  }
+
+  .form-label {
+    @apply block text-sm font-semibold text-gray-700 mb-1.5;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-earth-100 p-6;
+  }
+
+  .info-box {
+    @apply bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm;
+  }
+}
