@@ -1,13 +1,63 @@
 import { WELL_TYPE_LABELS } from '../../data/wellTypeData.jsx';
+import { FLOW_RATES } from '../../data/flowRateData.js';
 
-function SummaryRow({ label, value }) {
-  if (!value) return null;
+const SURFACE_LABELS = {
+  rasen: 'Rasen / Wiese',
+  pflaster: 'Pflaster / Verbundsteine',
+  beton: 'Beton / Asphalt',
+  erde: 'Offene Erde / Kies',
+  terrasse: 'Terrasse / Platten',
+  sonstiges: 'Sonstiges',
+};
+
+const EXCAVATION_LABELS = {
+  eigenentsorgung: 'Eigenentsorgung',
+  firma: 'Abtransport durch Firma',
+  unsicher: 'Beratung gewünscht',
+};
+
+const ACCESS_LABELS = {
+  frei: 'Freie Zufahrt',
+  eingeschraenkt: 'Eingeschränkt',
+  keine_zufahrt: 'Keine Zufahrt mit Fahrzeug',
+};
+
+const PUMP_TYPE_LABELS = {
+  tauchpumpe: 'Tauchpumpe',
+  saugpumpe: 'Saugpumpe / Hauswasserwerk',
+  tiefenpumpe: 'Tiefenpumpe',
+  unsicher: 'Unsicher / Beratung',
+};
+
+const INSTALLATION_LABELS = {
+  keller: 'Keller',
+  hauswirtschaftsraum: 'Hauswirtschaftsraum',
+  garage: 'Garage',
+  aussen: 'Außenbereich',
+  unsicher: 'Unsicher',
+};
+
+function SectionHeader({ children }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:gap-4 py-2 border-b border-earth-100">
-      <dt className="sm:w-1/3 font-medium text-gray-700 text-sm">{label}</dt>
-      <dd className="sm:w-2/3 text-gray-600 text-sm">{value}</dd>
+    <h3 className="text-xs font-bold uppercase tracking-wide text-primary-600 bg-primary-50 px-3 py-1.5 -mx-4 border-y border-primary-100">
+      {children}
+    </h3>
+  );
+}
+
+function Row({ label, value }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="flex gap-2 py-1 text-xs leading-relaxed">
+      <dt className="w-2/5 text-gray-500 flex-shrink-0">{label}</dt>
+      <dd className="w-3/5 text-gray-800">{value}</dd>
     </div>
   );
+}
+
+function flowRateLabel(value) {
+  const found = FLOW_RATES.find((f) => f.value === value);
+  return found ? found.label : value;
 }
 
 export default function Step7Final({ data, errors, onChange, showSummary }) {
@@ -17,106 +67,126 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
   };
 
   if (showSummary) {
+    const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    let gardenData = {};
+    try { gardenData = JSON.parse(data.garden_irrigation_data || '{}'); } catch {}
+    const hasGardenData = Object.keys(gardenData).length > 0;
+
+    const isHauswasserwerk = data.well_type === 'hauswasserwerk';
+
     return (
       <div>
-        <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Zusammenfassung Ihrer Angaben</h2>
-        <p className="text-gray-600 mb-6">Bitte prüfen Sie Ihre Angaben vor dem Absenden.</p>
-
-        <div className="card mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Kontaktdaten</h3>
-          <dl>
-            <SummaryRow label="Name" value={`${data.first_name} ${data.last_name}`} />
-            <SummaryRow label="E-Mail" value={data.email} />
-            <SummaryRow label="Telefon" value={data.phone} />
-            <SummaryRow label="Adresse" value={`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}`} />
-          </dl>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-heading font-semibold text-primary-500">Ihre Anfrage-Zusammenfassung</h2>
+          <span className="text-xs text-gray-400">{today}</span>
         </div>
+        <p className="text-xs text-gray-500 mb-4">Bitte prüfen Sie Ihre Angaben vor dem Absenden.</p>
 
-        <div className="card mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Nutzung</h3>
-          <dl>
-            <SummaryRow label="Verwendungszweck" value={data.usage_purposes} />
-            {data.usage_other && <SummaryRow label="Sonstiges" value={data.usage_other} />}
-            <SummaryRow label="Foerdermenge" value={data.flow_rate} />
-            {data.garden_irrigation_planning && (
-              <SummaryRow label="Gartenbewaesserungsplanung" value="Ja, gewuenscht" />
-            )}
+        <div className="bg-white border border-earth-200 rounded-xl px-4 py-3 space-y-3">
+
+          {/* 1. Kontaktdaten */}
+          <SectionHeader>Kontaktdaten</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row label="Name" value={`${data.first_name} ${data.last_name}`} />
+            <Row label="E-Mail" value={data.email} />
+            <Row label="Telefon" value={data.phone} />
+            <Row label="Adresse" value={`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}`} />
           </dl>
-        </div>
 
-        {data.garden_irrigation_planning && (() => {
-          let gd = {};
-          try { gd = JSON.parse(data.garden_irrigation_data || '{}'); } catch {}
-          const hasData = Object.keys(gd).length > 0;
-          if (!hasData) return null;
-          return (
-            <div className="card mb-6">
-              <h3 className="font-semibold text-gray-800 mb-3">Gartenbewaesserung – Details</h3>
-              <dl>
-                <SummaryRow label="Grundstücksgröße" value={gd.property_size ? `${gd.property_size} m²` : null} />
-                <SummaryRow label="Bewässerte Fläche" value={gd.irrigated_area ? `${gd.irrigated_area} m²` : null} />
-                <SummaryRow label="Bereiche" value={(gd.irrigation_areas || []).join(', ') || null} />
-                <SummaryRow label="Geländeform" value={gd.terrain || null} />
-                <SummaryRow label="Wasserquelle" value={gd.water_source || null} />
-                <SummaryRow label="Automatisierung" value={gd.automation || null} />
-                {gd.pump_type && <SummaryRow label="Pumpentyp" value={gd.pump_type} />}
-                {gd.pump_capacity && <SummaryRow label="Förderleistung" value={`${gd.pump_capacity} L/h`} />}
-                {gd.pump_pressure && <SummaryRow label="Druck" value={`${gd.pump_pressure} bar`} />}
-                {gd.existing_pipes && <SummaryRow label="Vorhandene Leitungen" value="Ja" />}
+          {/* 2. Verwendungszweck */}
+          <SectionHeader>Verwendungszweck</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row label="Zwecke" value={data.usage_purposes} />
+            {data.usage_other && <Row label="Sonstiges" value={data.usage_other} />}
+            <Row label="Fördermenge" value={data.flow_rate ? flowRateLabel(data.flow_rate) : null} />
+            <Row label="Gartenbewässerungsplanung" value={data.garden_irrigation_planning ? 'Ja' : null} />
+          </dl>
+
+          {/* 3. Gartenbewässerung Details */}
+          {data.garden_irrigation_planning && hasGardenData && (
+            <>
+              <SectionHeader>Gartenbewässerung – Details</SectionHeader>
+              <dl className="space-y-0.5">
+                <Row label="Grundstücksgröße" value={gardenData.property_size ? `${gardenData.property_size} m²` : null} />
+                <Row label="Bewässerte Fläche" value={gardenData.irrigated_area ? `${gardenData.irrigated_area} m²` : null} />
+                <Row label="Bereiche" value={(gardenData.irrigation_areas || []).join(', ') || null} />
+                <Row label="Geländeform" value={gardenData.terrain} />
+                <Row label="Wasserquelle" value={gardenData.water_source} />
+                <Row label="Automatisierung" value={gardenData.automation} />
+                <Row label="Pumpentyp" value={gardenData.pump_type} />
+                <Row label="Förderleistung" value={gardenData.pump_capacity ? `${gardenData.pump_capacity} L/h` : null} />
+                <Row label="Druck" value={gardenData.pump_pressure ? `${gardenData.pump_pressure} bar` : null} />
+                <Row label="Vorh. Leitungen" value={gardenData.existing_pipes ? 'Ja' : null} />
               </dl>
-            </div>
-          );
-        })()}
+            </>
+          )}
 
-        <div className="card mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Brunnen</h3>
-          <dl>
-            <SummaryRow label="Brunnenart" value={WELL_TYPE_LABELS[data.well_type]} />
-            <SummaryRow label="Bohrstandort" value={data.drill_location} />
-            <SummaryRow label="Zufahrt" value={data.access_situation} />
-            {data.access_restriction_details && (
-              <SummaryRow label="Einschraenkung" value={data.access_restriction_details} />
+          {/* 4. Brunnenart + Hauswasserwerk-Details */}
+          <SectionHeader>Brunnenart</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row label="Brunnenart" value={WELL_TYPE_LABELS[data.well_type]} />
+            {isHauswasserwerk && (
+              <>
+                <Row label="Pumpentyp" value={PUMP_TYPE_LABELS[data.pump_type] || data.pump_type} />
+                <Row label="Installation" value={INSTALLATION_LABELS[data.pump_installation_location] || data.pump_installation_location} />
+                <Row label="Stockwerk" value={data.installation_floor} />
+                <Row label="Wanddurchbruch" value={data.wall_breakthrough} />
+                <Row label="Steuergerät" value={data.control_device} />
+              </>
             )}
           </dl>
-        </div>
 
-        <div className="card mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Bodenverhaeltnisse</h3>
-          <dl>
-            <SummaryRow
+          {/* 5. Standort */}
+          <SectionHeader>Standort & Grundstück</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row label="Bohrstandort" value={data.drill_location} />
+            <Row label="Oberfläche" value={SURFACE_LABELS[data.surface_type]} />
+            <Row label="Erdaushub" value={EXCAVATION_LABELS[data.excavation_disposal]} />
+            <Row label="Zufahrt" value={ACCESS_LABELS[data.access_situation]} />
+            {data.access_restriction_details && (
+              <Row label="Einschränkung" value={data.access_restriction_details} />
+            )}
+          </dl>
+
+          {/* 6. Bodenverhältnisse */}
+          <SectionHeader>Bodenverhältnisse</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row
               label="Grundwassertiefe"
               value={data.groundwater_known ? `${data.groundwater_depth || '?'} m` : 'Nicht bekannt'}
             />
-            <SummaryRow label="Bodengutachten" value={data.soil_report_available ? 'Ja (hochgeladen)' : 'Nein'} />
-            <SummaryRow label="Bodenarten" value={data.soil_types} />
+            <Row label="Bodengutachten" value={data.soil_report_available ? 'Ja (hochgeladen)' : 'Nein'} />
+            <Row label="Bodenarten" value={data.soil_types} />
           </dl>
-        </div>
 
-        <div className="card mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Versorgung</h3>
-          <dl>
-            <SummaryRow label="Wasseranschluss" value={data.water_connection} />
-            <SummaryRow label="Abwassereinlass" value={data.sewage_connection} />
+          {/* 7. Versorgung */}
+          <SectionHeader>Versorgung</SectionHeader>
+          <dl className="space-y-0.5">
+            <Row label="Wasseranschluss" value={data.water_connection} />
+            <Row label="Abwassereinlass" value={data.sewage_connection} />
           </dl>
-        </div>
 
-        {(data.additional_notes || data.site_visit_requested) && (
-          <div className="card mb-6">
-            <h3 className="font-semibold text-gray-800 mb-3">Zusaetzliches</h3>
-            <dl>
-              <SummaryRow label="Anmerkungen" value={data.additional_notes} />
-              <SummaryRow label="Vor-Ort-Termin" value={data.site_visit_requested ? 'Ja' : 'Nein'} />
-              {data.preferred_date && <SummaryRow label="Bevorzugter Termin" value={data.preferred_date} />}
-            </dl>
-          </div>
-        )}
+          {/* 8. Zusätzliches */}
+          {(data.additional_notes || data.site_visit_requested || data.preferred_date) && (
+            <>
+              <SectionHeader>Zusätzliches</SectionHeader>
+              <dl className="space-y-0.5">
+                <Row label="Anmerkungen" value={data.additional_notes} />
+                <Row label="Vor-Ort-Termin" value={data.site_visit_requested ? 'Ja' : null} />
+                <Row label="Bevorzugter Termin" value={data.preferred_date} />
+              </dl>
+            </>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Zusätzliche Informationen</h2>
+      <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Zusätzliche Informationen</h2>
       <p className="text-gray-600 mb-6">
         Haben Sie weitere Anmerkungen oder Wünsche? Im nächsten Schritt sehen Sie eine Zusammenfassung.
       </p>

@@ -27,6 +27,8 @@ export default function WizardPage() {
     house_number: '',
     zip_code: '',
     city: '',
+    telegram_handle: '',
+    preferred_contact: 'email',
     privacy_accepted: false,
     usage_purposes: '',
     usage_other: '',
@@ -37,6 +39,8 @@ export default function WizardPage() {
     well_type: '',
     drill_location: '',
     site_plan_file: [],
+    surface_type: '',
+    excavation_disposal: '',
     access_situation: '',
     access_restriction_details: '',
     groundwater_known: null,
@@ -46,6 +50,11 @@ export default function WizardPage() {
     soil_types: '',
     water_connection: '',
     sewage_connection: '',
+    pump_type: '',
+    pump_installation_location: '',
+    installation_floor: '',
+    wall_breakthrough: '',
+    control_device: '',
     additional_notes: '',
     site_visit_requested: false,
     preferred_date: '',
@@ -162,7 +171,9 @@ export default function WizardPage() {
       const result = await res.json();
 
       if (res.ok) {
-        navigate(`/bestaetigung/${result.inquiry_id}`);
+        navigate(`/bestaetigung/${result.inquiry_id}`, {
+          state: { telegramHandle: data.telegram_handle || null },
+        });
       } else {
         const errorMsg = result.errors?.map((e) => e.msg).join(', ') || result.error || 'Fehler beim Absenden';
         alert('Fehler: ' + errorMsg);
@@ -211,24 +222,29 @@ export default function WizardPage() {
           </button>
 
           {showSummary ? (
-            <button
-              type="button"
-              onClick={submitInquiry}
-              disabled={submitting}
-              className="btn-accent flex items-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Wird gesendet...
-                </>
-              ) : (
-                'Anfrage verbindlich absenden'
-              )}
-            </button>
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={submitInquiry}
+                disabled={submitting}
+                className="btn-accent flex items-center gap-2 ml-auto"
+              >
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Wird gesendet...
+                  </>
+                ) : (
+                  'Anfrage kostenlos absenden'
+                )}
+              </button>
+              <p className="text-xs text-gray-500 mt-2">
+                Ihre Anfrage ist unverbindlich und kostenlos. Sie gehen keine Verpflichtung ein.
+              </p>
+            </div>
           ) : (
             <button type="button" onClick={nextStep} className="btn-primary">
               {step === TOTAL_STEPS ? 'Zusammenfassung anzeigen' : 'Weiter'}
