@@ -37,6 +37,7 @@ app.use(session({
 
 // Statische Dateien (Uploads)
 app.use('/api/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/api/uploads/suppliers', express.static(path.join(__dirname, '..', 'uploads', 'suppliers')));
 
 // CSRF-Token-Endpunkt
 app.get('/api/csrf-token', (req, res) => {

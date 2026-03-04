@@ -228,15 +228,125 @@ function initDatabase() {
     db.run(`
       CREATE TABLE IF NOT EXISTS suppliers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplier_number TEXT UNIQUE,
         name TEXT NOT NULL,
+        supplier_type TEXT DEFAULT 'sonstiges',
+        is_active INTEGER DEFAULT 1,
+
         contact_person TEXT,
+        contact_person_email TEXT,
+        contact_person_phone TEXT,
+        tech_contact_name TEXT,
+        tech_contact_email TEXT,
+        tech_contact_phone TEXT,
         email TEXT,
+        order_email TEXT,
         phone TEXT,
+        fax TEXT,
+        website TEXT,
+        street TEXT,
+        zip_code TEXT,
+        city TEXT,
+        country TEXT DEFAULT 'Deutschland',
+
+        customer_number TEXT,
+        payment_terms_days INTEGER,
+        discount_percent REAL,
+        discount_days INTEGER,
+        currency TEXT DEFAULT 'EUR',
+        minimum_order_value REAL,
+        delivery_time TEXT,
+        shipping_costs TEXT,
+        preferred_order_method TEXT DEFAULT 'email',
+        shop_url TEXT,
+        order_format TEXT DEFAULT 'freitext',
+        order_template TEXT,
+
+        iban_encrypted TEXT,
+        bic_encrypted TEXT,
+        bank_name TEXT,
+
+        vat_id TEXT,
+        trade_register TEXT,
+        tax_number TEXT,
+
+        rating INTEGER,
         address TEXT,
         notes TEXT,
         created_at TEXT DEFAULT (datetime('now'))
       )
     `);
+
+    // Lieferanten-Dokumente
+    db.run(`
+      CREATE TABLE IF NOT EXISTS supplier_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplier_id INTEGER NOT NULL,
+        doc_type TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        stored_name TEXT NOT NULL,
+        mime_type TEXT,
+        size INTEGER,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+      )
+    `);
+
+    // Migration: Neue Felder fuer bestehende suppliers-Tabelle
+    const supplierMigrations = [
+      'ALTER TABLE suppliers ADD COLUMN supplier_number TEXT',
+      'ALTER TABLE suppliers ADD COLUMN supplier_type TEXT DEFAULT \'sonstiges\'',
+      'ALTER TABLE suppliers ADD COLUMN is_active INTEGER DEFAULT 1',
+      'ALTER TABLE suppliers ADD COLUMN contact_person_email TEXT',
+      'ALTER TABLE suppliers ADD COLUMN contact_person_phone TEXT',
+      'ALTER TABLE suppliers ADD COLUMN tech_contact_name TEXT',
+      'ALTER TABLE suppliers ADD COLUMN tech_contact_email TEXT',
+      'ALTER TABLE suppliers ADD COLUMN tech_contact_phone TEXT',
+      'ALTER TABLE suppliers ADD COLUMN order_email TEXT',
+      'ALTER TABLE suppliers ADD COLUMN fax TEXT',
+      'ALTER TABLE suppliers ADD COLUMN website TEXT',
+      'ALTER TABLE suppliers ADD COLUMN street TEXT',
+      'ALTER TABLE suppliers ADD COLUMN zip_code TEXT',
+      'ALTER TABLE suppliers ADD COLUMN city TEXT',
+      'ALTER TABLE suppliers ADD COLUMN country TEXT DEFAULT \'Deutschland\'',
+      'ALTER TABLE suppliers ADD COLUMN customer_number TEXT',
+      'ALTER TABLE suppliers ADD COLUMN payment_terms_days INTEGER',
+      'ALTER TABLE suppliers ADD COLUMN discount_percent REAL',
+      'ALTER TABLE suppliers ADD COLUMN discount_days INTEGER',
+      'ALTER TABLE suppliers ADD COLUMN currency TEXT DEFAULT \'EUR\'',
+      'ALTER TABLE suppliers ADD COLUMN minimum_order_value REAL',
+      'ALTER TABLE suppliers ADD COLUMN delivery_time TEXT',
+      'ALTER TABLE suppliers ADD COLUMN shipping_costs TEXT',
+      'ALTER TABLE suppliers ADD COLUMN preferred_order_method TEXT DEFAULT \'email\'',
+      'ALTER TABLE suppliers ADD COLUMN shop_url TEXT',
+      'ALTER TABLE suppliers ADD COLUMN order_format TEXT DEFAULT \'freitext\'',
+      'ALTER TABLE suppliers ADD COLUMN order_template TEXT',
+      'ALTER TABLE suppliers ADD COLUMN iban_encrypted TEXT',
+      'ALTER TABLE suppliers ADD COLUMN bic_encrypted TEXT',
+      'ALTER TABLE suppliers ADD COLUMN bank_name TEXT',
+      'ALTER TABLE suppliers ADD COLUMN vat_id TEXT',
+      'ALTER TABLE suppliers ADD COLUMN trade_register TEXT',
+      'ALTER TABLE suppliers ADD COLUMN tax_number TEXT',
+      'ALTER TABLE suppliers ADD COLUMN rating INTEGER',
+    ];
+    for (const sql of supplierMigrations) {
+      try { db.run(sql); } catch (e) { /* column exists */ }
+    }
+
+    // Create unique index on supplier_number (safe to re-run)
+    try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_number ON suppliers(supplier_number)'); } catch (e) { /* ignore */ }
+
+    // Auto-generate supplier_number for existing rows that don't have one
+    try {
+      const rows = db.prepare('SELECT id FROM suppliers WHERE supplier_number IS NULL');
+      const needsNumber = [];
+      while (rows.step()) needsNumber.push(rows.getAsObject());
+      rows.free();
+      for (const row of needsNumber) {
+        const num = 'LIF-' + String(row.id).padStart(4, '0');
+        db.run('UPDATE suppliers SET supplier_number = ? WHERE id = ?', [num, row.id]);
+      }
+    } catch (e) { /* ignore */ }
 
     // m:n Material-Lieferant mit lieferantenspez. Preis/Artikelnr.
     db.run(`
