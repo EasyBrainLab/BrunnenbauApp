@@ -182,6 +182,33 @@ router.get('/export/csv', requireAuth, (req, res) => {
   res.send(csvContent);
 });
 
+// DELETE /api/admin/inquiries/:id – Anfrage komplett loeschen
+router.delete('/inquiries/:id', requireAuth, (req, res) => {
+  const db = getDb();
+  const inquiryId = req.params.id;
+
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(inquiryId);
+  if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
+
+  // Dateien vom Filesystem loeschen
+  const files = db.prepare('SELECT stored_name FROM inquiry_files WHERE inquiry_id = ?').all(inquiryId);
+  files.forEach(f => {
+    const filePath = path.join(__dirname, '..', '..', 'uploads', f.stored_name);
+    fs.unlink(filePath, () => {});
+  });
+
+  // Kind-Tabellen loeschen (Reihenfolge wegen FK)
+  db.prepare('DELETE FROM inquiry_files WHERE inquiry_id = ?').run(inquiryId);
+  db.prepare('DELETE FROM inquiry_responses WHERE inquiry_id = ?').run(inquiryId);
+  db.prepare('DELETE FROM inquiry_messages WHERE inquiry_id = ?').run(inquiryId);
+  db.prepare('DELETE FROM quotes WHERE inquiry_id = ?').run(inquiryId);
+
+  // Anfrage selbst loeschen
+  db.prepare('DELETE FROM inquiries WHERE inquiry_id = ?').run(inquiryId);
+
+  res.json({ message: 'Anfrage und alle zugehoerigen Daten geloescht' });
+});
+
 // GET /api/admin/stats – Dashboard-Statistiken
 router.get('/stats', requireAuth, (req, res) => {
   const db = getDb();

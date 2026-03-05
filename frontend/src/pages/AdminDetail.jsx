@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiPut } from '../api';
+import { apiGet, apiPut, apiDelete } from '../api';
 import { useValueList } from '../hooks/useValueList';
 import ResponsePanel from '../components/ResponsePanel';
 import QuoteGenerator from '../components/QuoteGenerator';
@@ -103,6 +103,14 @@ export default function AdminDetail() {
     setSaving(false);
   };
 
+  const deleteInquiry = async () => {
+    if (!window.confirm('Anfrage "' + inquiry.inquiry_id + '" und alle zugehoerigen Daten (Dateien, Nachrichten, Angebote) unwiderruflich loeschen?')) return;
+    const res = await apiDelete('/api/admin/inquiries/' + id);
+    if (res.ok) {
+      navigate('/admin/dashboard');
+    }
+  };
+
   if (!inquiry) {
     return <div className="text-center py-12 text-gray-500">Laden...</div>;
   }
@@ -140,6 +148,16 @@ export default function AdminDetail() {
             ))}
           </select>
 
+          <button
+            onClick={deleteInquiry}
+            className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg py-2 px-3 transition-colors"
+            title="Anfrage loeschen"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Loeschen
+          </button>
         </div>
       </div>
 
