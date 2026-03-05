@@ -2,10 +2,11 @@ const STEPS = [
   { number: 1, label: 'Kontakt' },
   { number: 2, label: 'Nutzung' },
   { number: 3, label: 'Brunnenart' },
-  { number: 4, label: 'Standort' },
-  { number: 5, label: 'Boden' },
-  { number: 6, label: 'Versorgung' },
-  { number: 7, label: 'Abschluss' },
+  { number: 4, label: 'Abdeckung' },
+  { number: 5, label: 'Standort' },
+  { number: 6, label: 'Boden' },
+  { number: 7, label: 'Versorgung' },
+  { number: 8, label: 'Abschluss' },
 ];
 
 export default function ProgressBar({ currentStep }) {

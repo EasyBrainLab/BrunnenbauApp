@@ -138,7 +138,7 @@ router.get('/export/csv', requireAuth, (req, res) => {
 
   const headers = [
     'Anfrage-ID', 'Datum', 'Status', 'Vorname', 'Nachname', 'E-Mail', 'Telefon',
-    'Straße', 'Hausnummer', 'PLZ', 'Ort', 'Brunnenart', 'Bohrstandort',
+    'Straße', 'Hausnummer', 'PLZ', 'Ort', 'Brunnenart', 'Brunnenabdeckung', 'Bohrstandort',
     'Zufahrt', 'Grundwassertiefe', 'Bodenarten', 'Wasseranschluss',
     'Abwassereinlass', 'Verwendungszweck', 'Fördermenge', 'Anmerkungen',
     'Vor-Ort-Termin', 'Bevorzugter Termin'
@@ -160,6 +160,7 @@ router.get('/export/csv', requireAuth, (req, res) => {
       inq.zip_code,
       inq.city,
       WELL_TYPE_LABELS[inq.well_type] || inq.well_type,
+      inq.well_cover_type || '',
       inq.drill_location || '',
       inq.access_situation || '',
       inq.groundwater_depth || '',

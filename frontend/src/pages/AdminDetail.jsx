@@ -50,6 +50,7 @@ function RegulationsInfo({ zip }) {
 function useStatusAndWellTypes() {
   const { items: statusItems } = useValueList('inquiry_statuses');
   const { items: wellTypeItems } = useValueList('well_types');
+  const { items: coverItems } = useValueList('well_cover_types');
 
   const STATUS_OPTIONS = statusItems;
   const WELL_TYPE_LABELS = useMemo(() => {
@@ -57,8 +58,13 @@ function useStatusAndWellTypes() {
     for (const w of wellTypeItems) map[w.value] = w.label;
     return map;
   }, [wellTypeItems]);
+  const COVER_LABELS = useMemo(() => {
+    const map = {};
+    for (const c of coverItems) map[c.value] = c.label;
+    return map;
+  }, [coverItems]);
 
-  return { STATUS_OPTIONS, WELL_TYPE_LABELS };
+  return { STATUS_OPTIONS, WELL_TYPE_LABELS, COVER_LABELS };
 }
 
 function DetailRow({ label, value }) {
@@ -74,7 +80,7 @@ function DetailRow({ label, value }) {
 export default function AdminDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { STATUS_OPTIONS, WELL_TYPE_LABELS } = useStatusAndWellTypes();
+  const { STATUS_OPTIONS, WELL_TYPE_LABELS, COVER_LABELS } = useStatusAndWellTypes();
   const [inquiry, setInquiry] = useState(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -177,6 +183,7 @@ export default function AdminDetail() {
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Brunnendetails</h2>
         <dl>
           <DetailRow label="Brunnenart" value={WELL_TYPE_LABELS[inquiry.well_type]} />
+          <DetailRow label="Brunnenabdeckung" value={COVER_LABELS[inquiry.well_cover_type] || inquiry.well_cover_type} />
           <DetailRow label="Bohrstandort" value={inquiry.drill_location} />
           <DetailRow label="Zufahrtssituation" value={inquiry.access_situation} />
           <DetailRow label="Zufahrt-Details" value={inquiry.access_restriction_details} />

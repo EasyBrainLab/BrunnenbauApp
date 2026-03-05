@@ -214,6 +214,9 @@ function initDatabase() {
       saveDb();
     } catch (e) {}
 
+    // Migration: Brunnenabdeckung
+    try { db.run('ALTER TABLE inquiries ADD COLUMN well_cover_type TEXT'); saveDb(); } catch (e) {}
+
     // Migration: Telegram-Handle und Kontaktpräferenz
     try {
       db.run('ALTER TABLE inquiries ADD COLUMN telegram_handle TEXT');
@@ -637,6 +640,12 @@ function initDatabase() {
             { value: 'frei', label: 'Freie Zufahrt mit Fahrzeug und Bohrgeraet moeglich', sort_order: 1, metadata_json: '{"description":"Breite Einfahrt, keine Hindernisse"}' },
             { value: 'eingeschraenkt', label: 'Zufahrt eingeschraenkt', sort_order: 2, metadata_json: '{"description":"Enge Einfahrt, Tor, Treppenstufen etc."}' },
             { value: 'keine_zufahrt', label: 'Keine Zufahrt mit Fahrzeug moeglich', sort_order: 3, metadata_json: '{"description":"Nur manuelle Ausfuehrung"}' },
+          ]],
+          ['well_cover_types', 'Brunnenabdeckungen', 'Abdeckungsoptionen fuer den Brunnen', [
+            { value: 'brunnenstube', label: 'Brunnenstube', sort_order: 1, metadata_json: '{"description":"Ein unterirdischer, begehbarer Schacht rund um den Brunnenkopf. Die Brunnenstube schuetzt die gesamte Technik (Pumpe, Druckkessel, Ventile) vor Frost und Witterung und ermoeglicht bequeme Wartung. Typisch gemauert oder aus Betonringen, mit einer isolierten Abdeckung auf Bodenniveau.","pros":["Frostsicherer Schutz der gesamten Technik","Bequemer Zugang fuer Wartung und Reparatur","Optisch unauffaellig im Garten","Laengste Lebensdauer"],"cons":["Hoeherer Bauaufwand und Kosten","Erfordert Erdarbeiten und ggf. Drainage","Baugenehmigung kann erforderlich sein"]}' },
+            { value: 'brunnenkappe', label: 'Brunnenkappe / Frostschutzdeckel', sort_order: 2, metadata_json: '{"description":"Eine isolierte Abdeckung, die direkt auf das Brunnenrohr gesetzt wird. Schuetzt den Brunnenkopf vor Frost und Verschmutzung. Einfache und kostenguenstige Standardloesung.","pros":["Guenstig und schnell montiert","Guter Frostschutz bei richtiger Isolierung","Kein Erdaushub noetig"],"cons":["Kein Zugang zur Technik ohne Abnahme","Begrenzte Schutzwirkung bei extremem Frost","Technik muss separat untergebracht werden"]}' },
+            { value: 'schachtabdeckung', label: 'Schachtabdeckung', sort_order: 3, metadata_json: '{"description":"Ein ebenerdiger Schachtdeckel (z. B. aus Guss oder Kunststoff), der einen kleinen Revisionsschacht abdeckt. Ermoeglicht Zugang zum Brunnenkopf, ohne eine vollstaendige Brunnenstube zu bauen.","pros":["Kompakte Loesung mit Revisionszugang","Befahrbar je nach Ausfuehrung","Relativ kostenguenstig"],"cons":["Weniger Platz fuer Technik als Brunnenstube","Frostschutz muss separat sichergestellt werden","Wartung in engem Schacht schwieriger"]}' },
+            { value: 'unsicher', label: 'Unsicher / Beratung gewuenscht', sort_order: 4, metadata_json: '{"description":"Sie sind sich noch nicht sicher, welche Abdeckung fuer Ihren Brunnen am besten geeignet ist? Kein Problem — wir beraten Sie gerne und empfehlen die passende Loesung fuer Ihre Situation.","pros":[],"cons":[]}' },
           ]],
           ['units', 'Einheiten', 'Mass- und Mengeneinheiten', [
             { value: 'm', label: 'Meter', sort_order: 1 },

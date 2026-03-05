@@ -5,3 +5,6 @@ backend/data/
 backend/uploads/
 test-screenshots/
 .claude/
+*.pdf
+*.png
+*.ps1

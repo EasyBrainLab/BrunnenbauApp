@@ -1,5 +1,6 @@
 import { WELL_TYPE_LABELS } from '../../data/wellTypeData.jsx';
 import { FLOW_RATES } from '../../data/flowRateData.js';
+import { useValueList } from '../../hooks/useValueList';
 
 const SURFACE_LABELS = {
   rasen: 'Rasen / Wiese',
@@ -61,6 +62,9 @@ function flowRateLabel(value) {
 }
 
 export default function Step7Final({ data, errors, onChange, showSummary }) {
+  const { items: coverItems } = useValueList('well_cover_types');
+  const coverLabel = coverItems.find((i) => i.value === data.well_cover_type)?.label;
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     onChange(name, type === 'checkbox' ? checked : value);
@@ -137,6 +141,16 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
               </>
             )}
           </dl>
+
+          {/* 4b. Brunnenabdeckung */}
+          {coverLabel && (
+            <>
+              <SectionHeader>Brunnenabdeckung</SectionHeader>
+              <dl className="space-y-0.5">
+                <Row label="Abdeckung" value={coverLabel} />
+              </dl>
+            </>
+          )}
 
           {/* 5. Standort */}
           <SectionHeader>Standort & Grundstück</SectionHeader>

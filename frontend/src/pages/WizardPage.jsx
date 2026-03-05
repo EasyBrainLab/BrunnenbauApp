@@ -4,13 +4,14 @@ import ProgressBar from '../components/ProgressBar';
 import Step1Contact from '../components/steps/Step1Contact';
 import Step2Usage from '../components/steps/Step2Usage';
 import Step3WellType from '../components/steps/Step3WellType';
-import Step4Location from '../components/steps/Step4Location';
-import Step5Soil from '../components/steps/Step5Soil';
-import Step6Supply from '../components/steps/Step6Supply';
-import Step7Final from '../components/steps/Step7Final';
+import Step4Cover from '../components/steps/Step4Cover';
+import Step5Location from '../components/steps/Step4Location';
+import Step6Soil from '../components/steps/Step5Soil';
+import Step7Supply from '../components/steps/Step6Supply';
+import Step8Final from '../components/steps/Step7Final';
 import { apiPost, fetchCsrfToken } from '../api';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 export default function WizardPage() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function WizardPage() {
     garden_irrigation_data: '{}',
     aerial_image_file: [],
     well_type: '',
+    well_cover_type: '',
     drill_location: '',
     site_plan_file: [],
     surface_type: '',
@@ -103,13 +105,13 @@ export default function WizardPage() {
       if (!data.well_type) newErrors.well_type = 'Bitte wählen Sie eine Brunnenart';
     }
 
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       if (data.access_situation === 'eingeschraenkt' && !data.access_restriction_details?.trim()) {
         newErrors.access_restriction_details = 'Bitte beschreiben Sie die Einschränkung';
       }
     }
 
-    if (currentStep === 7 && !showSummary) {
+    if (currentStep === 8 && !showSummary) {
       if (!data.privacy_final) newErrors.privacy_final = 'Bitte bestätigen Sie die Datenschutzerklärung';
     }
 
@@ -188,17 +190,18 @@ export default function WizardPage() {
 
   const renderStep = () => {
     if (showSummary) {
-      return <Step7Final data={data} errors={errors} onChange={onChange} showSummary={true} />;
+      return <Step8Final data={data} errors={errors} onChange={onChange} showSummary={true} />;
     }
 
     switch (step) {
       case 1: return <Step1Contact data={data} errors={errors} onChange={onChange} />;
       case 2: return <Step2Usage data={data} onChange={onChange} onFileChange={onFileChange} />;
       case 3: return <Step3WellType data={data} errors={errors} onChange={onChange} />;
-      case 4: return <Step4Location data={data} errors={errors} onChange={onChange} onFileChange={onFileChange} />;
-      case 5: return <Step5Soil data={data} errors={errors} onChange={onChange} onFileChange={onFileChange} />;
-      case 6: return <Step6Supply data={data} onChange={onChange} />;
-      case 7: return <Step7Final data={data} errors={errors} onChange={onChange} showSummary={false} />;
+      case 4: return <Step4Cover data={data} errors={errors} onChange={onChange} />;
+      case 5: return <Step5Location data={data} errors={errors} onChange={onChange} onFileChange={onFileChange} />;
+      case 6: return <Step6Soil data={data} errors={errors} onChange={onChange} onFileChange={onFileChange} />;
+      case 7: return <Step7Supply data={data} onChange={onChange} />;
+      case 8: return <Step8Final data={data} errors={errors} onChange={onChange} showSummary={false} />;
       default: return null;
     }
   };
