@@ -10,6 +10,7 @@ const adminRoutes = require('./routes/admin');
 const costRoutes = require('./routes/costs');
 const supplierRoutes = require('./routes/suppliers');
 const inventoryRoutes = require('./routes/inventory');
+const valueListRoutes = require('./routes/valueLists');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.use(session({
 // Statische Dateien (Uploads)
 app.use('/api/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api/uploads/suppliers', express.static(path.join(__dirname, '..', 'uploads', 'suppliers')));
+app.use('/api/uploads/materials', express.static(path.join(__dirname, '..', 'uploads', 'materials')));
 
 // CSRF-Token-Endpunkt
 app.get('/api/csrf-token', (req, res) => {
@@ -66,6 +68,11 @@ app.use('/api/admin', csrfProtection, adminRoutes);
 app.use('/api/costs', csrfProtection, costRoutes);
 app.use('/api/suppliers', csrfProtection, supplierRoutes);
 app.use('/api/inventory', csrfProtection, inventoryRoutes);
+// Value lists: CSRF only for POST/PUT/DELETE, public GET for wizard pages
+app.use('/api/value-lists', (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
+  next();
+}, valueListRoutes);
 
 // Gesundheitscheck
 app.get('/api/health', (req, res) => {

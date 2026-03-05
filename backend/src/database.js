@@ -367,6 +367,77 @@ function initDatabase() {
     // Create unique index on supplier_number (safe to re-run)
     try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_number ON suppliers(supplier_number)'); } catch (e) { /* ignore */ }
 
+    // === Migration: cost_items Materialstammdaten-Erweiterung ===
+    const costItemMigrations = [
+      // Identifikation
+      'ALTER TABLE cost_items ADD COLUMN material_number TEXT',
+      "ALTER TABLE cost_items ADD COLUMN material_type TEXT DEFAULT 'verbrauchsmaterial'",
+      'ALTER TABLE cost_items ADD COLUMN ean TEXT',
+      'ALTER TABLE cost_items ADD COLUMN manufacturer TEXT',
+      'ALTER TABLE cost_items ADD COLUMN manufacturer_article_number TEXT',
+      // Physische Eigenschaften
+      'ALTER TABLE cost_items ADD COLUMN weight_kg REAL',
+      'ALTER TABLE cost_items ADD COLUMN length_mm REAL',
+      'ALTER TABLE cost_items ADD COLUMN width_mm REAL',
+      'ALTER TABLE cost_items ADD COLUMN height_mm REAL',
+      'ALTER TABLE cost_items ADD COLUMN image_url TEXT',
+      // Bestellung
+      'ALTER TABLE cost_items ADD COLUMN min_order_quantity REAL',
+      'ALTER TABLE cost_items ADD COLUMN packaging_unit REAL',
+      'ALTER TABLE cost_items ADD COLUMN lead_time_days INTEGER',
+      'ALTER TABLE cost_items ADD COLUMN is_active INTEGER DEFAULT 1',
+      // Sonstiges
+      'ALTER TABLE cost_items ADD COLUMN hazard_class TEXT',
+      'ALTER TABLE cost_items ADD COLUMN storage_instructions TEXT',
+    ];
+    for (const sql of costItemMigrations) {
+      try { db.run(sql); } catch (e) { /* column exists */ }
+    }
+
+    // Kategorie-Prefix fuer Materialnummern
+    const CAT_PREFIX = { material: 'MAT', pumpe: 'PMP', arbeit: 'ARB', maschine: 'MSC', genehmigung: 'GEN' };
+
+    // Re-assign material_numbers with category prefix (migration from old MAT-XXXX format)
+    try {
+      const ciRows = db.prepare("SELECT id, category, material_number FROM cost_items");
+      const allItems = [];
+      while (ciRows.step()) allItems.push(ciRows.getAsObject());
+      ciRows.free();
+
+      // Count per prefix for sequential numbering
+      const counters = {};
+      for (const row of allItems) {
+        const prefix = CAT_PREFIX[row.category] || 'MAT';
+        // Skip items that already have the correct category prefix
+        if (row.material_number && row.material_number.startsWith(prefix + '-') && !row.material_number.startsWith('MAT-')) continue;
+        // Needs (re-)assignment if NULL or still has old generic MAT- prefix
+        if (!row.material_number || row.material_number.startsWith('MAT-')) {
+          if (!counters[prefix]) {
+            // Find current max for this prefix
+            const maxRow = db.prepare("SELECT MAX(CAST(SUBSTR(material_number, " + (prefix.length + 2) + ") AS INTEGER)) as mx FROM cost_items WHERE material_number LIKE '" + prefix + "-%' AND material_number NOT LIKE 'MAT-%'");
+            if (maxRow.step()) { counters[prefix] = maxRow.getAsObject().mx || 0; }
+            else { counters[prefix] = 0; }
+            maxRow.free();
+          }
+          counters[prefix]++;
+          const num = prefix + '-' + String(counters[prefix]).padStart(4, '0');
+          db.run('UPDATE cost_items SET material_number = ? WHERE id = ?', [num, row.id]);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // === Migration: inventory Erweiterung ===
+    const inventoryMigrations = [
+      'ALTER TABLE inventory ADD COLUMN shelf_location TEXT',
+      'ALTER TABLE inventory ADD COLUMN is_primary_location INTEGER DEFAULT 0',
+      'ALTER TABLE inventory ADD COLUMN max_stock REAL DEFAULT 0',
+      'ALTER TABLE inventory ADD COLUMN target_stock REAL DEFAULT 0',
+      'ALTER TABLE inventory ADD COLUMN reorder_quantity REAL DEFAULT 0',
+    ];
+    for (const sql of inventoryMigrations) {
+      try { db.run(sql); } catch (e) { /* column exists */ }
+    }
+
     // Auto-generate supplier_number for existing rows that don't have one
     try {
       const rows = db.prepare('SELECT id FROM suppliers WHERE supplier_number IS NULL');
@@ -434,6 +505,179 @@ function initDatabase() {
         FOREIGN KEY (location_id) REFERENCES storage_locations(id)
       )
     `);
+
+    // === Wertelisten-Tabellen ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS value_lists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        list_key TEXT UNIQUE NOT NULL,
+        display_name TEXT NOT NULL,
+        description TEXT,
+        is_system INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS value_list_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        list_id INTEGER NOT NULL,
+        value TEXT NOT NULL,
+        label TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        color TEXT,
+        icon TEXT,
+        metadata_json TEXT,
+        UNIQUE(list_id, value),
+        FOREIGN KEY (list_id) REFERENCES value_lists(id)
+      )
+    `);
+
+    // Seed system value lists (nur wenn noch keine existieren)
+    try {
+      const vlCount = db.prepare('SELECT COUNT(*) as cnt FROM value_lists');
+      vlCount.step();
+      const vlCnt = vlCount.getAsObject().cnt;
+      vlCount.free();
+
+      if (vlCnt === 0) {
+        const systemLists = [
+          ['material_categories', 'Materialkategorien', 'Kategorien fuer Materialstammdaten', [
+            { value: 'material', label: 'Material', sort_order: 1, metadata_json: '{"prefix":"MAT"}' },
+            { value: 'pumpe', label: 'Pumpen', sort_order: 2, metadata_json: '{"prefix":"PMP"}' },
+            { value: 'arbeit', label: 'Arbeitszeit', sort_order: 3, metadata_json: '{"prefix":"ARB"}' },
+            { value: 'maschine', label: 'Maschinen', sort_order: 4, metadata_json: '{"prefix":"MSC"}' },
+            { value: 'genehmigung', label: 'Genehmigungen', sort_order: 5, metadata_json: '{"prefix":"GEN"}' },
+          ]],
+          ['material_types', 'Materialtypen', 'Typen von Materialien', [
+            { value: 'verbrauchsmaterial', label: 'Verbrauchsmaterial', sort_order: 1 },
+            { value: 'werkzeug', label: 'Werkzeug', sort_order: 2 },
+            { value: 'maschine', label: 'Maschine', sort_order: 3 },
+            { value: 'verschleissteil', label: 'Verschleissteil', sort_order: 4 },
+            { value: 'sicherheit', label: 'Sicherheit', sort_order: 5 },
+          ]],
+          ['well_types', 'Brunnenarten', 'Verfuegbare Brunnenarten', [
+            { value: 'gespuelt', label: 'Gespuelter Brunnen', sort_order: 1 },
+            { value: 'handpumpe', label: 'Handpumpe', sort_order: 2 },
+            { value: 'tauchpumpe', label: 'Tauchpumpe', sort_order: 3 },
+            { value: 'hauswasserwerk', label: 'Hauswasserwerk', sort_order: 4 },
+            { value: 'tiefbrunnen', label: 'Tiefbrunnen', sort_order: 5 },
+            { value: 'industrie', label: 'Industriebrunnen', sort_order: 6 },
+            { value: 'beratung', label: 'Beratung', sort_order: 7 },
+          ]],
+          ['inquiry_statuses', 'Anfragestatus', 'Status einer Kundenanfrage', [
+            { value: 'neu', label: 'Neu', sort_order: 1, color: 'bg-blue-100 text-blue-700' },
+            { value: 'in_bearbeitung', label: 'In Bearbeitung', sort_order: 2, color: 'bg-yellow-100 text-yellow-700' },
+            { value: 'angebot_erstellt', label: 'Angebot erstellt', sort_order: 3, color: 'bg-purple-100 text-purple-700' },
+            { value: 'auftrag_erteilt', label: 'Auftrag erteilt', sort_order: 4, color: 'bg-emerald-100 text-emerald-700' },
+            { value: 'abgeschlossen', label: 'Abgeschlossen', sort_order: 5, color: 'bg-green-100 text-green-700' },
+            { value: 'abgesagt', label: 'Abgesagt', sort_order: 6, color: 'bg-red-100 text-red-700' },
+          ]],
+          ['supplier_types', 'Lieferantentypen', 'Kategorien fuer Lieferanten', [
+            { value: 'bohrmaterial', label: 'Bohrmaterial', sort_order: 1 },
+            { value: 'pumpen_technik', label: 'Pumpen & Technik', sort_order: 2 },
+            { value: 'verrohrung', label: 'Verrohrung', sort_order: 3 },
+            { value: 'werkzeug_maschinen', label: 'Werkzeug & Maschinen', sort_order: 4 },
+            { value: 'chemikalien', label: 'Chemikalien', sort_order: 5 },
+            { value: 'sonstiges', label: 'Sonstiges', sort_order: 6 },
+          ]],
+          ['order_methods', 'Bestellwege', 'Verfuegbare Bestellmethoden', [
+            { value: 'email', label: 'E-Mail', sort_order: 1 },
+            { value: 'online_shop', label: 'Online-Shop', sort_order: 2 },
+            { value: 'telefon', label: 'Telefon', sort_order: 3 },
+            { value: 'edi', label: 'EDI', sort_order: 4 },
+            { value: 'fax', label: 'Fax', sort_order: 5 },
+          ]],
+          ['order_formats', 'Bestellformate', 'Formate fuer Bestellungen', [
+            { value: 'freitext', label: 'Freitext-E-Mail', sort_order: 1 },
+            { value: 'pdf', label: 'PDF-Anhang', sort_order: 2 },
+            { value: 'excel', label: 'Excel-Vorlage', sort_order: 3 },
+            { value: 'formular', label: 'Eigenes Formular', sort_order: 4 },
+          ]],
+          ['currencies', 'Waehrungen', 'Verfuegbare Waehrungen', [
+            { value: 'EUR', label: 'EUR', sort_order: 1 },
+            { value: 'CHF', label: 'CHF', sort_order: 2 },
+            { value: 'USD', label: 'USD', sort_order: 3 },
+          ]],
+          ['document_types', 'Dokumenttypen', 'Typen fuer Lieferanten-Dokumente', [
+            { value: 'rahmenvertrag', label: 'Rahmenvertrag', sort_order: 1 },
+            { value: 'preisliste', label: 'Preisliste', sort_order: 2 },
+            { value: 'zertifikat', label: 'Zertifikat', sort_order: 3 },
+            { value: 'sonstiges', label: 'Sonstiges', sort_order: 4 },
+          ]],
+          ['preferred_contact', 'Kontaktpraeferenz', 'Bevorzugte Kontaktwege', [
+            { value: 'email', label: 'E-Mail', sort_order: 1 },
+            { value: 'phone', label: 'Telefon', sort_order: 2 },
+            { value: 'telegram', label: 'Telegram', sort_order: 3 },
+          ]],
+          ['soil_types', 'Bodenarten', 'Bodenarten fuer Standortbewertung', [
+            { value: 'Sandboden / lockerer Boden', label: 'Sandboden / lockerer Boden', sort_order: 1, metadata_json: '{"description":"Lockerer Boden, rieselt leicht durch die Finger, Wasser versickert sehr schnell."}' },
+            { value: 'Lehmiger Boden', label: 'Lehmiger Boden', sort_order: 2, metadata_json: '{"description":"Fester Boden, laesst sich formen, klebt leicht an Werkzeug."}' },
+            { value: 'Toniger Boden', label: 'Toniger Boden', sort_order: 3, metadata_json: '{"description":"Sehr dichter Boden, stark klebrig bei Naesse und schwer zu graben."}' },
+            { value: 'Kiesiger Untergrund', label: 'Kiesiger Untergrund', sort_order: 4, metadata_json: '{"description":"Grobkoerniger Boden mit Steinen, Wasser versickert sehr schnell."}' },
+            { value: 'Felsiger / steiniger Untergrund', label: 'Felsiger / steiniger Untergrund', sort_order: 5, metadata_json: '{"description":"Harter Untergrund, schwer zu durchbohren."}' },
+            { value: 'Humus / Gartenerde', label: 'Humus / Gartenerde', sort_order: 6, metadata_json: '{"description":"Dunkle, lockere Gartenerde mit hohem organischem Anteil."}' },
+            { value: 'Ich weiss es nicht', label: 'Ich weiss es nicht', sort_order: 7 },
+          ]],
+          ['surface_options', 'Oberflaechenarten', 'Oberflaechenbeschaffenheit am Bohrstandort', [
+            { value: 'rasen', label: 'Rasen / Wiese', sort_order: 1 },
+            { value: 'pflaster', label: 'Pflaster / Verbundsteine', sort_order: 2 },
+            { value: 'beton', label: 'Beton / Asphalt', sort_order: 3 },
+            { value: 'erde', label: 'Offene Erde / Kies', sort_order: 4 },
+            { value: 'terrasse', label: 'Terrasse / Platten', sort_order: 5 },
+            { value: 'sonstiges', label: 'Sonstiges', sort_order: 6 },
+          ]],
+          ['excavation_options', 'Aushuboptionen', 'Optionen fuer Erdaushub-Entsorgung', [
+            { value: 'eigenentsorgung', label: 'Ich entsorge den Erdaushub selbst', sort_order: 1 },
+            { value: 'firma', label: 'Abtransport durch die Brunnenbaufirma (wird im Angebot beruecksichtigt)', sort_order: 2 },
+            { value: 'unsicher', label: 'Bin mir unsicher - bitte beraten Sie mich', sort_order: 3 },
+          ]],
+          ['access_options', 'Zufahrtsoptionen', 'Zufahrtsmoeglichkeiten zum Bohrstandort', [
+            { value: 'frei', label: 'Freie Zufahrt mit Fahrzeug und Bohrgeraet moeglich', sort_order: 1, metadata_json: '{"description":"Breite Einfahrt, keine Hindernisse"}' },
+            { value: 'eingeschraenkt', label: 'Zufahrt eingeschraenkt', sort_order: 2, metadata_json: '{"description":"Enge Einfahrt, Tor, Treppenstufen etc."}' },
+            { value: 'keine_zufahrt', label: 'Keine Zufahrt mit Fahrzeug moeglich', sort_order: 3, metadata_json: '{"description":"Nur manuelle Ausfuehrung"}' },
+          ]],
+          ['units', 'Einheiten', 'Mass- und Mengeneinheiten', [
+            { value: 'm', label: 'Meter', sort_order: 1 },
+            { value: 'Stk', label: 'Stueck', sort_order: 2 },
+            { value: 'Std', label: 'Stunde', sort_order: 3 },
+            { value: 'psch', label: 'Pauschale', sort_order: 4 },
+            { value: 'l', label: 'Liter', sort_order: 5 },
+            { value: 'kg', label: 'Kilogramm', sort_order: 6 },
+            { value: 't', label: 'Tonne', sort_order: 7 },
+            { value: 'm3', label: 'Kubikmeter', sort_order: 8 },
+            { value: 'lfm', label: 'Laufmeter', sort_order: 9 },
+            { value: 'm2', label: 'Quadratmeter', sort_order: 10 },
+            { value: 'Tag', label: 'Tag', sort_order: 11 },
+            { value: 'Satz', label: 'Satz', sort_order: 12 },
+            { value: 'Set', label: 'Set', sort_order: 13 },
+            { value: 'Rolle', label: 'Rolle', sort_order: 14 },
+            { value: 'Btl', label: 'Beutel', sort_order: 15 },
+          ]],
+        ];
+
+        for (const [listKey, displayName, description, items] of systemLists) {
+          db.run(
+            'INSERT INTO value_lists (list_key, display_name, description, is_system) VALUES (?, ?, ?, 1)',
+            [listKey, displayName, description]
+          );
+          // Get inserted list id
+          const listIdStmt = db.prepare("SELECT id FROM value_lists WHERE list_key = ?");
+          listIdStmt.bind([listKey]);
+          listIdStmt.step();
+          const listId = listIdStmt.getAsObject().id;
+          listIdStmt.free();
+
+          for (const item of items) {
+            db.run(
+              'INSERT INTO value_list_items (list_id, value, label, sort_order, is_active, color, metadata_json) VALUES (?, ?, ?, ?, 1, ?, ?)',
+              [listId, item.value, item.label, item.sort_order || 0, item.color || null, item.metadata_json || null]
+            );
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
 
     saveDb();
     return db;

@@ -1,41 +1,23 @@
+import { useMemo } from 'react';
 import FileUpload from '../FileUpload';
-
-const SURFACE_OPTIONS = [
-  { value: 'rasen', label: 'Rasen / Wiese' },
-  { value: 'pflaster', label: 'Pflaster / Verbundsteine' },
-  { value: 'beton', label: 'Beton / Asphalt' },
-  { value: 'erde', label: 'Offene Erde / Kies' },
-  { value: 'terrasse', label: 'Terrasse / Platten' },
-  { value: 'sonstiges', label: 'Sonstiges' },
-];
+import { useValueList } from '../../hooks/useValueList';
 
 const SURFACE_WARNING_VALUES = ['pflaster', 'beton', 'terrasse'];
 
-const EXCAVATION_OPTIONS = [
-  { value: 'eigenentsorgung', label: 'Ich entsorge den Erdaushub selbst' },
-  { value: 'firma', label: 'Abtransport durch die Brunnenbaufirma (wird im Angebot berücksichtigt)' },
-  { value: 'unsicher', label: 'Bin mir unsicher – bitte beraten Sie mich' },
-];
-
-const ACCESS_OPTIONS = [
-  {
-    value: 'frei',
-    label: 'Freie Zufahrt mit Fahrzeug und Bohrgerät möglich',
-    description: 'Breite Einfahrt, keine Hindernisse',
-  },
-  {
-    value: 'eingeschraenkt',
-    label: 'Zufahrt eingeschränkt',
-    description: 'Enge Einfahrt, Tor, Treppenstufen etc.',
-  },
-  {
-    value: 'keine_zufahrt',
-    label: 'Keine Zufahrt mit Fahrzeug möglich',
-    description: 'Nur manuelle Ausführung',
-  },
-];
-
 export default function Step4Location({ data, errors, onChange, onFileChange }) {
+  const { items: SURFACE_OPTIONS } = useValueList('surface_options');
+  const { items: EXCAVATION_OPTIONS } = useValueList('excavation_options');
+  const { items: rawAccessOptions } = useValueList('access_options');
+
+  // ACCESS_OPTIONS need description from metadata_json
+  const ACCESS_OPTIONS = useMemo(() =>
+    rawAccessOptions.map((opt) => {
+      let description = '';
+      if (opt.metadata_json) {
+        try { description = JSON.parse(opt.metadata_json).description || ''; } catch {}
+      }
+      return { ...opt, description };
+    }), [rawAccessOptions]);
   return (
     <div>
       <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Standort und Grundstück</h2>

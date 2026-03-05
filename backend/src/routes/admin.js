@@ -89,13 +89,26 @@ router.get('/inquiries/:id', requireAuth, (req, res) => {
 // PUT /api/admin/inquiries/:id/status – Status aktualisieren
 router.put('/inquiries/:id/status', requireAuth, (req, res) => {
   const { status } = req.body;
-  const validStatuses = ['neu', 'in_bearbeitung', 'angebot_erstellt', 'auftrag_erteilt', 'abgeschlossen', 'abgesagt'];
+  const db = getDb();
+
+  // Load valid statuses from value_list_items
+  let validStatuses;
+  let statusLabelMap = {};
+  try {
+    const statusItems = db.prepare(
+      "SELECT vli.value, vli.label FROM value_list_items vli JOIN value_lists vl ON vl.id = vli.list_id WHERE vl.list_key = 'inquiry_statuses' AND vli.is_active = 1"
+    ).all();
+    validStatuses = statusItems.map((i) => i.value);
+    for (const i of statusItems) statusLabelMap[i.value] = i.label;
+  } catch {
+    validStatuses = ['neu', 'in_bearbeitung', 'angebot_erstellt', 'auftrag_erteilt', 'abgeschlossen', 'abgesagt'];
+    statusLabelMap = { neu: 'Neu', in_bearbeitung: 'In Bearbeitung', angebot_erstellt: 'Angebot erstellt', auftrag_erteilt: 'Auftrag erteilt', abgeschlossen: 'Abgeschlossen', abgesagt: 'Abgesagt' };
+  }
 
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Ungültiger Status' });
   }
 
-  const db = getDb();
   const result = db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ?').run(status, req.params.id);
 
   if (result.changes === 0) {
@@ -103,10 +116,9 @@ router.put('/inquiries/:id/status', requireAuth, (req, res) => {
   }
 
   // Status-Aenderung als System-Nachricht loggen
-  const statusLabel = { neu: 'Neu', in_bearbeitung: 'In Bearbeitung', angebot_erstellt: 'Angebot erstellt', auftrag_erteilt: 'Auftrag erteilt', abgeschlossen: 'Abgeschlossen', abgesagt: 'Abgesagt' };
   db.prepare(
     'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-  ).run(req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabel[status] || status}`);
+  ).run(req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabelMap[status] || status}`);
 
   res.json({ message: 'Status aktualisiert' });
 });

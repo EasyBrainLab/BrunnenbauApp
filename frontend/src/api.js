@@ -58,3 +58,18 @@ export async function apiGet(url) {
   const res = await fetch(url, { credentials: 'include' });
   return res;
 }
+
+export async function apiDelete(url) {
+  if (!csrfToken) await fetchCsrfToken();
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+  });
+
+  return res;
+}

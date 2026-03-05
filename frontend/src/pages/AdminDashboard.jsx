@@ -1,45 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../api';
-
-
-const STATUS_LABELS = {
-  neu: { label: 'Neu', color: 'bg-blue-100 text-blue-700' },
-  in_bearbeitung: { label: 'In Bearbeitung', color: 'bg-yellow-100 text-yellow-700' },
-  angebot_erstellt: { label: 'Angebot erstellt', color: 'bg-purple-100 text-purple-700' },
-  auftrag_erteilt: { label: 'Auftrag erteilt', color: 'bg-emerald-100 text-emerald-700' },
-  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
-  abgesagt: { label: 'Abgesagt', color: 'bg-red-100 text-red-700' },
-};
-
-const WELL_TYPE_LABELS = {
-  gespuelt: 'Gespülter Brunnen',
-  handpumpe: 'Handpumpe',
-  tauchpumpe: 'Tauchpumpe',
-  hauswasserwerk: 'Hauswasserwerk',
-  tiefbrunnen: 'Tiefbrunnen',
-  industrie: 'Industriebrunnen',
-  beratung: 'Beratung',
-};
+import { useValueList } from '../hooks/useValueList';
 
 export default function AdminDashboard() {
+  const { items: statusItems } = useValueList('inquiry_statuses');
+  const { items: wellTypeItems } = useValueList('well_types');
+
+  const STATUS_LABELS = useMemo(() => {
+    const map = {};
+    for (const s of statusItems) map[s.value] = { label: s.label, color: s.color || 'bg-gray-100 text-gray-600' };
+    return map;
+  }, [statusItems]);
+
+  const WELL_TYPE_LABELS = useMemo(() => {
+    const map = {};
+    for (const w of wellTypeItems) map[w.value] = w.label;
+    return map;
+  }, [wellTypeItems]);
   const navigate = useNavigate();
   const [inquiries, setInquiries] = useState([]);
   const [stats, setStats] = useState({});
   const [filter, setFilter] = useState('alle');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState([]);
+  const [reorderSuggestions, setReorderSuggestions] = useState([]);
+
+  // Debounce search input to prevent cursor jump
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 600);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     loadData();
     loadAlerts();
-  }, [filter, search]);
+    loadReorderSuggestions();
+  }, [filter, debouncedSearch]);
 
   const loadData = async () => {
     try {
       const [inqRes, statsRes] = await Promise.all([
-        apiGet(`/api/admin/inquiries?status=${filter}&search=${encodeURIComponent(search)}`),
+        apiGet(`/api/admin/inquiries?status=${filter}&search=${encodeURIComponent(debouncedSearch)}`),
         apiGet('/api/admin/stats'),
       ]);
 
@@ -61,6 +65,13 @@ export default function AdminDashboard() {
     try {
       const res = await apiGet('/api/inventory/alerts');
       if (res.ok) setAlerts(await res.json());
+    } catch (err) { /* ignore */ }
+  };
+
+  const loadReorderSuggestions = async () => {
+    try {
+      const res = await apiGet('/api/inventory/reorder-suggestions');
+      if (res.ok) setReorderSuggestions(await res.json());
     } catch (err) { /* ignore */ }
   };
 
@@ -117,7 +128,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stammdaten Quick-Links */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         <Link to="/admin/kosten?tab=items" className="card hover:shadow-md transition-shadow flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +137,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-800">Materialstammdaten</p>
-            <p className="text-xs text-gray-500">Kostenpositionen verwalten</p>
+            <p className="text-xs text-gray-500">Material, Preise & Stammdaten</p>
           </div>
         </Link>
         <Link to="/admin/kosten?tab=bom" className="card hover:shadow-md transition-shadow flex items-center gap-3">
@@ -162,6 +173,17 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-500">Bestand, Lagerorte & Bewegungen</p>
           </div>
         </Link>
+        <Link to="/admin/wertelisten" className="card hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Wertelisten</p>
+            <p className="text-xs text-gray-500">Dropdown-Werte verwalten</p>
+          </div>
+        </Link>
       </div>
 
       {/* Bestandswarnungen */}
@@ -182,6 +204,29 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Bestellvorschlaege */}
+      {reorderSuggestions.length > 0 && (
+        <div className="card mb-8 border-l-4 border-orange-400">
+          <h2 className="text-sm font-semibold text-orange-700 mb-2">Bestellvorschlaege ({reorderSuggestions.length})</h2>
+          <div className="space-y-1">
+            {reorderSuggestions.slice(0, 5).map((s) => (
+              <div key={s.id} className="flex justify-between text-sm">
+                <span className="font-medium">
+                  {s.material_number && <span className="text-primary-500 font-mono text-xs mr-1">{s.material_number}</span>}
+                  {s.item_name} <span className="text-gray-400">@ {s.location_name}</span>
+                </span>
+                <span className="text-orange-600">
+                  Bestand: {s.quantity} / Melde: {s.reorder_point} → Bestellen: {s.suggested_quantity}
+                </span>
+              </div>
+            ))}
+            {reorderSuggestions.length > 5 && (
+              <Link to="/admin/lager?tab=reorder" className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filter und Suche */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <select
@@ -190,11 +235,9 @@ export default function AdminDashboard() {
           className="form-input w-auto"
         >
           <option value="alle">Alle Status</option>
-          <option value="neu">Neu</option>
-          <option value="in_bearbeitung">In Bearbeitung</option>
-          <option value="angebot_erstellt">Angebot erstellt</option>
-          <option value="abgeschlossen">Abgeschlossen</option>
-          <option value="abgesagt">Abgesagt</option>
+          {statusItems.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
         </select>
 
         <input

@@ -38,7 +38,7 @@ export default function AdminLogin() {
   return (
     <div className="max-w-md mx-auto px-4 py-16">
       <div className="card">
-        <h1 className="text-2xl font-heading font-bold text-primary-500 mb-6 text-center">
+        <h1 className="text-2xl font-heading font-semibold text-primary-500 mb-6 text-center">
           Admin-Bereich
         </h1>
 

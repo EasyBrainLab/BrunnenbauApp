@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const { getDb } = require('../database');
 const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
+const { sendTelegramNotification, sendTelegramCustomerConfirmation } = require('../telegram');
 
 const router = express.Router();
 
@@ -67,6 +68,13 @@ const inquiryValidation = [
   body('additional_notes').optional({ checkFalsy: true }).trim().isLength({ max: 1000 }).escape(),
   body('site_visit_requested').optional().toBoolean(),
   body('preferred_date').optional({ checkFalsy: true }).trim(),
+  body('telegram_handle').optional({ checkFalsy: true }).trim().escape(),
+  body('preferred_contact').optional({ checkFalsy: true }).trim(),
+  body('pump_type').optional({ checkFalsy: true }).trim(),
+  body('pump_installation_location').optional({ checkFalsy: true }).trim(),
+  body('installation_floor').optional({ checkFalsy: true }).trim(),
+  body('wall_breakthrough').optional({ checkFalsy: true }).trim(),
+  body('control_device').optional({ checkFalsy: true }).trim(),
 ];
 
 // POST /api/inquiries – Neue Anfrage erstellen
@@ -124,7 +132,10 @@ router.post('/',
           soil_report_available, soil_report_file, soil_types,
           water_connection, sewage_connection, usage_purposes, usage_other,
           flow_rate, garden_irrigation_planning, garden_irrigation_data,
-          additional_notes, site_visit_requested, preferred_date
+          additional_notes, site_visit_requested, preferred_date,
+          telegram_handle, preferred_contact,
+          pump_type, pump_installation_location, installation_floor,
+          wall_breakthrough, control_device
         ) VALUES (
           ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
@@ -133,7 +144,10 @@ router.post('/',
           ?, ?, ?,
           ?, ?, ?, ?,
           ?, ?, ?,
-          ?, ?, ?
+          ?, ?, ?,
+          ?, ?,
+          ?, ?, ?,
+          ?, ?
         )
       `);
 
@@ -145,13 +159,18 @@ router.post('/',
         data.soil_report_available ? 1 : 0, soilReportFile, data.soil_types || null,
         data.water_connection || null, data.sewage_connection || null, data.usage_purposes || null, data.usage_other || null,
         data.flow_rate || null, data.garden_irrigation_planning ? 1 : 0, data.garden_irrigation_data || null,
-        data.additional_notes || null, data.site_visit_requested ? 1 : 0, data.preferred_date || null
+        data.additional_notes || null, data.site_visit_requested ? 1 : 0, data.preferred_date || null,
+        data.telegram_handle || null, data.preferred_contact || 'email',
+        data.pump_type || null, data.pump_installation_location || null, data.installation_floor || null,
+        data.wall_breakthrough || null, data.control_device || null
       );
 
-      // E-Mails senden (asynchron, Fehler nicht blockierend)
+      // E-Mails + Telegram senden (asynchron, Fehler nicht blockierend)
       const inquiry = { ...data, inquiry_id: inquiryId };
       sendCustomerConfirmation(inquiry).catch(err => console.error('Kunden-E-Mail fehlgeschlagen:', err));
       sendCompanyNotification(inquiry).catch(err => console.error('Firmen-E-Mail fehlgeschlagen:', err));
+      sendTelegramNotification(inquiry).catch(err => console.error('Telegram-Benachrichtigung fehlgeschlagen:', err));
+      sendTelegramCustomerConfirmation(inquiry).catch(err => console.error('Telegram-Kundenbenachrichtigung fehlgeschlagen:', err));
 
       res.status(201).json({
         message: 'Anfrage erfolgreich eingereicht',

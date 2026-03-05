@@ -1,39 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
-
-const SUPPLIER_TYPES = [
-  { value: 'bohrmaterial', label: 'Bohrmaterial' },
-  { value: 'pumpen_technik', label: 'Pumpen & Technik' },
-  { value: 'verrohrung', label: 'Verrohrung' },
-  { value: 'werkzeug_maschinen', label: 'Werkzeug & Maschinen' },
-  { value: 'chemikalien', label: 'Chemikalien' },
-  { value: 'sonstiges', label: 'Sonstiges' },
-];
-
-const ORDER_METHODS = [
-  { value: 'email', label: 'E-Mail' },
-  { value: 'online_shop', label: 'Online-Shop' },
-  { value: 'telefon', label: 'Telefon' },
-  { value: 'edi', label: 'EDI' },
-  { value: 'fax', label: 'Fax' },
-];
-
-const ORDER_FORMATS = [
-  { value: 'freitext', label: 'Freitext-E-Mail' },
-  { value: 'pdf', label: 'PDF-Anhang' },
-  { value: 'excel', label: 'Excel-Vorlage' },
-  { value: 'formular', label: 'Eigenes Formular' },
-];
-
-const CURRENCIES = ['EUR', 'CHF', 'USD'];
-
-const DOC_TYPES = [
-  { value: 'rahmenvertrag', label: 'Rahmenvertrag' },
-  { value: 'preisliste', label: 'Preisliste' },
-  { value: 'zertifikat', label: 'Zertifikat' },
-  { value: 'sonstiges', label: 'Sonstiges' },
-];
+import { useValueList } from '../hooks/useValueList';
 
 const EMPTY_FORM = {
   name: '', supplier_type: 'sonstiges', is_active: true,
@@ -103,6 +71,12 @@ function AccordionSection({ title, open, onToggle, children }) {
 
 export default function AdminSuppliers() {
   const navigate = useNavigate();
+  const { items: SUPPLIER_TYPES } = useValueList('supplier_types');
+  const { items: ORDER_METHODS } = useValueList('order_methods');
+  const { items: ORDER_FORMATS } = useValueList('order_formats');
+  const { items: currencyItems } = useValueList('currencies');
+  const CURRENCIES = currencyItems.map((c) => c.value);
+  const { items: DOC_TYPES } = useValueList('document_types');
   const [suppliers, setSuppliers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -118,8 +92,15 @@ export default function AdminSuppliers() {
   const [filterActive, setFilterActive] = useState('');
   const [filterReady, setFilterReady] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  useEffect(() => { loadSuppliers(); }, [filterType, filterActive, filterReady, search]);
+  // Debounce search input to prevent cursor jump
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 600);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { loadSuppliers(); }, [filterType, filterActive, filterReady, debouncedSearch]);
 
   const loadSuppliers = async () => {
     try {
@@ -127,7 +108,7 @@ export default function AdminSuppliers() {
       if (filterType) params.set('type', filterType);
       if (filterActive !== '') params.set('active', filterActive);
       if (filterReady !== '') params.set('order_ready', filterReady);
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const qs = params.toString() ? `?${params}` : '';
       const res = await apiGet(`/api/suppliers${qs}`);
       if (res.status === 401) { navigate('/admin'); return; }

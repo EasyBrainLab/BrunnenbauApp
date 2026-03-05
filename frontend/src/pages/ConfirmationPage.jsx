@@ -1,7 +1,9 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 
 export default function ConfirmationPage() {
   const { inquiryId } = useParams();
+  const location = useLocation();
+  const telegramHandle = location.state?.telegramHandle;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -13,7 +15,7 @@ export default function ConfirmationPage() {
           </svg>
         </div>
 
-        <h1 className="text-3xl font-heading font-bold text-primary-500 mb-4">
+        <h1 className="text-3xl font-heading font-semibold text-primary-500 mb-4">
           Vielen Dank für Ihre Anfrage!
         </h1>
 
@@ -27,8 +29,13 @@ export default function ConfirmationPage() {
         </div>
 
         <div className="text-sm text-gray-500 space-y-2 mb-8">
-          <p>Sie erhalten in Kürze eine Bestätigungs-E-Mail mit einer Zusammenfassung Ihrer Angaben.</p>
-          <p>Bitte bewahren Sie Ihre Anfrage-ID auf, falls Sie Rückfragen haben.</p>
+          <p>Sie erhalten in Kuerze eine Bestaetigungs-E-Mail mit einer Zusammenfassung Ihrer Angaben.</p>
+          {telegramHandle && (
+            <p className="text-primary-600">
+              Sie haben ein Telegram-Handle angegeben. Starten Sie unseren Bot, um Ihre Bestaetigung auch per Telegram zu erhalten.
+            </p>
+          )}
+          <p>Bitte bewahren Sie Ihre Anfrage-ID auf, falls Sie Rueckfragen haben.</p>
         </div>
 
         <Link to="/" className="btn-secondary inline-block">

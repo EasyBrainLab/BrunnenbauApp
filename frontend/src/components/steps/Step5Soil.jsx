@@ -1,17 +1,20 @@
+import { useMemo } from 'react';
 import FileUpload from '../FileUpload';
 import Accordion from '../Accordion';
-
-const SOIL_TYPES = [
-  { value: 'Sandboden / lockerer Boden', label: 'Sandboden / lockerer Boden', description: 'Lockerer Boden, rieselt leicht durch die Finger, Wasser versickert sehr schnell.' },
-  { value: 'Lehmiger Boden', label: 'Lehmiger Boden', description: 'Fester Boden, lässt sich formen, klebt leicht an Werkzeug.' },
-  { value: 'Toniger Boden', label: 'Toniger Boden', description: 'Sehr dichter Boden, stark klebrig bei Nässe und schwer zu graben.' },
-  { value: 'Kiesiger Untergrund', label: 'Kiesiger Untergrund', description: 'Grobkörniger Boden mit Steinen, Wasser versickert sehr schnell.' },
-  { value: 'Felsiger / steiniger Untergrund', label: 'Felsiger / steiniger Untergrund', description: 'Harter Untergrund, schwer zu durchbohren.' },
-  { value: 'Humus / Gartenerde', label: 'Humus / Gartenerde', description: 'Dunkle, lockere Gartenerde mit hohem organischem Anteil.' },
-  { value: 'Ich weiß es nicht', label: 'Ich weiß es nicht', description: null },
-];
+import { useValueList } from '../../hooks/useValueList';
 
 export default function Step5Soil({ data, errors, onChange, onFileChange }) {
+  const { items: rawSoilTypes } = useValueList('soil_types');
+
+  // Enrich with description from metadata_json
+  const SOIL_TYPES = useMemo(() =>
+    rawSoilTypes.map((t) => {
+      let description = null;
+      if (t.metadata_json) {
+        try { description = JSON.parse(t.metadata_json).description || null; } catch {}
+      }
+      return { ...t, description };
+    }), [rawSoilTypes]);
   const selectedSoils = data.soil_types ? data.soil_types.split(',') : [];
 
   const toggleSoilType = (type) => {
@@ -27,7 +30,7 @@ export default function Step5Soil({ data, errors, onChange, onFileChange }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Bodenverhältnisse</h2>
+      <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Bodenverhältnisse</h2>
       <p className="text-gray-600 mb-4">
         Die Kenntnis des Bodenaufbaus hilft uns bei der Planung und Kalkulation.
       </p>

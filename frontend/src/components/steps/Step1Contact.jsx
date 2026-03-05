@@ -1,4 +1,7 @@
+import { useValueList } from '../../hooks/useValueList';
+
 export default function Step1Contact({ data, errors, onChange }) {
+  const { items: contactOptions } = useValueList('preferred_contact');
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     onChange(name, type === 'checkbox' ? checked : value);
@@ -6,7 +9,7 @@ export default function Step1Contact({ data, errors, onChange }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Kontaktdaten</h2>
+      <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Kontaktdaten</h2>
       <p className="text-gray-600 mb-6">
         Bitte geben Sie Ihre Kontaktdaten ein, damit wir Ihnen ein Angebot zukommen lassen können.
       </p>
@@ -61,6 +64,37 @@ export default function Step1Contact({ data, errors, onChange }) {
             className="form-input"
             placeholder="0171 1234567"
           />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label className="form-label">Telegram (optional)</label>
+          <input
+            type="text"
+            name="telegram_handle"
+            value={data.telegram_handle || ''}
+            onChange={handleChange}
+            className="form-input"
+            placeholder="@IhrTelegramName oder Chat-ID"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Falls angegeben, erhalten Sie Ihre Bestaetigung auch per Telegram.
+          </p>
+        </div>
+
+        <div>
+          <label className="form-label">Bevorzugter Kontaktweg</label>
+          <select
+            name="preferred_contact"
+            value={data.preferred_contact || 'email'}
+            onChange={handleChange}
+            className="form-input"
+          >
+            {contactOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 

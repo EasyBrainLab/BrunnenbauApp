@@ -16,7 +16,7 @@ export default function Layout() {
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-heading font-bold">Lies-Brunnenbau</h1>
+              <h1 className="text-xl font-heading font-semibold">Lies-Brunnenbau</h1>
               <p className="text-xs text-[#5ca8db]">Wasser aus dem eigenen Brunnen</p>
             </div>
           </Link>

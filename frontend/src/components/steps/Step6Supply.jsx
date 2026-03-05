@@ -81,7 +81,7 @@ export default function Step6Supply({ data, onChange }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-heading font-bold text-primary-500 mb-2">Ver- und Entsorgung</h2>
+      <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Ver- und Entsorgung</h2>
       <p className="text-gray-600 mb-6">
         Für die Bohrarbeiten benötigen wir Informationen zur vorhandenen Infrastruktur auf Ihrem Grundstück.
       </p>

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPut } from '../api';
+import { useValueList } from '../hooks/useValueList';
 import ResponsePanel from '../components/ResponsePanel';
 import QuoteGenerator from '../components/QuoteGenerator';
 import ChatHistory from '../components/ChatHistory';
@@ -46,24 +47,19 @@ function RegulationsInfo({ zip }) {
   );
 }
 
-const STATUS_OPTIONS = [
-  { value: 'neu', label: 'Neu' },
-  { value: 'in_bearbeitung', label: 'In Bearbeitung' },
-  { value: 'angebot_erstellt', label: 'Angebot erstellt' },
-  { value: 'auftrag_erteilt', label: 'Auftrag erteilt' },
-  { value: 'abgeschlossen', label: 'Abgeschlossen' },
-  { value: 'abgesagt', label: 'Abgesagt' },
-];
+function useStatusAndWellTypes() {
+  const { items: statusItems } = useValueList('inquiry_statuses');
+  const { items: wellTypeItems } = useValueList('well_types');
 
-const WELL_TYPE_LABELS = {
-  gespuelt: 'Gespülter Brunnen (Einfachbrunnen)',
-  handpumpe: 'Gartenbrunnen mit Handpumpe',
-  tauchpumpe: 'Gartenbrunnen mit elektrischer Tauchpumpe',
-  hauswasserwerk: 'Hauswasserwerk / Druckanlage',
-  tiefbrunnen: 'Tiefbrunnen mit Tiefenpumpe (High-End)',
-  industrie: 'Industriebrunnen / gewerblicher Brunnen',
-  beratung: 'Beratungsgespräch gewünscht',
-};
+  const STATUS_OPTIONS = statusItems;
+  const WELL_TYPE_LABELS = useMemo(() => {
+    const map = {};
+    for (const w of wellTypeItems) map[w.value] = w.label;
+    return map;
+  }, [wellTypeItems]);
+
+  return { STATUS_OPTIONS, WELL_TYPE_LABELS };
+}
 
 function DetailRow({ label, value }) {
   if (!value && value !== 0) return null;
@@ -78,6 +74,7 @@ function DetailRow({ label, value }) {
 export default function AdminDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { STATUS_OPTIONS, WELL_TYPE_LABELS } = useStatusAndWellTypes();
   const [inquiry, setInquiry] = useState(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);

@@ -8,6 +8,7 @@ import AdminDetail from './pages/AdminDetail';
 import AdminCosts from './pages/AdminCosts';
 import AdminSuppliers from './pages/AdminSuppliers';
 import AdminInventory from './pages/AdminInventory';
+import AdminValueLists from './pages/AdminValueLists';
 import Layout from './components/Layout';
 
 const AdminCalendar = lazy(() => import('./pages/AdminCalendar'));
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/admin/kosten" element={<AdminCosts />} />
         <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
         <Route path="/admin/lager" element={<AdminInventory />} />
+        <Route path="/admin/wertelisten" element={<AdminValueLists />} />
         <Route path="/admin/kalender" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense>} />
       </Route>
     </Routes>

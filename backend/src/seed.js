@@ -112,7 +112,49 @@ async function seed() {
     db.prepare(`INSERT INTO inquiries (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
   }
 
-  console.log(`${testInquiries.length} Testdatensätze erfolgreich eingefügt.`);
+  // Standard-Antwortvorlagen seeden
+  const existingTemplates = db.prepare('SELECT COUNT(*) as count FROM response_templates').get();
+  if (existingTemplates.count === 0) {
+    const templates = [
+      {
+        name: 'Bearbeitungsbestaetigung',
+        subject: 'Ihre Anfrage {{inquiry_id}} wird bearbeitet',
+        body_text: 'Sehr geehrte(r) {{first_name}} {{last_name}},\n\nvielen Dank fuer Ihre Brunnenanfrage ({{inquiry_id}}).\n\nWir haben Ihre Anfrage erhalten und werden diese innerhalb von {{weeks}} Wochen bearbeiten.\n\nBei Rueckfragen stehen wir Ihnen gerne zur Verfuegung.\n\nMit freundlichen Gruessen\nIhr Brunnenbau-Team',
+        category: 'status',
+        sort_order: 1,
+      },
+      {
+        name: 'Angebot folgt',
+        subject: 'Angebot zu Ihrer Anfrage {{inquiry_id}} folgt in Kuerze',
+        body_text: 'Sehr geehrte(r) {{first_name}} {{last_name}},\n\nvielen Dank fuer Ihr Interesse an unseren Leistungen.\n\nWir erstellen derzeit ein individuelles Angebot fuer Sie und werden Ihnen dieses innerhalb von {{days}} Werktagen zusenden.\n\nMit freundlichen Gruessen\nIhr Brunnenbau-Team',
+        category: 'angebot',
+        sort_order: 2,
+      },
+      {
+        name: 'Vor-Ort-Termin Vorschlag',
+        subject: 'Terminvorschlag fuer Vor-Ort-Besichtigung – {{inquiry_id}}',
+        body_text: 'Sehr geehrte(r) {{first_name}} {{last_name}},\n\nfuer Ihre Anfrage ({{inquiry_id}}) moechten wir gerne einen Vor-Ort-Termin vereinbaren.\n\nUnser Vorschlag: {{date}}\n\nBitte teilen Sie uns mit, ob Ihnen dieser Termin passt oder nennen Sie uns Alternativen.\n\nMit freundlichen Gruessen\nIhr Brunnenbau-Team',
+        category: 'termin',
+        sort_order: 3,
+      },
+      {
+        name: 'Absage',
+        subject: 'Zu Ihrer Anfrage {{inquiry_id}}',
+        body_text: 'Sehr geehrte(r) {{first_name}} {{last_name}},\n\nvielen Dank fuer Ihre Anfrage ({{inquiry_id}}).\n\nLeider muessen wir Ihnen mitteilen, dass wir Ihre Anfrage nicht weiter bearbeiten koennen.\n\nGrund: {{reason}}\n\nWir bedanken uns fuer Ihr Verstaendnis.\n\nMit freundlichen Gruessen\nIhr Brunnenbau-Team',
+        category: 'absage',
+        sort_order: 4,
+      },
+    ];
+
+    for (const t of templates) {
+      db.prepare(
+        'INSERT INTO response_templates (name, subject, body_text, category, sort_order) VALUES (?, ?, ?, ?, ?)'
+      ).run(t.name, t.subject, t.body_text, t.category, t.sort_order);
+    }
+    console.log(`${templates.length} Antwortvorlagen eingefuegt.`);
+  }
+
+  console.log(`${testInquiries.length} Testdatensaetze erfolgreich eingefuegt.`);
   process.exit(0);
 }
 

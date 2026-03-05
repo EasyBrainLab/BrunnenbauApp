@@ -53,8 +53,8 @@ router.get('/stock', requireAuth, (req, res) => {
   const db = getDb();
   const { location_id } = req.query;
   let sql = `
-    SELECT i.*, ci.name AS item_name, ci.unit, ci.category, sl.name AS location_name,
-           s.name AS default_supplier_name
+    SELECT i.*, ci.name AS item_name, ci.unit, ci.category, ci.material_number,
+           sl.name AS location_name, s.name AS default_supplier_name
     FROM inventory i
     JOIN cost_items ci ON ci.id = i.cost_item_id
     JOIN storage_locations sl ON sl.id = i.location_id
@@ -139,18 +139,26 @@ router.get('/movements', requireAuth, (req, res) => {
 
 // PUT /api/inventory/settings/:costItemId/:locationId
 router.put('/settings/:costItemId/:locationId', requireAuth, (req, res) => {
-  const { safety_stock, reorder_point, default_supplier_id } = req.body;
+  const { safety_stock, reorder_point, default_supplier_id, shelf_location, is_primary_location, max_stock, target_stock, reorder_quantity } = req.body;
   const db = getDb();
   const existing = db.prepare('SELECT * FROM inventory WHERE cost_item_id = ? AND location_id = ?').get(req.params.costItemId, req.params.locationId);
   if (!existing) {
-    // Create inventory entry if it doesn't exist
     db.prepare(
-      'INSERT INTO inventory (cost_item_id, location_id, quantity, safety_stock, reorder_point, default_supplier_id) VALUES (?, ?, 0, ?, ?, ?)'
-    ).run(req.params.costItemId, req.params.locationId, safety_stock || 0, reorder_point || 0, default_supplier_id || null);
+      'INSERT INTO inventory (cost_item_id, location_id, quantity, safety_stock, reorder_point, default_supplier_id, shelf_location, is_primary_location, max_stock, target_stock, reorder_quantity) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      req.params.costItemId, req.params.locationId,
+      safety_stock || 0, reorder_point || 0, default_supplier_id || null,
+      shelf_location || null, is_primary_location ? 1 : 0,
+      max_stock || 0, target_stock || 0, reorder_quantity || 0
+    );
   } else {
     db.prepare(
-      'UPDATE inventory SET safety_stock = ?, reorder_point = ?, default_supplier_id = ? WHERE id = ?'
-    ).run(safety_stock || 0, reorder_point || 0, default_supplier_id || null, existing.id);
+      'UPDATE inventory SET safety_stock = ?, reorder_point = ?, default_supplier_id = ?, shelf_location = ?, is_primary_location = ?, max_stock = ?, target_stock = ?, reorder_quantity = ? WHERE id = ?'
+    ).run(
+      safety_stock || 0, reorder_point || 0, default_supplier_id || null,
+      shelf_location || null, is_primary_location ? 1 : 0,
+      max_stock || 0, target_stock || 0, reorder_quantity || 0, existing.id
+    );
   }
   res.json({ message: 'Einstellungen gespeichert' });
 });
@@ -169,6 +177,38 @@ router.get('/alerts', requireAuth, (req, res) => {
     ORDER BY ci.name
   `).all();
   res.json(alerts);
+});
+
+// GET /api/inventory/reorder-suggestions — Materialien wo Bestand < Meldebestand
+router.get('/reorder-suggestions', requireAuth, (req, res) => {
+  const db = getDb();
+  const suggestions = db.prepare(`
+    SELECT i.*, ci.name AS item_name, ci.unit, ci.material_number, ci.min_order_quantity, ci.packaging_unit, ci.lead_time_days,
+           sl.name AS location_name, s.name AS default_supplier_name, s.id AS default_supplier_id
+    FROM inventory i
+    JOIN cost_items ci ON ci.id = i.cost_item_id
+    JOIN storage_locations sl ON sl.id = i.location_id
+    LEFT JOIN suppliers s ON s.id = i.default_supplier_id
+    WHERE i.reorder_point > 0 AND i.quantity <= i.reorder_point
+    ORDER BY (i.reorder_point - i.quantity) DESC, ci.name
+  `).all();
+
+  // Calculate suggested order quantity
+  const result = suggestions.map(s => {
+    let suggestedQty = s.reorder_quantity || (s.target_stock ? s.target_stock - s.quantity : s.reorder_point * 2 - s.quantity);
+    if (suggestedQty < 0) suggestedQty = 0;
+    // Round up to min_order_quantity if set
+    if (s.min_order_quantity && suggestedQty < s.min_order_quantity) {
+      suggestedQty = s.min_order_quantity;
+    }
+    // Round up to packaging_unit if set
+    if (s.packaging_unit && s.packaging_unit > 0) {
+      suggestedQty = Math.ceil(suggestedQty / s.packaging_unit) * s.packaging_unit;
+    }
+    return { ...s, suggested_quantity: suggestedQty };
+  });
+
+  res.json(result);
 });
 
 // === Material-Lieferant ===
