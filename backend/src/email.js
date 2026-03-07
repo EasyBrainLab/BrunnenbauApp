@@ -1,9 +1,9 @@
 const nodemailer = require('nodemailer');
 const { generateIcs } = require('./icsGenerator');
+const { getCompanySettings, getEmailSignature } = require('./companySettings');
 
 // E-Mail-Transporter erstellen
 function createTransporter() {
-  // Im Entwicklungsmodus: Ethereal-Test-Account oder Console-Logging
   if (process.env.NODE_ENV !== 'production' && !process.env.SMTP_HOST) {
     return {
       sendMail: async (options) => {
@@ -41,10 +41,13 @@ const WELL_TYPE_LABELS = {
 // Bestätigungs-E-Mail an Kunden
 async function sendCustomerConfirmation(inquiry) {
   const transporter = createTransporter();
+  const cs = getCompanySettings();
+  const sig = getEmailSignature(cs);
+  const sigHtml = sig.replace(/\n/g, '<br>');
 
   const html = `
     <h2>Vielen Dank für Ihre Anfrage!</h2>
-    <p>Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},</p>
+    <p>Sehr geehrte(r) ${inquiry.first_name || ''} ${inquiry.last_name || ''},</p>
     <p>wir haben Ihre Anfrage erhalten und werden uns zeitnah bei Ihnen melden.</p>
 
     <h3>Ihre Anfrage-ID: <strong>${inquiry.inquiry_id}</strong></h3>
@@ -54,41 +57,39 @@ async function sendCustomerConfirmation(inquiry) {
       <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Brunnenart</td>
           <td style="padding:8px; border-bottom:1px solid #ddd;">${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}</td></tr>
       <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Adresse</td>
-          <td style="padding:8px; border-bottom:1px solid #ddd;">${inquiry.street} ${inquiry.house_number}, ${inquiry.zip_code} ${inquiry.city}</td></tr>
+          <td style="padding:8px; border-bottom:1px solid #ddd;">${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}</td></tr>
       <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Verwendungszweck</td>
           <td style="padding:8px; border-bottom:1px solid #ddd;">${inquiry.usage_purposes || '-'}</td></tr>
     </table>
 
     <p style="margin-top:20px; color:#666;">
-      Mit freundlichen Grüßen<br>
-      Ihr Brunnenbau-Team
+      ${sigHtml}
     </p>
   `;
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'info@brunnenbau.de',
+    from: cs.email_from,
     to: inquiry.email,
     subject: `Ihre Brunnen-Anfrage ${inquiry.inquiry_id} – Eingangsbestätigung`,
     html,
-    text: `Vielen Dank für Ihre Anfrage!\n\nAnfrage-ID: ${inquiry.inquiry_id}\nBrunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\n\nWir melden uns zeitnah bei Ihnen.\n\nMit freundlichen Grüßen\nIhr Brunnenbau-Team`,
+    text: `Vielen Dank für Ihre Anfrage!\n\nAnfrage-ID: ${inquiry.inquiry_id}\nBrunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\n\nWir melden uns zeitnah bei Ihnen.\n\n${sig}`,
   };
 
   // .ics Anhang bei Vor-Ort-Termin
   if (inquiry.site_visit_requested && inquiry.preferred_date) {
     try {
       const startDate = new Date(inquiry.preferred_date);
-      // Default-Uhrzeit 10:00 falls nur Datum angegeben
       if (startDate.getHours() === 0 && startDate.getMinutes() === 0) {
         startDate.setHours(10, 0, 0, 0);
       }
 
       const location = `${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}`.trim();
       const icsString = generateIcs({
-        title: `Brunnenbau Vor-Ort-Besichtigung – ${inquiry.first_name} ${inquiry.last_name}`,
+        title: `${cs.company_name_short} Vor-Ort-Besichtigung – ${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim(),
         startDate,
         location,
         description: `Brunnentyp: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\nAnfrage-ID: ${inquiry.inquiry_id}`,
-        organizer: process.env.EMAIL_FROM || 'info@brunnenbau.de',
+        organizer: cs.email_from,
       });
 
       mailOptions.attachments = [{
@@ -107,6 +108,7 @@ async function sendCustomerConfirmation(inquiry) {
 // Benachrichtigungs-E-Mail an Unternehmen
 async function sendCompanyNotification(inquiry) {
   const transporter = createTransporter();
+  const cs = getCompanySettings();
 
   const html = `
     <h2>Neue Brunnenanfrage eingegangen</h2>
@@ -114,10 +116,10 @@ async function sendCompanyNotification(inquiry) {
 
     <h3>Kontaktdaten</h3>
     <ul>
-      <li><strong>Name:</strong> ${inquiry.first_name} ${inquiry.last_name}</li>
-      <li><strong>E-Mail:</strong> ${inquiry.email}</li>
+      <li><strong>Name:</strong> ${inquiry.first_name || ''} ${inquiry.last_name || ''}</li>
+      <li><strong>E-Mail:</strong> ${inquiry.email || '-'}</li>
       <li><strong>Telefon:</strong> ${inquiry.phone || '-'}</li>
-      <li><strong>Adresse:</strong> ${inquiry.street} ${inquiry.house_number}, ${inquiry.zip_code} ${inquiry.city}</li>
+      <li><strong>Adresse:</strong> ${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}</li>
     </ul>
 
     <h3>Brunnenart</h3>
@@ -168,11 +170,11 @@ async function sendCompanyNotification(inquiry) {
   `;
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'info@brunnenbau.de',
-    to: process.env.EMAIL_COMPANY || 'anfragen@brunnenbau.de',
-    subject: `[Neue Anfrage] ${inquiry.inquiry_id} – ${inquiry.first_name} ${inquiry.last_name}`,
+    from: cs.email_from,
+    to: cs.email_company,
+    subject: `[Neue Anfrage] ${inquiry.inquiry_id} – ${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim(),
     html,
-    text: `Neue Anfrage: ${inquiry.inquiry_id}\nName: ${inquiry.first_name} ${inquiry.last_name}\nE-Mail: ${inquiry.email}\nBrunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}`,
+    text: `Neue Anfrage: ${inquiry.inquiry_id}\nName: ${inquiry.first_name || ''} ${inquiry.last_name || ''}\nE-Mail: ${inquiry.email || '-'}\nBrunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}`,
   });
 }
 

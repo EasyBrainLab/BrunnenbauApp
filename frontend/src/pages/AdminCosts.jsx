@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
 import { useValueList } from '../hooks/useValueList';
+import { COST_INFO, WELL_TYPE_LABELS as WELL_LABELS_DATA } from '../data/wellTypeData.jsx';
 
 const EMPTY_FORM = {
   name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '',
@@ -493,6 +494,7 @@ export default function AdminCosts() {
           { key: 'items', label: 'Materialstammdaten' },
           { key: 'bom', label: 'Stuecklisten (BOM)' },
           { key: 'units', label: 'Einheiten' },
+          { key: 'richtwerte', label: 'Kostenrichtwerte' },
         ].map((t) => (
           <button
             key={t.key}
@@ -876,6 +878,303 @@ export default function AdminCosts() {
           </div>
         </>
       )}
+
+      {/* ==================== KOSTENRICHTWERTE ==================== */}
+      {tab === 'richtwerte' && (
+        <WellTypeCostsEditor />
+      )}
+    </div>
+  );
+}
+
+// ==================== Kostenrichtwerte-Editor Komponente ====================
+
+const BREAKDOWN_CATS = [
+  { key: 'material', label: 'Material' },
+  { key: 'arbeit', label: 'Arbeit' },
+  { key: 'maschine', label: 'Maschinen' },
+  { key: 'genehmigung', label: 'Genehmigung' },
+];
+
+function WellTypeCostsEditor() {
+  const [costs, setCosts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [expandedType, setExpandedType] = useState(null);
+
+  useEffect(() => {
+    const defaults = {};
+    for (const [key, info] of Object.entries(COST_INFO)) {
+      if (key === 'beratung') continue;
+      defaults[key] = {
+        rangeMin: info.rangeMin,
+        rangeMax: info.rangeMax,
+        breakdown: { ...info.breakdown },
+        typicalItems: info.typicalItems.map((it) => ({ ...it })),
+      };
+    }
+
+    apiGet('/api/costs/well-type-costs').then(async (res) => {
+      if (res.ok) {
+        const dbCosts = await res.json();
+        for (const [key, val] of Object.entries(dbCosts)) {
+          if (defaults[key]) {
+            defaults[key].rangeMin = val.rangeMin;
+            defaults[key].rangeMax = val.rangeMax;
+            if (val.breakdown) defaults[key].breakdown = val.breakdown;
+            if (val.typicalItems && val.typicalItems.length > 0) {
+              defaults[key].typicalItems = val.typicalItems;
+            }
+          }
+        }
+      }
+      setCosts(defaults);
+    }).catch(() => setCosts(defaults));
+  }, []);
+
+  const updateField = (wellType, field, value) => {
+    setCosts((prev) => ({
+      ...prev,
+      [wellType]: { ...prev[wellType], [field]: value },
+    }));
+    setSaveMsg('');
+  };
+
+  const updateBreakdown = (wellType, cat, value) => {
+    setCosts((prev) => ({
+      ...prev,
+      [wellType]: {
+        ...prev[wellType],
+        breakdown: { ...prev[wellType].breakdown, [cat]: parseFloat(value) || 0 },
+      },
+    }));
+    setSaveMsg('');
+  };
+
+  const updateTypicalItem = (wellType, index, field, value) => {
+    setCosts((prev) => {
+      const items = [...prev[wellType].typicalItems];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, [wellType]: { ...prev[wellType], typicalItems: items } };
+    });
+    setSaveMsg('');
+  };
+
+  const addTypicalItem = (wellType) => {
+    setCosts((prev) => ({
+      ...prev,
+      [wellType]: {
+        ...prev[wellType],
+        typicalItems: [...prev[wellType].typicalItems, { name: '', price: '' }],
+      },
+    }));
+  };
+
+  const removeTypicalItem = (wellType, index) => {
+    setCosts((prev) => ({
+      ...prev,
+      [wellType]: {
+        ...prev[wellType],
+        typicalItems: prev[wellType].typicalItems.filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const res = await apiPut('/api/costs/well-type-costs', { costs });
+      if (res.ok) {
+        setSaveMsg('Kostenrichtwerte gespeichert');
+      } else {
+        const data = await res.json();
+        setSaveMsg('Fehler: ' + (data.error || 'Unbekannt'));
+      }
+    } catch {
+      setSaveMsg('Verbindungsfehler');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = (wellType) => {
+    if (!window.confirm('Richtwerte fuer "' + (WELL_LABELS_DATA[wellType] || wellType) + '" auf Standard zuruecksetzen?')) return;
+    const info = COST_INFO[wellType];
+    if (!info) return;
+    setCosts((prev) => ({
+      ...prev,
+      [wellType]: {
+        rangeMin: info.rangeMin,
+        rangeMax: info.rangeMax,
+        breakdown: { ...info.breakdown },
+        typicalItems: info.typicalItems.map((it) => ({ ...it })),
+      },
+    }));
+    setSaveMsg('');
+  };
+
+  if (Object.keys(costs).length === 0) {
+    return <p className="text-gray-500">Lade Kostenrichtwerte...</p>;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">Kostenrichtwerte Brunnenarten</h2>
+          <p className="text-xs text-gray-500">
+            Passen Sie die geschaetzten Kosten an, die Kunden im Kostenvergleich sehen. Regionale Unterschiede koennen hier beruecksichtigt werden.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {saveMsg && (
+            <span className={`text-sm ${saveMsg.startsWith('Fehler') ? 'text-red-600' : 'text-green-600'}`}>
+              {saveMsg}
+            </span>
+          )}
+          <button onClick={handleSave} disabled={saving} className="btn-primary text-sm py-2 px-4">
+            {saving ? 'Speichern...' : 'Alle speichern'}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {Object.entries(costs).map(([wellType, data]) => {
+          const isExpanded = expandedType === wellType;
+          const breakdownSum = Object.values(data.breakdown).reduce((s, v) => s + v, 0);
+
+          return (
+            <div key={wellType} className="card border-l-4 border-primary-300">
+              <button
+                type="button"
+                onClick={() => setExpandedType(isExpanded ? null : wellType)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div>
+                  <h3 className="font-semibold text-gray-800">{WELL_LABELS_DATA[wellType] || wellType}</h3>
+                  <p className="text-sm text-gray-500">
+                    {data.rangeMin.toLocaleString('de-DE')} – {data.rangeMax.toLocaleString('de-DE')} EUR
+                  </p>
+                </div>
+                <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {isExpanded && (
+                <div className="mt-4 space-y-4 border-t border-earth-100 pt-4">
+                  {/* Preisspanne */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Mindestpreis (EUR)</label>
+                      <input
+                        type="number"
+                        value={data.rangeMin}
+                        onChange={(e) => updateField(wellType, 'rangeMin', parseFloat(e.target.value) || 0)}
+                        className="form-input"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Hoechstpreis (EUR)</label>
+                      <input
+                        type="number"
+                        value={data.rangeMax}
+                        onChange={(e) => updateField(wellType, 'rangeMax', parseFloat(e.target.value) || 0)}
+                        className="form-input"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kostenaufschluesselung */}
+                  <div>
+                    <label className="form-label">
+                      Kostenaufschluesselung (%)
+                      {breakdownSum !== 100 && (
+                        <span className="ml-2 text-red-500 text-xs">Summe: {breakdownSum}% (sollte 100% sein)</span>
+                      )}
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {BREAKDOWN_CATS.map((cat) => (
+                        <div key={cat.key}>
+                          <label className="text-xs text-gray-500">{cat.label}</label>
+                          <input
+                            type="number"
+                            value={data.breakdown[cat.key] || 0}
+                            onChange={(e) => updateBreakdown(wellType, cat.key, e.target.value)}
+                            className="form-input text-sm"
+                            min="0"
+                            max="100"
+                            step="5"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Typische Positionen */}
+                  <div>
+                    <label className="form-label">Typische Positionen</label>
+                    <div className="space-y-2">
+                      {data.typicalItems.map((item, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => updateTypicalItem(wellType, i, 'name', e.target.value)}
+                            className="form-input flex-1 text-sm"
+                            placeholder="Position (z.B. Brunnenrohr DN 100)"
+                          />
+                          <input
+                            type="text"
+                            value={item.price}
+                            onChange={(e) => updateTypicalItem(wellType, i, 'price', e.target.value)}
+                            className="form-input w-36 text-sm"
+                            placeholder="z.B. 150-300"
+                          />
+                          <span className="text-xs text-gray-400 whitespace-nowrap">EUR</span>
+                          <button
+                            type="button"
+                            onClick={() => removeTypicalItem(wellType, i)}
+                            className="text-red-400 hover:text-red-600 p-1"
+                            title="Entfernen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addTypicalItem(wellType)}
+                        className="text-sm text-primary-500 hover:text-primary-600"
+                      >
+                        + Position hinzufuegen
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Zuruecksetzen */}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => resetToDefaults(wellType)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Auf Standardwerte zuruecksetzen
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

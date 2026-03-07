@@ -35,15 +35,16 @@ const upload = multer({
 
 // Validierungsregeln für die Anfrage
 const inquiryValidation = [
-  body('first_name').trim().notEmpty().withMessage('Vorname ist erforderlich').escape(),
-  body('last_name').trim().notEmpty().withMessage('Nachname ist erforderlich').escape(),
-  body('email').isEmail().withMessage('Ungültige E-Mail-Adresse').normalizeEmail(),
+  body('first_name').optional({ checkFalsy: true }).trim().escape(),
+  body('last_name').optional({ checkFalsy: true }).trim().escape(),
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Ungültige E-Mail-Adresse').normalizeEmail(),
   body('phone').optional({ checkFalsy: true }).trim().escape(),
-  body('street').trim().notEmpty().withMessage('Straße ist erforderlich').escape(),
-  body('house_number').trim().notEmpty().withMessage('Hausnummer ist erforderlich').escape(),
-  body('zip_code').trim().notEmpty().withMessage('PLZ ist erforderlich')
+  body('street').optional({ checkFalsy: true }).trim().escape(),
+  body('house_number').optional({ checkFalsy: true }).trim().escape(),
+  body('zip_code').optional({ checkFalsy: true }).trim()
     .matches(/^\d{5}$/).withMessage('PLZ muss 5 Ziffern haben'),
   body('city').trim().notEmpty().withMessage('Ort ist erforderlich').escape(),
+  body('bundesland').trim().notEmpty().withMessage('Bundesland ist erforderlich').escape(),
   body('privacy_accepted').custom(val => {
     if (val !== true && val !== 'true' && val !== 1) {
       throw new Error('Datenschutzerklärung muss akzeptiert werden');
@@ -127,7 +128,7 @@ router.post('/',
       const stmt = db.prepare(`
         INSERT INTO inquiries (
           inquiry_id, first_name, last_name, email, phone,
-          street, house_number, zip_code, city, privacy_accepted,
+          street, house_number, zip_code, city, bundesland, privacy_accepted,
           well_type, well_cover_type, drill_location, site_plan_file, access_situation,
           access_restriction_details, groundwater_known, groundwater_depth,
           soil_report_available, soil_report_file, soil_types,
@@ -139,7 +140,7 @@ router.post('/',
           wall_breakthrough, control_device
         ) VALUES (
           ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
           ?, ?, ?,
           ?, ?, ?,
@@ -153,8 +154,8 @@ router.post('/',
       `);
 
       stmt.run(
-        inquiryId, data.first_name, data.last_name, data.email, data.phone || null,
-        data.street, data.house_number, data.zip_code, data.city, data.privacy_accepted ? 1 : 0,
+        inquiryId, data.first_name || '', data.last_name || '', data.email || '', data.phone || null,
+        data.street || '', data.house_number || '', data.zip_code || '', data.city, data.bundesland, data.privacy_accepted ? 1 : 0,
         data.well_type, data.well_cover_type || null, data.drill_location || null, sitePlanFile, data.access_situation || null,
         data.access_restriction_details || null, data.groundwater_known ? 1 : 0, data.groundwater_depth || null,
         data.soil_report_available ? 1 : 0, soilReportFile, data.soil_types || null,

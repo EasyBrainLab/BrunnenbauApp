@@ -394,4 +394,44 @@ router.get('/quotes/:inquiryId', requireAuth, (req, res) => {
   res.json(parsed);
 });
 
+// ==================== Kostenrichtwerte Brunnenarten ====================
+
+// GET /api/costs/well-type-costs — Kostenrichtwerte (oeffentlich)
+router.get('/well-type-costs', (req, res) => {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM well_type_costs').all();
+  const result = {};
+  for (const row of rows) {
+    result[row.well_type] = {
+      rangeMin: row.range_min,
+      rangeMax: row.range_max,
+      breakdown: row.breakdown_json ? JSON.parse(row.breakdown_json) : null,
+      typicalItems: row.typical_items_json ? JSON.parse(row.typical_items_json) : [],
+    };
+  }
+  res.json(result);
+});
+
+// PUT /api/costs/well-type-costs — Kostenrichtwerte aktualisieren (Admin)
+router.put('/well-type-costs', requireAuth, (req, res) => {
+  const { costs } = req.body;
+  if (!costs || typeof costs !== 'object') {
+    return res.status(400).json({ error: 'Kostendaten erforderlich' });
+  }
+
+  const db = getDb();
+  for (const [wellType, data] of Object.entries(costs)) {
+    const rangeMin = parseFloat(data.rangeMin) || 0;
+    const rangeMax = parseFloat(data.rangeMax) || 0;
+    const breakdownJson = data.breakdown ? JSON.stringify(data.breakdown) : null;
+    const typicalItemsJson = data.typicalItems ? JSON.stringify(data.typicalItems) : '[]';
+
+    db.prepare(
+      'INSERT OR REPLACE INTO well_type_costs (well_type, range_min, range_max, breakdown_json, typical_items_json) VALUES (?, ?, ?, ?, ?)'
+    ).run(wellType, rangeMin, rangeMax, breakdownJson, typicalItemsJson);
+  }
+
+  res.json({ message: 'Kostenrichtwerte gespeichert' });
+});
+
 module.exports = router;

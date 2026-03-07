@@ -1,8 +1,12 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+const { getCompanySettings, getCompanyFooterLine, getCompanyAddressLine } = require('./companySettings');
 
 function generateQuotePdf({ inquiry, quote, quoteItems }) {
   return new Promise((resolve, reject) => {
     try {
+      const cs = getCompanySettings();
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const buffers = [];
 
@@ -10,35 +14,62 @@ function generateQuotePdf({ inquiry, quote, quoteItems }) {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
 
-      // Header
-      doc.fontSize(20).font('Helvetica-Bold').text('Lies-Brunnenbau', 50, 50);
-      doc.fontSize(9).font('Helvetica').fillColor('#666666')
-        .text('Ihr Partner fuer professionellen Brunnenbau', 50, 75);
-      doc.moveTo(50, 95).lineTo(545, 95).strokeColor('#1b59b7').lineWidth(1.5).stroke();
+      // Header mit optionalem Logo
+      let headerTextX = 50;
+      if (cs.logo_path) {
+        try {
+          // logo_path ist z.B. "/api/uploads/logo.png" → in lokale Datei aufloesen
+          const logoFile = path.join(__dirname, '..', 'uploads', path.basename(cs.logo_path));
+          if (fs.existsSync(logoFile)) {
+            doc.image(logoFile, 50, 45, { height: 40 });
+            headerTextX = 100;
+          }
+        } catch (e) { /* Logo nicht verfuegbar, weiter ohne */ }
+      }
+      doc.fontSize(20).font('Helvetica-Bold').text(cs.company_name, headerTextX, 50);
+      if (cs.tagline) {
+        doc.fontSize(9).font('Helvetica').fillColor('#666666')
+          .text(cs.tagline, headerTextX, 75);
+      }
+      doc.moveTo(50, 95).lineTo(545, 95).strokeColor(cs.primary_color || '#1b59b7').lineWidth(1.5).stroke();
+
+      // Firmenadresse (Absenderzeile)
+      const companyAddr = getCompanyAddressLine(cs);
+      if (companyAddr) {
+        doc.fontSize(7).font('Helvetica').fillColor('#999999')
+          .text(`${cs.company_name} | ${companyAddr}`, 50, 100);
+      }
 
       // Kundenadresse
+      const addrY = companyAddr ? 115 : 110;
       doc.fillColor('#000000').fontSize(10).font('Helvetica');
-      doc.text(`${inquiry.first_name} ${inquiry.last_name}`, 50, 115);
-      doc.text(`${inquiry.street} ${inquiry.house_number}`, 50, 130);
-      doc.text(`${inquiry.zip_code} ${inquiry.city}`, 50, 145);
+      doc.text(`${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim() || 'Kunde', 50, addrY);
+      if (inquiry.street) doc.text(`${inquiry.street} ${inquiry.house_number || ''}`, 50, addrY + 15);
+      doc.text(`${inquiry.zip_code || ''} ${inquiry.city || ''}`.trim(), 50, addrY + (inquiry.street ? 30 : 15));
 
       // Angebotsnummer und Datum
       const now = new Date();
       const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      doc.font('Helvetica-Bold').text('Angebot', 380, 115);
+      doc.font('Helvetica-Bold').text('Angebot', 380, addrY);
       doc.font('Helvetica').fontSize(9);
-      doc.text(`Nr.: ANG-${quote.id}`, 380, 132);
-      doc.text(`Datum: ${dateStr}`, 380, 145);
-      doc.text(`Anfrage: ${inquiry.inquiry_id}`, 380, 158);
+      doc.text(`Nr.: ANG-${quote.id}`, 380, addrY + 17);
+      doc.text(`Datum: ${dateStr}`, 380, addrY + 30);
+      doc.text(`Anfrage: ${inquiry.inquiry_id}`, 380, addrY + 43);
+      if (cs.quote_validity_days) {
+        const validUntil = new Date(now);
+        validUntil.setDate(validUntil.getDate() + parseInt(cs.quote_validity_days));
+        doc.text(`Gueltig bis: ${validUntil.toLocaleDateString('de-DE')}`, 380, addrY + 56);
+      }
 
       // Betreff
-      doc.fontSize(13).font('Helvetica-Bold').fillColor('#1b59b7')
+      doc.fontSize(13).font('Helvetica-Bold').fillColor(cs.primary_color || '#1b59b7')
         .text('Kostenvoranschlag Brunnenbau', 50, 190);
       doc.fillColor('#000000');
 
       // Einleitung
+      const kundenName = `${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim();
       doc.fontSize(9).font('Helvetica')
-        .text(`Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},`, 50, 215)
+        .text(`Sehr geehrte(r) ${kundenName || 'Kunde'},`, 50, 215)
         .text('vielen Dank fuer Ihre Anfrage. Nachfolgend unser Kostenvoranschlag:', 50, 230);
 
       // Tabelle
@@ -46,7 +77,7 @@ function generateQuotePdf({ inquiry, quote, quoteItems }) {
       const colX = { pos: 50, qty: 310, price: 380, total: 470 };
 
       // Header-Zeile
-      doc.rect(50, tableTop, 495, 20).fillColor('#1b59b7').fill();
+      doc.rect(50, tableTop, 495, 20).fillColor(cs.primary_color || '#1b59b7').fill();
       doc.fillColor('#ffffff').fontSize(8).font('Helvetica-Bold');
       doc.text('Beschreibung', colX.pos + 5, tableTop + 6);
       doc.text('Menge', colX.qty + 5, tableTop + 6);
@@ -79,31 +110,35 @@ function generateQuotePdf({ inquiry, quote, quoteItems }) {
         y += 20;
       }
 
-      // Summenzeilen: Netto, MwSt, Brutto
+      // Summenzeilen
       y += 5;
       const mwst = netto * 0.19;
       const brutto = netto + mwst;
 
-      // Netto
       doc.rect(50, y, 495, 18).fillColor('#f0f0f0').fill();
       doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9);
       doc.text('Netto:', colX.pos + 5, y + 4);
       doc.text(`${netto.toFixed(2)} EUR`, colX.total - 10, y + 4);
       y += 20;
 
-      // MwSt
       doc.rect(50, y, 495, 18).fillColor('#f0f0f0').fill();
       doc.fillColor('#000000').font('Helvetica').fontSize(9);
       doc.text('zzgl. 19% MwSt:', colX.pos + 5, y + 4);
       doc.text(`${mwst.toFixed(2)} EUR`, colX.total - 10, y + 4);
       y += 20;
 
-      // Brutto
       doc.rect(50, y, 495, 22).fillColor('#e8f0fe').fill();
-      doc.fillColor('#1b59b7').font('Helvetica-Bold').fontSize(10);
+      doc.fillColor(cs.primary_color || '#1b59b7').font('Helvetica-Bold').fontSize(10);
       doc.text('Brutto:', colX.pos + 5, y + 5);
       doc.text(`${brutto.toFixed(2)} EUR`, colX.total - 10, y + 5);
       y += 35;
+
+      // Zahlungsbedingungen
+      if (cs.payment_terms) {
+        doc.fillColor('#000000').font('Helvetica').fontSize(8);
+        doc.text(cs.payment_terms, 50, y, { width: 495 });
+        y = doc.y + 8;
+      }
 
       // Info-Block (footer_text)
       if (quote.footer_text) {
@@ -115,9 +150,27 @@ function generateQuotePdf({ inquiry, quote, quoteItems }) {
         y = doc.y + 10;
       }
 
+      // Bankverbindung
+      if (cs.bank_iban) {
+        doc.fontSize(7).fillColor('#666666');
+        const bankLine = [cs.bank_name, `IBAN: ${cs.bank_iban}`, cs.bank_bic ? `BIC: ${cs.bank_bic}` : ''].filter(Boolean).join(' | ');
+        doc.text(bankLine, 50, 760, { align: 'center', width: 495 });
+      }
+
+      // Rechtliche Angaben
+      const legalParts = [];
+      if (cs.managing_director) legalParts.push(`GF: ${cs.managing_director}`);
+      if (cs.trade_register_court && cs.trade_register_number) legalParts.push(`${cs.trade_register_court} ${cs.trade_register_number}`);
+      if (cs.tax_number) legalParts.push(`St-Nr.: ${cs.tax_number}`);
+      if (cs.vat_id) legalParts.push(`USt-IdNr.: ${cs.vat_id}`);
+      if (legalParts.length > 0) {
+        doc.fontSize(6).fillColor('#999999');
+        doc.text(legalParts.join(' | '), 50, 770, { align: 'center', width: 495 });
+      }
+
       // Footer
       doc.fontSize(7).fillColor('#999999');
-      doc.text('Lies-Brunnenbau | www.lies-brunnenbau.de | info@lies-brunnenbau.de', 50, 780, { align: 'center', width: 495 });
+      doc.text(getCompanyFooterLine(cs), 50, 780, { align: 'center', width: 495 });
 
       doc.end();
     } catch (err) {

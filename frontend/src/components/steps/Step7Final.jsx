@@ -93,10 +93,16 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
           {/* 1. Kontaktdaten */}
           <SectionHeader>Kontaktdaten</SectionHeader>
           <dl className="space-y-0.5">
-            <Row label="Name" value={`${data.first_name} ${data.last_name}`} />
+            {(data.first_name || data.last_name) && (
+              <Row label="Name" value={`${data.first_name} ${data.last_name}`.trim()} />
+            )}
             <Row label="E-Mail" value={data.email} />
             <Row label="Telefon" value={data.phone} />
-            <Row label="Adresse" value={`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}`} />
+            <Row label="Ort" value={data.city} />
+            <Row label="Bundesland" value={data.bundesland} />
+            {(data.street || data.zip_code) && (
+              <Row label="Adresse" value={`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}`.trim()} />
+            )}
           </dl>
 
           {/* 2. Verwendungszweck */}
@@ -249,6 +255,27 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
               />
             </div>
           )}
+        </div>
+
+        {/* E-Mail-Abfrage falls noch nicht angegeben */}
+        <div className="card bg-primary-50 border-primary-200">
+          <h3 className="text-sm font-semibold text-primary-700 mb-2">
+            E-Mail-Adresse für Ihre Zusammenfassung {!data.email ? '*' : ''}
+          </h3>
+          <p className="text-xs text-gray-600 mb-3">
+            {data.email
+              ? 'Ihre Zusammenfassung wird an diese Adresse gesendet.'
+              : 'Bitte geben Sie Ihre E-Mail-Adresse an, damit wir Ihnen die Zusammenfassung zusenden können.'}
+          </p>
+          <input
+            type="email"
+            name="email"
+            value={data.email || ''}
+            onChange={handleChange}
+            className={`form-input ${errors.email_summary ? 'error' : ''}`}
+            placeholder="max@beispiel.de"
+          />
+          {errors.email_summary && <p className="text-red-500 text-xs mt-1">{errors.email_summary}</p>}
         </div>
 
         <div className="mt-4">

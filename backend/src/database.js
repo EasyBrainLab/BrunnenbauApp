@@ -227,6 +227,36 @@ function initDatabase() {
       saveDb();
     } catch (e) {}
 
+    // Migration: Bundesland-Spalte
+    try { db.run('ALTER TABLE inquiries ADD COLUMN bundesland TEXT'); saveDb(); } catch (e) {}
+
+    // Admin-Einstellungen (Passwort-Override etc.)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
+
+    // Firmendaten (key-value)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS company_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    `);
+
+    // Kostenrichtwerte pro Brunnenart (Admin-anpassbar)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS well_type_costs (
+        well_type TEXT PRIMARY KEY,
+        range_min REAL NOT NULL,
+        range_max REAL NOT NULL,
+        breakdown_json TEXT,
+        typical_items_json TEXT
+      )
+    `);
+
     // Einheiten-Tabelle
     db.run(`
       CREATE TABLE IF NOT EXISTS units (

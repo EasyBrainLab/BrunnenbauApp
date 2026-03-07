@@ -21,7 +21,7 @@ npm run build        # Production build to dist/
 docker-compose up --build   # Full stack on port 8080
 ```
 
-Admin login: `admin` / `brunnen2024!`
+Default admin login: `admin` / `brunnen2024!` (can be overridden via DB password change or `.env`).
 
 No test framework or linter is configured.
 
@@ -36,7 +36,7 @@ No test framework or linter is configured.
 ### Backend Structure
 
 - `backend/src/server.js` — Express app, middleware (CORS, session, CSRF), route mounting, static `/api/uploads/*`
-- `backend/src/database.js` — Async sql.js init, `getDb()` accessor, `saveDb()` persistence
+- `backend/src/database.js` — Async sql.js init, `getDb()` accessor, `saveDb()` persistence, all table creation + migrations
 - `backend/src/routes/` — `admin.js`, `inquiries.js`, `costs.js`, `suppliers.js`, `inventory.js`, `valueLists.js`
 - `backend/src/email.js` — Nodemailer templates, `WELL_TYPE_LABELS` export
 - `backend/src/pdfGenerator.js` — PDF quote generation
@@ -46,26 +46,28 @@ No test framework or linter is configured.
 
 - `frontend/src/App.jsx` — All routes (customer wizard `/`, admin pages `/admin/*`)
 - `frontend/src/api.js` — `apiGet`, `apiPost`, `apiPut`, `apiDelete` with auto CSRF token handling
-- `frontend/src/components/steps/Step1-Step7` — Wizard form steps
-- `frontend/src/pages/` — WizardPage, AdminDashboard, AdminDetail, AdminCosts, AdminSuppliers, AdminInventory, AdminValueLists, AdminCalendar (lazy)
+- `frontend/src/components/steps/` — Step1Contact through Step7Final (8 wizard steps, file names don't match step numbers due to insertions: Step4Cover=Step4, Step4Location=Step5, Step5Soil=Step6, Step6Supply=Step7, Step7Final=Step8)
+- `frontend/src/pages/` — WizardPage, AdminDashboard, AdminDetail, AdminCosts, AdminSuppliers, AdminInventory, AdminValueLists, AdminCalendar (lazy), AdminLogin
 - `frontend/src/hooks/useValueList.js` — Cached hook for dynamic dropdown values
 - `frontend/src/data/wellTypeData.jsx` — Complex well type definitions with pros/cons/icons (NOT a value list)
 
 ## Key Patterns
 
-**DB queries:** `getDb().prepare(sql).all(...params)` / `.get()` / `.run()` — sql.js sync API. Call `saveDb()` only in route handlers that mutate (the existing routes handle this via the database module).
+**DB queries:** `getDb().prepare(sql).all(...params)` / `.get()` / `.run()` — sql.js sync API. `saveDb()` is called automatically inside `getDb().prepare().run()`, so route handlers don't need to call it separately.
 
-**Migrations:** Use `ALTER TABLE ... ADD COLUMN` wrapped in try/catch. If column exists, the error is silently ignored.
+**Migrations:** Use `ALTER TABLE ... ADD COLUMN` wrapped in try/catch in `database.js`. If column exists, the error is silently ignored. Never modify existing CREATE TABLE statements for schema changes — always add migrations below them.
 
-**Auth:** Session-based via `express-session`. Admin routes use `requireAuth` middleware. CSRF token fetched from `/api/csrf-token` and sent as `X-CSRF-Token` header on POST/PUT/DELETE.
+**Auth:** Session-based via `express-session`. Admin routes use `requireAuth` middleware. CSRF token fetched from `/api/csrf-token` and sent as `X-CSRF-Token` header on POST/PUT/DELETE. Admin password can be overridden via `admin_settings` table (PBKDF2 hash), falling back to `.env` credentials.
 
 **Frontend API calls:** Always use `apiGet/apiPost/apiPut/apiDelete` from `api.js`. These handle CSRF tokens and credentials automatically.
 
-**Value Lists:** 15 system-seeded lists (inquiry_statuses, well_types, soil_types, etc.) in `value_lists` + `value_list_items` tables. Public read via `/api/value-lists/:key/items`. Use `useValueList(listKey)` hook on frontend (5-minute cache).
+**Value Lists:** 16 system-seeded lists (inquiry_statuses, well_types, soil_types, units, etc.) in `value_lists` + `value_list_items` tables. Public read via `/api/value-lists/:key/items`. Use `useValueList(listKey)` hook on frontend (5-minute cache).
 
 **CSS classes:** `form-input`, `btn-primary`, `btn-secondary`, `card` are custom Tailwind utility classes defined in `frontend/src/index.css`.
 
 **Search inputs:** Use debounced pattern — local `search` state → 600ms timeout → `debouncedSearch` → useEffect triggers API call. This prevents cursor jumping.
+
+**Wizard form fields:** In Step1Contact, only `city` and `bundesland` are required. All other contact fields (name, email, street, etc.) are optional. Email is required at Step8 before showing the summary (validated via `email_summary` error key in WizardPage).
 
 ## Data Model (core FK relationships)
 
@@ -82,13 +84,15 @@ cost_items (id)
 
 suppliers (id)
   └── cost_item_suppliers (supplier_id FK)
+
+admin_settings (key TEXT PK) — stores password hash override etc.
 ```
 
 Uploaded files are stored in `backend/uploads/` as `{timestamp}-{uuid}.{ext}`.
 
 ## Environment Variables
 
-Set in `.env` (copy from `.env.example`). Key vars: `PORT`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `EMAIL_COMPANY`, `FRONTEND_URL`.
+Set in `.env` (copy from `.env.example`). Key vars: `PORT`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `EMAIL_COMPANY`, `FRONTEND_URL`, `ADMIN_EMAIL` (for password reset emails).
 
 ## Language
 

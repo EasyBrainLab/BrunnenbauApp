@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -43,9 +43,6 @@ export default function AdminCalendar() {
           <h1 className="text-2xl font-semibold text-primary-500">Kalender</h1>
           <p className="text-gray-500 text-sm">Vor-Ort-Termine und bevorzugte Kundentermine</p>
         </div>
-        <Link to="/admin/dashboard" className="btn-secondary text-sm py-2 px-4">
-          Zurueck zum Dashboard
-        </Link>
       </div>
 
       <div className="card">

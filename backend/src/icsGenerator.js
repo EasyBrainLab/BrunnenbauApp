@@ -2,6 +2,7 @@
  * iCalendar (.ics) Generator
  * Erzeugt einen iCalendar-String fuer Terminanhaenge in Emails.
  */
+const { getCompanySettings } = require('./companySettings');
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -18,7 +19,9 @@ function formatDateIcs(date) {
 }
 
 function generateUid() {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}@brunnenbau.de`;
+  const cs = getCompanySettings();
+  const domain = (cs.company_website || cs.email_from || 'brunnenbau.de').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}@${domain}`;
 }
 
 /**
@@ -40,7 +43,7 @@ function generateIcs({ title, startDate, endDate, location, description, organiz
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Lies-Brunnenbau//Anfrage-Portal//DE',
+    `PRODID:-//${getCompanySettings().company_name_short}//Anfrage-Portal//DE`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',

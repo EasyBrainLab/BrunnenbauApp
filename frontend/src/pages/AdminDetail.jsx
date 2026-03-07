@@ -171,10 +171,11 @@ export default function AdminDetail() {
       <div className="card mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
         <dl>
-          <DetailRow label="Name" value={`${inquiry.first_name} ${inquiry.last_name}`} />
-          <DetailRow label="E-Mail" value={inquiry.email} />
+          <DetailRow label="Name" value={`${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim() || '–'} />
+          <DetailRow label="E-Mail" value={inquiry.email || '–'} />
           <DetailRow label="Telefon" value={inquiry.phone} />
-          <DetailRow label="Adresse" value={`${inquiry.street} ${inquiry.house_number}, ${inquiry.zip_code} ${inquiry.city}`} />
+          <DetailRow label="Adresse" value={`${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}`.replace(/^\s*,\s*/, '').trim() || '–'} />
+          <DetailRow label="Bundesland" value={inquiry.bundesland} />
         </dl>
       </div>
 

@@ -1,4 +1,5 @@
 const https = require('https');
+const { getCompanySettings, getEmailSignature } = require('./companySettings');
 
 const WELL_TYPE_LABELS = {
   gespuelt: 'Gespuelter Brunnen',
@@ -68,7 +69,7 @@ async function sendTelegramCustomerConfirmation(inquiry) {
     `*Anfrage-ID:* \`${inquiry.inquiry_id}\`\n` +
     `*Brunnenart:* ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\n\n` +
     `Wir melden uns in Kuerze bei Ihnen.\n` +
-    `Ihr Brunnenbau-Team`;
+    getEmailSignature().replace(/\n/g, '\n');
 
   try {
     await telegramRequest('sendMessage', {

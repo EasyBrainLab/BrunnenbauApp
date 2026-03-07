@@ -1,11 +1,83 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
 const { getDb } = require('../database');
 const { WELL_TYPE_LABELS } = require('../email');
 const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
 const nodemailer = require('nodemailer');
 const { generateQuotePdf } = require('../pdfGenerator');
+const { getCompanySettings, getSettingsKeys, getEmailSignature } = require('../companySettings');
+
+// Multer fuer Logo-Upload
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '..', '..', 'uploads');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `logo${ext}`);
+  },
+});
+const logoUpload = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, allowed.includes(ext));
+  },
+});
+
+function hashPassword(password, salt) {
+  if (!salt) salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password, storedHash, storedSalt) {
+  const { hash } = hashPassword(password, storedSalt);
+  return hash === storedHash;
+}
+
+function getAdminCredentials(db) {
+  const row = db.prepare("SELECT value FROM admin_settings WHERE key = 'admin_password_hash'").get();
+  if (row) {
+    try {
+      const { hash, salt } = JSON.parse(row.value);
+      return { type: 'db', hash, salt };
+    } catch { /* fall through */ }
+  }
+  return {
+    type: 'env',
+    username: process.env.ADMIN_USERNAME || 'admin',
+    password: process.env.ADMIN_PASSWORD || 'brunnen2024!',
+  };
+}
+
+function createTransporter() {
+  if (process.env.SMTP_HOST) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+  }
+  return {
+    sendMail: async (opts) => {
+      console.log('=== EMAIL (Dev) ===');
+      console.log('An:', opts.to);
+      console.log('Betreff:', opts.subject);
+      console.log('Text:', opts.text?.substring(0, 300));
+      console.log('===================');
+      return { messageId: 'dev-' + Date.now() };
+    },
+  };
+}
 
 const router = express.Router();
 
@@ -21,9 +93,21 @@ function requireAuth(req, res, next) {
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
-  const adminPass = process.env.ADMIN_PASSWORD || 'brunnen2024!';
+  const db = getDb();
+  const creds = getAdminCredentials(db);
 
-  if (username === adminUser && password === adminPass) {
+  let valid = false;
+  if (creds.type === 'db') {
+    if (username === adminUser && verifyPassword(password, creds.hash, creds.salt)) {
+      valid = true;
+    }
+  } else {
+    if (username === creds.username && password === creds.password) {
+      valid = true;
+    }
+  }
+
+  if (valid) {
     req.session.isAdmin = true;
     res.json({ message: 'Erfolgreich angemeldet' });
   } else {
@@ -138,7 +222,7 @@ router.get('/export/csv', requireAuth, (req, res) => {
 
   const headers = [
     'Anfrage-ID', 'Datum', 'Status', 'Vorname', 'Nachname', 'E-Mail', 'Telefon',
-    'Straße', 'Hausnummer', 'PLZ', 'Ort', 'Brunnenart', 'Brunnenabdeckung', 'Bohrstandort',
+    'Straße', 'Hausnummer', 'PLZ', 'Ort', 'Bundesland', 'Brunnenart', 'Brunnenabdeckung', 'Bohrstandort',
     'Zufahrt', 'Grundwassertiefe', 'Bodenarten', 'Wasseranschluss',
     'Abwassereinlass', 'Verwendungszweck', 'Fördermenge', 'Anmerkungen',
     'Vor-Ort-Termin', 'Bevorzugter Termin'
@@ -159,6 +243,7 @@ router.get('/export/csv', requireAuth, (req, res) => {
       inq.house_number,
       inq.zip_code,
       inq.city,
+      inq.bundesland || '',
       WELL_TYPE_LABELS[inq.well_type] || inq.well_type,
       inq.well_cover_type || '',
       inq.drill_location || '',
@@ -274,12 +359,15 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
     let renderedSubject = subject || '';
     let renderedBody = body_text || '';
 
+    const cs = getCompanySettings();
     const vars = {
       inquiry_id: inquiry.inquiry_id,
       first_name: inquiry.first_name,
       last_name: inquiry.last_name,
       email: inquiry.email,
       well_type: WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type,
+      signature: getEmailSignature(cs),
+      company_name: cs.company_name,
       ...placeholders,
     };
 
@@ -290,29 +378,10 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
     }
 
     // Email senden
-    let transporter;
-    if (process.env.SMTP_HOST) {
-      transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      });
-    } else {
-      transporter = {
-        sendMail: async (opts) => {
-          console.log('=== ADMIN-ANTWORT (Dev) ===');
-          console.log('An:', opts.to);
-          console.log('Betreff:', opts.subject);
-          console.log('Text:', opts.text?.substring(0, 300));
-          console.log('===========================');
-          return { messageId: 'dev-' + Date.now() };
-        },
-      };
-    }
+    const transporter = createTransporter();
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'info@brunnenbau.de',
+      from: getCompanySettings().email_from,
       to: inquiry.email,
       subject: renderedSubject,
       text: renderedBody,
@@ -512,32 +581,13 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
     });
 
     // Email senden
-    let transporter;
-    if (process.env.SMTP_HOST) {
-      transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      });
-    } else {
-      transporter = {
-        sendMail: async (opts) => {
-          console.log('=== ANGEBOT-EMAIL (Dev) ===');
-          console.log('An:', opts.to);
-          console.log('Betreff:', opts.subject);
-          console.log('Anhang:', opts.attachments?.[0]?.filename);
-          console.log('===========================');
-          return { messageId: 'dev-' + Date.now() };
-        },
-      };
-    }
+    const transporter2 = createTransporter();
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'info@brunnenbau.de',
+    await transporter2.sendMail({
+      from: getCompanySettings().email_from,
       to: inquiry.email,
       subject: `Ihr Kostenvoranschlag – Anfrage ${inquiry.inquiry_id}`,
-      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\nMit freundlichen Gruessen\nIhr Brunnenbau-Team`,
+      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature()}`,
       attachments: [{
         filename: `Kostenvoranschlag_${inquiry.inquiry_id}.pdf`,
         content: pdfBuffer,
@@ -585,6 +635,129 @@ router.get('/regulations', (req, res) => {
   }
 
   res.json(regulations);
+});
+
+// ==================== Firmendaten ====================
+
+// GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
+router.get('/company-settings', (req, res) => {
+  const settings = getCompanySettings();
+  // Ohne Auth: nur oeffentliche Felder
+  if (!req.session?.isAdmin) {
+    const { company_name, company_name_short, tagline, company_phone, company_email,
+            company_website, company_city, company_state, primary_color, logo_path } = settings;
+    return res.json({ company_name, company_name_short, tagline, company_phone,
+      company_email, company_website, company_city, company_state, primary_color, logo_path });
+  }
+  res.json(settings);
+});
+
+// PUT /api/admin/company-settings — Firmendaten aktualisieren
+router.put('/company-settings', requireAuth, (req, res) => {
+  const { settings } = req.body;
+  if (!settings || typeof settings !== 'object') {
+    return res.status(400).json({ error: 'Einstellungen erforderlich' });
+  }
+
+  const validKeys = getSettingsKeys();
+  const db = getDb();
+
+  for (const [key, value] of Object.entries(settings)) {
+    if (!validKeys.includes(key)) continue;
+    db.prepare(
+      'INSERT OR REPLACE INTO company_settings (key, value) VALUES (?, ?)'
+    ).run(key, value ?? '');
+  }
+
+  res.json({ message: 'Firmendaten gespeichert' });
+});
+
+// POST /api/admin/company-logo — Logo hochladen
+router.post('/company-logo', requireAuth, logoUpload.single('logo'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Keine Datei hochgeladen oder ungültiges Format (JPG, PNG, GIF, WebP, SVG)' });
+  }
+
+  const logoUrl = `/api/uploads/${req.file.filename}`;
+  const db = getDb();
+  db.prepare(
+    'INSERT OR REPLACE INTO company_settings (key, value) VALUES (?, ?)'
+  ).run('logo_path', logoUrl);
+
+  res.json({ message: 'Logo hochgeladen', logo_path: logoUrl });
+});
+
+// DELETE /api/admin/company-logo — Logo entfernen
+router.delete('/company-logo', requireAuth, (req, res) => {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM company_settings WHERE key = 'logo_path'").get();
+  if (row && row.value) {
+    const filename = path.basename(row.value);
+    const filepath = path.join(__dirname, '..', '..', 'uploads', filename);
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+  }
+  db.prepare("DELETE FROM company_settings WHERE key = 'logo_path'").run();
+  res.json({ message: 'Logo entfernt' });
+});
+
+// ==================== Passwort-Verwaltung ====================
+
+// PUT /api/admin/change-password — Passwort setzen (eingeloggt)
+router.put('/change-password', requireAuth, (req, res) => {
+  const { new_password } = req.body;
+  if (!new_password) {
+    return res.status(400).json({ error: 'Neues Passwort erforderlich' });
+  }
+  if (new_password.length < 8) {
+    return res.status(400).json({ error: 'Neues Passwort muss mindestens 8 Zeichen haben' });
+  }
+
+  const db = getDb();
+  const { salt, hash } = hashPassword(new_password);
+  db.prepare(
+    "INSERT OR REPLACE INTO admin_settings (key, value) VALUES ('admin_password_hash', ?)"
+  ).run(JSON.stringify({ hash, salt }));
+
+  res.json({ message: 'Passwort erfolgreich geaendert' });
+});
+
+// POST /api/admin/request-password-reset — Neues Passwort per Email anfordern
+router.post('/request-password-reset', async (req, res) => {
+  const { username } = req.body;
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+
+  if (username !== adminUser) {
+    // Gleiche Antwort bei falschem Username (kein User-Enumeration)
+    return res.json({ message: 'Falls der Benutzername korrekt ist, wurde eine E-Mail mit dem neuen Passwort gesendet.' });
+  }
+
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_FROM;
+  if (!adminEmail) {
+    return res.status(500).json({ error: 'Kein Admin-E-Mail konfiguriert. Bitte ADMIN_EMAIL in .env setzen.' });
+  }
+
+  // Zufaelliges Passwort generieren
+  const tempPassword = crypto.randomBytes(6).toString('base64url');
+  const db = getDb();
+  const { salt, hash } = hashPassword(tempPassword);
+
+  db.prepare(
+    "INSERT OR REPLACE INTO admin_settings (key, value) VALUES ('admin_password_hash', ?)"
+  ).run(JSON.stringify({ hash, salt }));
+
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: getCompanySettings().email_from,
+      to: adminEmail,
+      subject: 'Brunnenbau-App: Neues Passwort',
+      text: `Ihr neues Admin-Passwort lautet:\n\n${tempPassword}\n\nBitte aendern Sie das Passwort nach der Anmeldung unter Einstellungen.\n\nDiese Nachricht wurde automatisch generiert.`,
+    });
+  } catch (err) {
+    console.error('Fehler beim Senden der Passwort-Reset-Email:', err);
+  }
+
+  res.json({ message: 'Falls der Benutzername korrekt ist, wurde eine E-Mail mit dem neuen Passwort gesendet.' });
 });
 
 module.exports = router;

@@ -1,5 +1,12 @@
 import { useValueList } from '../../hooks/useValueList';
 
+const BUNDESLAENDER = [
+  'Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen',
+  'Hamburg', 'Hessen', 'Mecklenburg-Vorpommern', 'Niedersachsen',
+  'Nordrhein-Westfalen', 'Rheinland-Pfalz', 'Saarland', 'Sachsen',
+  'Sachsen-Anhalt', 'Schleswig-Holstein', 'Thüringen',
+];
+
 export default function Step1Contact({ data, errors, onChange }) {
   const { items: contactOptions } = useValueList('preferred_contact');
   const handleChange = (e) => {
@@ -11,38 +18,73 @@ export default function Step1Contact({ data, errors, onChange }) {
     <div>
       <h2 className="text-2xl font-heading font-semibold text-primary-500 mb-2">Kontaktdaten</h2>
       <p className="text-gray-600 mb-6">
-        Bitte geben Sie Ihre Kontaktdaten ein, damit wir Ihnen ein Angebot zukommen lassen können.
+        Geben Sie Ihren Standort an, damit wir die regionalen Vorschriften berücksichtigen können.
+        Weitere Kontaktdaten sind optional – Sie können diese jederzeit ergänzen.
       </p>
+
+      {/* Standort (Pflichtfelder) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label className="form-label">Ort / Stadt *</label>
+          <input
+            type="text"
+            name="city"
+            value={data.city || ''}
+            onChange={handleChange}
+            className={`form-input ${errors.city ? 'error' : ''}`}
+            placeholder="Musterstadt"
+          />
+          {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+        </div>
+
+        <div>
+          <label className="form-label">Bundesland *</label>
+          <select
+            name="bundesland"
+            value={data.bundesland || ''}
+            onChange={handleChange}
+            className={`form-input ${errors.bundesland ? 'error' : ''}`}
+          >
+            <option value="">Bitte wählen...</option>
+            {BUNDESLAENDER.map((bl) => (
+              <option key={bl} value={bl}>{bl}</option>
+            ))}
+          </select>
+          {errors.bundesland && <p className="text-red-500 text-xs mt-1">{errors.bundesland}</p>}
+        </div>
+      </div>
+
+      <div className="border-t border-earth-100 pt-4 mb-4">
+        <p className="text-sm text-gray-500 mb-4">Optionale Angaben – können auch später ergänzt werden:</p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="form-label">Vorname *</label>
+          <label className="form-label">Vorname</label>
           <input
             type="text"
             name="first_name"
             value={data.first_name || ''}
             onChange={handleChange}
-            className={`form-input ${errors.first_name ? 'error' : ''}`}
+            className="form-input"
             placeholder="Max"
           />
-          {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
         </div>
 
         <div>
-          <label className="form-label">Nachname *</label>
+          <label className="form-label">Nachname</label>
           <input
             type="text"
             name="last_name"
             value={data.last_name || ''}
             onChange={handleChange}
-            className={`form-input ${errors.last_name ? 'error' : ''}`}
+            className="form-input"
             placeholder="Mustermann"
           />
-          {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
         </div>
 
         <div>
-          <label className="form-label">E-Mail-Adresse *</label>
+          <label className="form-label">E-Mail-Adresse</label>
           <input
             type="email"
             name="email"
@@ -100,33 +142,31 @@ export default function Step1Contact({ data, errors, onChange }) {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
         <div className="md:col-span-2">
-          <label className="form-label">Straße *</label>
+          <label className="form-label">Straße</label>
           <input
             type="text"
             name="street"
             value={data.street || ''}
             onChange={handleChange}
-            className={`form-input ${errors.street ? 'error' : ''}`}
+            className="form-input"
             placeholder="Musterstraße"
           />
-          {errors.street && <p className="text-red-500 text-xs mt-1">{errors.street}</p>}
         </div>
 
         <div>
-          <label className="form-label">Hausnummer *</label>
+          <label className="form-label">Hausnummer</label>
           <input
             type="text"
             name="house_number"
             value={data.house_number || ''}
             onChange={handleChange}
-            className={`form-input ${errors.house_number ? 'error' : ''}`}
+            className="form-input"
             placeholder="12a"
           />
-          {errors.house_number && <p className="text-red-500 text-xs mt-1">{errors.house_number}</p>}
         </div>
 
         <div>
-          <label className="form-label">PLZ *</label>
+          <label className="form-label">PLZ</label>
           <input
             type="text"
             name="zip_code"
@@ -138,19 +178,6 @@ export default function Step1Contact({ data, errors, onChange }) {
           />
           {errors.zip_code && <p className="text-red-500 text-xs mt-1">{errors.zip_code}</p>}
         </div>
-      </div>
-
-      <div className="mt-4">
-        <label className="form-label">Ort *</label>
-        <input
-          type="text"
-          name="city"
-          value={data.city || ''}
-          onChange={handleChange}
-          className={`form-input ${errors.city ? 'error' : ''}`}
-          placeholder="Musterstadt"
-        />
-        {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
       </div>
 
       <div className="mt-6">

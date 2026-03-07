@@ -28,6 +28,7 @@ export default function WizardPage() {
     house_number: '',
     zip_code: '',
     city: '',
+    bundesland: '',
     telegram_handle: '',
     preferred_contact: 'email',
     privacy_accepted: false,
@@ -79,21 +80,14 @@ export default function WizardPage() {
     const newErrors = {};
 
     if (currentStep === 1) {
-      if (!data.first_name.trim()) newErrors.first_name = 'Vorname ist erforderlich';
-      if (!data.last_name.trim()) newErrors.last_name = 'Nachname ist erforderlich';
-      if (!data.email.trim()) {
-        newErrors.email = 'E-Mail ist erforderlich';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      if (!data.city.trim()) newErrors.city = 'Ort ist erforderlich';
+      if (!data.bundesland) newErrors.bundesland = 'Bundesland ist erforderlich';
+      if (data.email && data.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
         newErrors.email = 'Ungültige E-Mail-Adresse';
       }
-      if (!data.street.trim()) newErrors.street = 'Straße ist erforderlich';
-      if (!data.house_number.trim()) newErrors.house_number = 'Hausnummer ist erforderlich';
-      if (!data.zip_code.trim()) {
-        newErrors.zip_code = 'PLZ ist erforderlich';
-      } else if (!/^\d{5}$/.test(data.zip_code)) {
+      if (data.zip_code && data.zip_code.trim() && !/^\d{5}$/.test(data.zip_code)) {
         newErrors.zip_code = 'PLZ muss 5 Ziffern haben';
       }
-      if (!data.city.trim()) newErrors.city = 'Ort ist erforderlich';
       if (!data.privacy_accepted) newErrors.privacy_accepted = 'Datenschutzerklärung muss akzeptiert werden';
     }
 
@@ -113,6 +107,11 @@ export default function WizardPage() {
 
     if (currentStep === 8 && !showSummary) {
       if (!data.privacy_final) newErrors.privacy_final = 'Bitte bestätigen Sie die Datenschutzerklärung';
+      if (!data.email || !data.email.trim()) {
+        newErrors.email_summary = 'E-Mail-Adresse ist erforderlich, um die Zusammenfassung zu erhalten';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+        newErrors.email_summary = 'Ungültige E-Mail-Adresse';
+      }
     }
 
     setErrors(newErrors);

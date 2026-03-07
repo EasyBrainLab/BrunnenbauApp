@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiPost, apiDelete } from '../api';
+import { apiGet, apiDelete } from '../api';
 import { useValueList } from '../hooks/useValueList';
 
 export default function AdminDashboard() {
@@ -75,11 +75,6 @@ export default function AdminDashboard() {
     } catch (err) { /* ignore */ }
   };
 
-  const logout = async () => {
-    await apiPost('/api/admin/logout', {});
-    navigate('/admin');
-  };
-
   const deleteInquiry = async (inquiryId) => {
     if (!window.confirm('Anfrage "' + inquiryId + '" und alle zugehoerigen Daten unwiderruflich loeschen?')) return;
     const res = await apiDelete('/api/admin/inquiries/' + inquiryId);
@@ -91,30 +86,19 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="px-6 py-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-heading font-semibold text-primary-500">Dashboard</h1>
           <p className="text-gray-500">Verwaltung aller Brunnenanfragen</p>
         </div>
-        <div className="flex gap-3 mt-4 md:mt-0">
-          <Link to="/admin/kalender" className="btn-secondary text-sm py-2 px-4 flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Kalender
-          </Link>
-          <button onClick={exportCsv} className="btn-secondary text-sm py-2 px-4 flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            CSV-Export
-          </button>
-          <button onClick={logout} className="text-sm text-gray-500 hover:text-red-500 transition-colors py-2 px-4">
-            Abmelden
-          </button>
-        </div>
+        <button onClick={exportCsv} className="btn-secondary text-sm py-2 px-4 flex items-center gap-2 mt-4 md:mt-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          CSV-Export
+        </button>
       </div>
 
       {/* Statistiken */}
@@ -131,65 +115,6 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
           </div>
         ))}
-      </div>
-
-      {/* Stammdaten Quick-Links */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <Link to="/admin/kosten?tab=items" className="card hover:shadow-md transition-shadow flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Materialstammdaten</p>
-            <p className="text-xs text-gray-500">Material, Preise & Stammdaten</p>
-          </div>
-        </Link>
-        <Link to="/admin/kosten?tab=bom" className="card hover:shadow-md transition-shadow flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Stuecklisten (BOM)</p>
-            <p className="text-xs text-gray-500">Brunnentyp-Zuordnungen</p>
-          </div>
-        </Link>
-        <Link to="/admin/lieferanten" className="card hover:shadow-md transition-shadow flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Lieferanten</p>
-            <p className="text-xs text-gray-500">Lieferanten & Bezugsquellen</p>
-          </div>
-        </Link>
-        <Link to="/admin/lager" className="card hover:shadow-md transition-shadow flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Lagerverwaltung</p>
-            <p className="text-xs text-gray-500">Bestand, Lagerorte & Bewegungen</p>
-          </div>
-        </Link>
-        <Link to="/admin/wertelisten" className="card hover:shadow-md transition-shadow flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Wertelisten</p>
-            <p className="text-xs text-gray-500">Dropdown-Werte verwalten</p>
-          </div>
-        </Link>
       </div>
 
       {/* Bestandswarnungen */}

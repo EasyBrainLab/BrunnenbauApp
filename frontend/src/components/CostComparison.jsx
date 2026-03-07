@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { COST_INFO, WELL_TYPE_LABELS } from '../data/wellTypeData.jsx';
+import { apiGet } from '../api';
 
 const BREAKDOWN_LABELS = {
   material: 'Material',
@@ -17,9 +18,36 @@ const BREAKDOWN_COLORS = {
 
 export default function CostComparison({ selectedType }) {
   const [expandedType, setExpandedType] = useState(null);
+  const [costData, setCostData] = useState(COST_INFO);
+
+  useEffect(() => {
+    apiGet('/api/costs/well-type-costs').then(async (res) => {
+      if (res.ok) {
+        const dbCosts = await res.json();
+        if (Object.keys(dbCosts).length > 0) {
+          // DB-Werte mit Defaults mergen
+          const merged = { ...COST_INFO };
+          for (const [key, val] of Object.entries(dbCosts)) {
+            if (merged[key]) {
+              merged[key] = {
+                ...merged[key],
+                rangeMin: val.rangeMin,
+                rangeMax: val.rangeMax,
+                breakdown: val.breakdown || merged[key].breakdown,
+                typicalItems: val.typicalItems && val.typicalItems.length > 0
+                  ? val.typicalItems
+                  : merged[key].typicalItems,
+              };
+            }
+          }
+          setCostData(merged);
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   // Alle Typen ausser Beratung
-  const types = Object.entries(COST_INFO).filter(([key]) => key !== 'beratung');
+  const types = Object.entries(costData).filter(([key]) => key !== 'beratung');
   const maxCost = Math.max(...types.map(([, info]) => info.rangeMax));
 
   return (
