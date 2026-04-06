@@ -1,19 +1,4 @@
-version: "3.8"
-
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - frontend
-
   frontend:
     build:
       context: ./frontend
@@ -23,6 +8,15 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - traefik-proxy
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.brunnenbau.rule=Host(`bbtemp.easybrainlab.com`)"
+      - "traefik.http.routers.brunnenbau.entrypoints=websecure"
+      - "traefik.http.routers.brunnenbau.tls.certresolver=cloudflare"
+      - "traefik.http.services.brunnenbau.loadbalancer.server.port=80"
 
   backend:
     build:
@@ -37,8 +31,10 @@ services:
       - backend_uploads:/app/uploads
     restart: unless-stopped
 
+networks:
+  traefik-proxy:
+    external: true
+
 volumes:
-  caddy_data:
-  caddy_config:
   backend_data:
   backend_uploads:
