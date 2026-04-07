@@ -718,6 +718,165 @@ function initDatabase() {
       }
     } catch (e) { /* ignore */ }
 
+    // === Bohrtermine ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS drilling_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inquiry_id TEXT NOT NULL,
+        drill_date TEXT NOT NULL,
+        start_time TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (inquiry_id) REFERENCES inquiries(inquiry_id)
+      )
+    `);
+
+    // === Behoerden-Links pro Region ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS authority_links (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bundesland TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL,
+        description TEXT,
+        link_type TEXT DEFAULT 'anzeige',
+        sort_order INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1
+      )
+    `);
+
+    // Migration: Status "bohrung_terminiert" in Werteliste einfuegen (zwischen auftrag_erteilt und abgeschlossen)
+    try {
+      const statusList = db.prepare("SELECT id FROM value_lists WHERE list_key = 'inquiry_statuses'");
+      statusList.step();
+      const statusListId = statusList.getAsObject().id;
+      statusList.free();
+      if (statusListId) {
+        const exists = db.prepare("SELECT id FROM value_list_items WHERE list_id = ? AND value = 'bohrung_terminiert'");
+        const ex = exists.step();
+        exists.free();
+        if (!ex) {
+          // sort_order 4.5 → zwischen auftrag_erteilt(4) und abgeschlossen(5)
+          db.run("UPDATE value_list_items SET sort_order = sort_order + 1 WHERE list_id = ? AND sort_order >= 5", [statusListId]);
+          db.run(
+            "INSERT INTO value_list_items (list_id, value, label, sort_order, is_active, color) VALUES (?, 'bohrung_terminiert', 'Bohrung terminiert', 5, 1, 'bg-cyan-100 text-cyan-700')",
+            [statusListId]
+          );
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Migration: Anrede-Feld (Herr/Frau)
+    try { db.run('ALTER TABLE inquiries ADD COLUMN salutation TEXT'); saveDb(); } catch (e) {}
+
+    // Migration: Landkreis/Bezirk
+    try { db.run('ALTER TABLE inquiries ADD COLUMN landkreis TEXT'); saveDb(); } catch (e) {}
+
+    // =====================================================
+    // Multi-Tenant Tabellen und Migrationen
+    // =====================================================
+
+    // Tenants (Firmen)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT UNIQUE NOT NULL,
+        company_name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        plan TEXT DEFAULT 'free',
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        settings_json TEXT
+      )
+    `);
+
+    // Benutzer (mehrere pro Tenant)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'admin',
+        display_name TEXT,
+        is_active INTEGER DEFAULT 1,
+        last_login TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(tenant_id, email),
+        UNIQUE(tenant_id, username),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+      )
+    `);
+
+    // Tenant SMTP-Einstellungen
+    db.run(`
+      CREATE TABLE IF NOT EXISTS tenant_smtp (
+        tenant_id TEXT PRIMARY KEY,
+        smtp_host TEXT,
+        smtp_port INTEGER DEFAULT 587,
+        smtp_secure INTEGER DEFAULT 0,
+        smtp_user TEXT,
+        smtp_pass_encrypted TEXT,
+        email_from TEXT,
+        email_reply_to TEXT,
+        is_verified INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+      )
+    `);
+
+    // === Migration: tenant_id zu allen bestehenden Tabellen ===
+    const tenantIdMigrations = [
+      'ALTER TABLE inquiries ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE inquiry_files ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE inquiry_responses ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE inquiry_messages ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE response_templates ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE cost_items ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE well_type_bom ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE quotes ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE well_type_costs ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE suppliers ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE supplier_documents ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE cost_item_suppliers ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE storage_locations ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE inventory ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE stock_movements ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE drilling_schedules ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE company_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE admin_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+    ];
+    for (const sql of tenantIdMigrations) {
+      try { db.run(sql); } catch (e) { /* column exists */ }
+    }
+
+    // Default-Tenant anlegen falls nicht vorhanden
+    try {
+      const defaultTenant = db.prepare("SELECT id FROM tenants WHERE tenant_id = 'default'");
+      const hasTenant = defaultTenant.step();
+      defaultTenant.free();
+      if (!hasTenant) {
+        // Firmenname aus company_settings lesen oder Fallback
+        let companyName = 'Meine Brunnenbaufirma';
+        try {
+          const nameStmt = db.prepare("SELECT value FROM company_settings WHERE key = 'company_name'");
+          if (nameStmt.step()) {
+            const val = nameStmt.getAsObject().value;
+            if (val) companyName = val;
+          }
+          nameStmt.free();
+        } catch (e) { /* ignore */ }
+
+        db.run(
+          "INSERT INTO tenants (tenant_id, company_name, slug, plan, is_active) VALUES ('default', ?, 'default', 'pro', 1)",
+          [companyName]
+        );
+      }
+    } catch (e) { /* ignore */ }
+
     saveDb();
     return db;
   })();

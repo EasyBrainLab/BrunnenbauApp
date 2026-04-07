@@ -2,8 +2,30 @@ const nodemailer = require('nodemailer');
 const { generateIcs } = require('./icsGenerator');
 const { getCompanySettings, getEmailSignature } = require('./companySettings');
 
-// E-Mail-Transporter erstellen
-function createTransporter() {
+// E-Mail-Transporter erstellen (mit optionalem Tenant-SMTP)
+function createTransporter(tenantId) {
+  // 1. Versuche Tenant-spezifischen SMTP
+  if (tenantId) {
+    try {
+      const { getDb } = require('./database');
+      const { decrypt } = require('./services/encryption');
+      const db = getDb();
+      const smtp = db.prepare('SELECT * FROM tenant_smtp WHERE tenant_id = ? AND is_verified = 1').get(tenantId);
+      if (smtp && smtp.smtp_host) {
+        const smtpPass = smtp.smtp_pass_encrypted ? decrypt(smtp.smtp_pass_encrypted) : '';
+        return nodemailer.createTransport({
+          host: smtp.smtp_host,
+          port: smtp.smtp_port || 587,
+          secure: !!smtp.smtp_secure,
+          auth: { user: smtp.smtp_user, pass: smtpPass },
+        });
+      }
+    } catch (e) {
+      console.error('Tenant-SMTP Fehler, nutze Platform-SMTP:', e.message);
+    }
+  }
+
+  // 2. Fallback: Platform-SMTP aus .env
   if (process.env.NODE_ENV !== 'production' && !process.env.SMTP_HOST) {
     return {
       sendMail: async (options) => {
@@ -39,15 +61,21 @@ const WELL_TYPE_LABELS = {
 };
 
 // Bestätigungs-E-Mail an Kunden
-async function sendCustomerConfirmation(inquiry) {
-  const transporter = createTransporter();
-  const cs = getCompanySettings();
+async function sendCustomerConfirmation(inquiry, tenantId) {
+  const transporter = createTransporter(tenantId);
+  const cs = getCompanySettings(tenantId);
   const sig = getEmailSignature(cs);
   const sigHtml = sig.replace(/\n/g, '<br>');
 
   const html = `
     <h2>Vielen Dank für Ihre Anfrage!</h2>
-    <p>Sehr geehrte(r) ${inquiry.first_name || ''} ${inquiry.last_name || ''},</p>
+    <p>${(() => {
+      const hasName = inquiry.first_name || inquiry.last_name;
+      if (!hasName) return 'Lieber Interessent';
+      if (inquiry.salutation === 'Herr') return `Sehr geehrter Herr ${inquiry.last_name || inquiry.first_name}`;
+      if (inquiry.salutation === 'Frau') return `Sehr geehrte Frau ${inquiry.last_name || inquiry.first_name}`;
+      return `Sehr geehrte(r) ${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim();
+    })()},</p>
     <p>wir haben Ihre Anfrage erhalten und werden uns zeitnah bei Ihnen melden.</p>
 
     <h3>Ihre Anfrage-ID: <strong>${inquiry.inquiry_id}</strong></h3>
@@ -106,9 +134,9 @@ async function sendCustomerConfirmation(inquiry) {
 }
 
 // Benachrichtigungs-E-Mail an Unternehmen
-async function sendCompanyNotification(inquiry) {
-  const transporter = createTransporter();
-  const cs = getCompanySettings();
+async function sendCompanyNotification(inquiry, tenantId) {
+  const transporter = createTransporter(tenantId);
+  const cs = getCompanySettings(tenantId);
 
   const html = `
     <h2>Neue Brunnenanfrage eingegangen</h2>

@@ -9,6 +9,7 @@ const { sendCustomerConfirmation, sendCompanyNotification } = require('../email'
 const nodemailer = require('nodemailer');
 const { generateQuotePdf } = require('../pdfGenerator');
 const { getCompanySettings, getSettingsKeys, getEmailSignature } = require('../companySettings');
+const { requireAuth: tenantRequireAuth } = require('../middleware/tenantContext');
 
 // Multer fuer Logo-Upload
 const logoStorage = multer.diskStorage({
@@ -51,10 +52,15 @@ function getAdminCredentials(db) {
       return { type: 'db', hash, salt };
     } catch { /* fall through */ }
   }
+  // Env-Fallback — in Produktion MUSS ADMIN_PASSWORD gesetzt sein
+  const envPassword = process.env.ADMIN_PASSWORD;
+  if (process.env.NODE_ENV === 'production' && (!envPassword || envPassword === 'brunnen2024!')) {
+    console.error('WARNUNG: Standard-Admin-Passwort in Produktion! Bitte sofort aendern unter /admin → Passwort aendern.');
+  }
   return {
     type: 'env',
     username: process.env.ADMIN_USERNAME || 'admin',
-    password: process.env.ADMIN_PASSWORD || 'brunnen2024!',
+    password: envPassword || 'brunnen2024!',
   };
 }
 
@@ -81,12 +87,9 @@ function createTransporter() {
 
 const router = express.Router();
 
-// Admin-Authentifizierung Middleware
+// Admin-Authentifizierung Middleware (nutzt tenant-aware Version)
 function requireAuth(req, res, next) {
-  if (req.session?.isAdmin) {
-    return next();
-  }
-  res.status(401).json({ error: 'Nicht autorisiert' });
+  return tenantRequireAuth(req, res, next);
 }
 
 // POST /api/admin/login
@@ -109,6 +112,8 @@ router.post('/login', (req, res) => {
 
   if (valid) {
     req.session.isAdmin = true;
+    req.session.tenantId = 'default';
+    req.session.userRole = 'owner';
     res.json({ message: 'Erfolgreich angemeldet' });
   } else {
     res.status(401).json({ error: 'Ungültige Zugangsdaten' });
@@ -132,8 +137,8 @@ router.get('/inquiries', requireAuth, (req, res) => {
   const { status, search } = req.query;
 
   let query = 'SELECT * FROM inquiries';
-  const conditions = [];
-  const params = [];
+  const conditions = ['tenant_id = ?'];
+  const params = [req.tenantId];
 
   if (status && status !== 'alle') {
     conditions.push('status = ?');
@@ -146,9 +151,7 @@ router.get('/inquiries', requireAuth, (req, res) => {
     params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
-  }
+  query += ' WHERE ' + conditions.join(' AND ');
 
   query += ' ORDER BY created_at DESC';
 
@@ -159,15 +162,68 @@ router.get('/inquiries', requireAuth, (req, res) => {
 // GET /api/admin/inquiries/:id – Einzelne Anfrage
 router.get('/inquiries/:id', requireAuth, (req, res) => {
   const db = getDb();
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(req.params.id);
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
 
   if (!inquiry) {
     return res.status(404).json({ error: 'Anfrage nicht gefunden' });
   }
 
-  const files = db.prepare('SELECT * FROM inquiry_files WHERE inquiry_id = ?').all(req.params.id);
+  const files = db.prepare('SELECT * FROM inquiry_files WHERE inquiry_id = ? AND tenant_id = ?').all(req.params.id, req.tenantId);
 
   res.json({ ...inquiry, files });
+});
+
+// PUT /api/admin/inquiries/:id – Kundendaten aktualisieren
+router.put('/inquiries/:id', requireAuth, (req, res) => {
+  const db = getDb();
+  const inquiryId = req.params.id;
+
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
+  if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
+
+  // Erlaubte Felder fuer Admin-Bearbeitung
+  const allowedFields = [
+    'first_name', 'last_name', 'email', 'phone',
+    'street', 'house_number', 'zip_code', 'city', 'bundesland',
+    'well_type', 'well_cover_type', 'drill_location', 'access_situation',
+    'access_restriction_details', 'groundwater_known', 'groundwater_depth',
+    'soil_report_available', 'soil_types',
+    'water_connection', 'sewage_connection',
+    'usage_purposes', 'usage_other', 'flow_rate',
+    'garden_irrigation_planning', 'garden_irrigation_data',
+    'additional_notes', 'site_visit_requested', 'preferred_date',
+    'telegram_handle', 'preferred_contact',
+    'pump_type', 'pump_installation_location', 'installation_floor',
+    'wall_breakthrough', 'control_device',
+    'surface_type', 'excavation_disposal',
+  ];
+
+  const updates = [];
+  const values = [];
+
+  for (const [key, value] of Object.entries(req.body)) {
+    if (!allowedFields.includes(key)) continue;
+    updates.push(`${key} = ?`);
+    values.push(value === '' ? null : value);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'Keine aenderbaren Felder angegeben' });
+  }
+
+  values.push(inquiryId);
+  db.prepare(`UPDATE inquiries SET ${updates.join(', ')} WHERE inquiry_id = ? AND tenant_id = ?`).run(...values, req.tenantId);
+
+  // Aenderung loggen
+  const changedFields = Object.keys(req.body).filter(k => allowedFields.includes(k));
+  db.prepare(
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(inquiryId, 'system', 'System', `Kundendaten bearbeitet: ${changedFields.join(', ')}`, req.tenantId);
+
+  // Aktualisierte Anfrage zurueckgeben
+  const updated = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
+  const files = db.prepare('SELECT * FROM inquiry_files WHERE inquiry_id = ? AND tenant_id = ?').all(inquiryId, req.tenantId);
+  res.json({ ...updated, files });
 });
 
 // PUT /api/admin/inquiries/:id/status – Status aktualisieren
@@ -193,7 +249,7 @@ router.put('/inquiries/:id/status', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Ungültiger Status' });
   }
 
-  const result = db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ?').run(status, req.params.id);
+  const result = db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ? AND tenant_id = ?').run(status, req.params.id, req.tenantId);
 
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -201,8 +257,8 @@ router.put('/inquiries/:id/status', requireAuth, (req, res) => {
 
   // Status-Aenderung als System-Nachricht loggen
   db.prepare(
-    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-  ).run(req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabelMap[status] || status}`);
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabelMap[status] || status}`, req.tenantId);
 
   res.json({ message: 'Status aktualisiert' });
 });
@@ -211,14 +267,14 @@ router.put('/inquiries/:id/status', requireAuth, (req, res) => {
 router.put('/inquiries/:id/notes', requireAuth, (req, res) => {
   const { notes } = req.body;
   const db = getDb();
-  db.prepare('UPDATE inquiries SET admin_notes = ? WHERE inquiry_id = ?').run(notes, req.params.id);
+  db.prepare('UPDATE inquiries SET admin_notes = ? WHERE inquiry_id = ? AND tenant_id = ?').run(notes, req.params.id, req.tenantId);
   res.json({ message: 'Notizen gespeichert' });
 });
 
 // GET /api/admin/export/csv – CSV-Export
 router.get('/export/csv', requireAuth, (req, res) => {
   const db = getDb();
-  const inquiries = db.prepare('SELECT * FROM inquiries ORDER BY created_at DESC').all();
+  const inquiries = db.prepare('SELECT * FROM inquiries WHERE tenant_id = ? ORDER BY created_at DESC').all(req.tenantId);
 
   const headers = [
     'Anfrage-ID', 'Datum', 'Status', 'Vorname', 'Nachname', 'E-Mail', 'Telefon',
@@ -273,7 +329,7 @@ router.delete('/inquiries/:id', requireAuth, (req, res) => {
   const db = getDb();
   const inquiryId = req.params.id;
 
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(inquiryId);
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
   // Dateien vom Filesystem loeschen
@@ -298,11 +354,11 @@ router.delete('/inquiries/:id', requireAuth, (req, res) => {
 // GET /api/admin/stats – Dashboard-Statistiken
 router.get('/stats', requireAuth, (req, res) => {
   const db = getDb();
-  const total = db.prepare('SELECT COUNT(*) as count FROM inquiries').get().count;
-  const neu = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'neu'").get().count;
-  const inBearbeitung = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'in_bearbeitung'").get().count;
-  const angebotErstellt = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'angebot_erstellt'").get().count;
-  const abgeschlossen = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'abgeschlossen'").get().count;
+  const total = db.prepare('SELECT COUNT(*) as count FROM inquiries WHERE tenant_id = ?').get(req.tenantId).count;
+  const neu = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'neu' AND tenant_id = ?").get(req.tenantId).count;
+  const inBearbeitung = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'in_bearbeitung' AND tenant_id = ?").get(req.tenantId).count;
+  const angebotErstellt = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'angebot_erstellt' AND tenant_id = ?").get(req.tenantId).count;
+  const abgeschlossen = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'abgeschlossen' AND tenant_id = ?").get(req.tenantId).count;
 
   res.json({ total, neu, inBearbeitung, angebotErstellt, abgeschlossen });
 });
@@ -312,7 +368,7 @@ router.get('/stats', requireAuth, (req, res) => {
 // GET /api/admin/templates
 router.get('/templates', requireAuth, (req, res) => {
   const db = getDb();
-  const templates = db.prepare('SELECT * FROM response_templates ORDER BY sort_order, id').all();
+  const templates = db.prepare('SELECT * FROM response_templates WHERE tenant_id = ? ORDER BY sort_order, id').all(req.tenantId);
   res.json(templates);
 });
 
@@ -324,8 +380,8 @@ router.post('/templates', requireAuth, (req, res) => {
   }
   const db = getDb();
   db.prepare(
-    'INSERT INTO response_templates (name, subject, body_html, body_text, category, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0);
+    'INSERT INTO response_templates (name, subject, body_html, body_text, category, sort_order, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0, req.tenantId);
   res.status(201).json({ message: 'Vorlage erstellt' });
 });
 
@@ -352,14 +408,14 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
     const { template_id, subject, body_text, placeholders } = req.body;
     const db = getDb();
 
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(req.params.id);
+    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
     // Platzhalter ersetzen
     let renderedSubject = subject || '';
     let renderedBody = body_text || '';
 
-    const cs = getCompanySettings();
+    const cs = getCompanySettings(req.tenantId);
     const vars = {
       inquiry_id: inquiry.inquiry_id,
       first_name: inquiry.first_name,
@@ -381,7 +437,7 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
     const transporter = createTransporter();
 
     await transporter.sendMail({
-      from: getCompanySettings().email_from,
+      from: getCompanySettings(req.tenantId).email_from,
       to: inquiry.email,
       subject: renderedSubject,
       text: renderedBody,
@@ -389,13 +445,13 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
 
     // Antwort in Historie speichern
     db.prepare(
-      'INSERT INTO inquiry_responses (inquiry_id, template_id, subject, body_text, sent_via) VALUES (?, ?, ?, ?, ?)'
-    ).run(inquiry.inquiry_id, template_id || null, renderedSubject, renderedBody, 'email');
+      'INSERT INTO inquiry_responses (inquiry_id, template_id, subject, body_text, sent_via, tenant_id) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(inquiry.inquiry_id, template_id || null, renderedSubject, renderedBody, 'email', req.tenantId);
 
     // Email auch ins Chat-Archiv loggen
     db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-    ).run(inquiry.inquiry_id, 'admin', 'Admin (E-Mail)', `Betreff: ${renderedSubject}\n\n${renderedBody}`);
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(inquiry.inquiry_id, 'admin', 'Admin (E-Mail)', `Betreff: ${renderedSubject}\n\n${renderedBody}`, req.tenantId);
 
     res.json({ message: 'Antwort gesendet' });
   } catch (err) {
@@ -435,29 +491,29 @@ router.post('/inquiries/:id/messages', requireAuth, (req, res) => {
   if (sender_type === 'customer_order') {
     // Kunden-Auftragserteilung: Nachricht als Kunde speichern + Status aendern
     db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, 'customer', 'Kunde (Auftragserteilung)', message.trim());
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, 'customer', 'Kunde (Auftragserteilung)', message.trim(), req.tenantId);
 
-    db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ?').run('auftrag_erteilt', req.params.id);
+    db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ? AND tenant_id = ?').run('auftrag_erteilt', req.params.id);
 
     db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', 'Kunde hat den Auftrag erteilt. Status geaendert auf: Auftrag erteilt');
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, 'system', 'System', 'Kunde hat den Auftrag erteilt. Status geaendert auf: Auftrag erteilt', req.tenantId);
 
     return res.status(201).json({ message: 'Auftragserteilung gespeichert', status_changed: 'auftrag_erteilt' });
   }
 
   // Standard: Admin-Nachricht
   db.prepare(
-    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-  ).run(req.params.id, 'admin', 'Admin', message.trim());
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(req.params.id, 'admin', 'Admin', message.trim(), req.tenantId);
   res.status(201).json({ message: 'Nachricht gespeichert' });
 });
 
 // GET /api/admin/inquiries/:id/messages/export — JSON-Export fuer Chatbot-Kontext
 router.get('/inquiries/:id/messages/export', requireAuth, (req, res) => {
   const db = getDb();
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(req.params.id);
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
   const messages = db.prepare(
@@ -473,7 +529,7 @@ router.get('/inquiries/:id/messages/export', requireAuth, (req, res) => {
 router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res) => {
   try {
     const db = getDb();
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(req.params.id);
+    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ? AND inquiry_id = ?').get(
@@ -504,8 +560,8 @@ router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res
 
     // Im Chat-Archiv loggen
     db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', `PDF-Angebot #${quote.id} wurde erstellt.`);
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, 'system', 'System', `PDF-Angebot #${quote.id} wurde erstellt.`, req.tenantId);
 
     res.json({ message: 'PDF erstellt', filename });
   } catch (err) {
@@ -514,46 +570,303 @@ router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res
   }
 });
 
+// ==================== Bohrtermine ====================
+
+// GET /api/admin/inquiries/:id/drilling-schedule
+router.get('/inquiries/:id/drilling-schedule', requireAuth, (req, res) => {
+  const db = getDb();
+  const schedules = db.prepare(
+    'SELECT * FROM drilling_schedules WHERE inquiry_id = ? ORDER BY drill_date ASC'
+  ).all(req.params.id);
+  res.json(schedules);
+});
+
+// POST /api/admin/inquiries/:id/drilling-schedule — Bohrtage anlegen
+router.post('/inquiries/:id/drilling-schedule', requireAuth, (req, res) => {
+  const { dates } = req.body; // [{ drill_date, start_time, notes }]
+  if (!Array.isArray(dates) || dates.length === 0) {
+    return res.status(400).json({ error: 'Mindestens ein Termin erforderlich' });
+  }
+
+  const db = getDb();
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
+
+  // Doppelbelegung pruefen
+  const conflicts = [];
+  for (const d of dates) {
+    const existing = db.prepare(
+      "SELECT ds.*, i.first_name, i.last_name, i.inquiry_id FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = ? AND ds.inquiry_id != ?"
+    ).all(d.drill_date, req.params.id);
+    if (existing.length > 0) {
+      conflicts.push({
+        date: d.drill_date,
+        existing: existing.map(e => ({ inquiry_id: e.inquiry_id, name: `${e.first_name} ${e.last_name}`, start_time: e.start_time })),
+      });
+    }
+  }
+
+  if (conflicts.length > 0) {
+    return res.status(409).json({ error: 'Terminkonflikt', conflicts });
+  }
+
+  // Bestehende Termine dieser Anfrage loeschen und neue anlegen
+  db.prepare('DELETE FROM drilling_schedules WHERE inquiry_id = ?').run(req.params.id);
+  for (const d of dates) {
+    db.prepare(
+      'INSERT INTO drilling_schedules (inquiry_id, drill_date, start_time, notes, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, d.drill_date, d.start_time || null, d.notes || null, req.tenantId);
+  }
+
+  // Status auf bohrung_terminiert setzen
+  db.prepare("UPDATE inquiries SET status = 'bohrung_terminiert' WHERE inquiry_id = ?").run(req.params.id);
+
+  res.json({ message: 'Bohrtermine gespeichert', count: dates.length });
+});
+
+// PUT /api/admin/drilling-schedule/:scheduleId — Einzelnen Termin anpassen
+router.put('/drilling-schedule/:scheduleId', requireAuth, (req, res) => {
+  const { drill_date, start_time, notes } = req.body;
+  const db = getDb();
+
+  const schedule = db.prepare('SELECT * FROM drilling_schedules WHERE id = ?').get(req.params.scheduleId);
+  if (!schedule) return res.status(404).json({ error: 'Termin nicht gefunden' });
+
+  // Konfliktpruefung fuer neues Datum
+  if (drill_date && drill_date !== schedule.drill_date) {
+    const conflict = db.prepare(
+      "SELECT ds.*, i.first_name, i.last_name FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = ? AND ds.inquiry_id != ?"
+    ).all(drill_date, schedule.inquiry_id);
+    if (conflict.length > 0) {
+      return res.status(409).json({
+        error: 'Terminkonflikt',
+        conflicts: [{ date: drill_date, existing: conflict.map(c => ({ inquiry_id: c.inquiry_id, name: `${c.first_name} ${c.last_name}` })) }],
+      });
+    }
+  }
+
+  db.prepare(
+    "UPDATE drilling_schedules SET drill_date = ?, start_time = ?, notes = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(drill_date || schedule.drill_date, start_time !== undefined ? start_time : schedule.start_time, notes !== undefined ? notes : schedule.notes, req.params.scheduleId);
+
+  res.json({ message: 'Termin aktualisiert' });
+});
+
+// DELETE /api/admin/drilling-schedule/:scheduleId
+router.delete('/drilling-schedule/:scheduleId', requireAuth, (req, res) => {
+  const db = getDb();
+  db.prepare('DELETE FROM drilling_schedules WHERE id = ?').run(req.params.scheduleId);
+  res.json({ message: 'Termin geloescht' });
+});
+
+// POST /api/admin/inquiries/:id/send-drilling-info — Termininfo an Kunden senden
+router.post('/inquiries/:id/send-drilling-info', requireAuth, async (req, res) => {
+  try {
+    const db = getDb();
+    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+    if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
+    if (!inquiry.email) return res.status(400).json({ error: 'Keine E-Mail-Adresse vorhanden' });
+
+    const schedules = db.prepare(
+      'SELECT * FROM drilling_schedules WHERE inquiry_id = ? ORDER BY drill_date ASC'
+    ).all(req.params.id);
+    if (schedules.length === 0) return res.status(400).json({ error: 'Keine Bohrtermine vorhanden' });
+
+    const cs = getCompanySettings(req.tenantId);
+    const sig = getEmailSignature(cs);
+
+    // Terminliste formatieren
+    const terminListe = schedules.map((s, i) => {
+      const dateObj = new Date(s.drill_date);
+      const dateStr = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeStr = s.start_time ? ` ab ${s.start_time} Uhr` : '';
+      return `  ${i + 1}. ${dateStr}${timeStr}${s.notes ? ' (' + s.notes + ')' : ''}`;
+    }).join('\n');
+
+    const address = `${inquiry.street || ''} ${inquiry.house_number || ''}, ${inquiry.zip_code || ''} ${inquiry.city || ''}`.trim();
+
+    const text = `Sehr geehrte(r) ${inquiry.first_name || ''} ${inquiry.last_name || ''},
+
+wir freuen uns, Ihnen mitteilen zu koennen, dass die Bohrarbeiten fuer Ihren Brunnen terminiert wurden.
+
+Anfrage-ID: ${inquiry.inquiry_id}
+Brunnenart: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}
+Standort: ${address}
+
+Geplante Bohrtage:
+${terminListe}
+
+Bitte stellen Sie sicher, dass der Zugang zum Bohrstandort an den genannten Tagen frei ist.
+Bei Fragen oder falls Sie einen Termin verschieben muessen, kontaktieren Sie uns bitte umgehend.
+
+${sig}`;
+
+    const html = `
+      <h2>Terminbestaetigung Brunnenbau</h2>
+      <p>Sehr geehrte(r) ${inquiry.first_name || ''} ${inquiry.last_name || ''},</p>
+      <p>wir freuen uns, Ihnen mitteilen zu koennen, dass die Bohrarbeiten fuer Ihren Brunnen terminiert wurden.</p>
+      <table style="border-collapse:collapse; width:100%; max-width:600px; margin:16px 0;">
+        <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Anfrage-ID</td><td style="padding:8px; border-bottom:1px solid #ddd;">${inquiry.inquiry_id}</td></tr>
+        <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Brunnenart</td><td style="padding:8px; border-bottom:1px solid #ddd;">${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}</td></tr>
+        <tr><td style="padding:8px; border-bottom:1px solid #ddd; font-weight:bold;">Standort</td><td style="padding:8px; border-bottom:1px solid #ddd;">${address}</td></tr>
+      </table>
+      <h3>Geplante Bohrtage:</h3>
+      <table style="border-collapse:collapse; width:100%; max-width:600px;">
+        <tr style="background:#f0f7ff;"><th style="padding:8px; text-align:left; border:1px solid #ddd;">Tag</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Datum</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Baubeginn</th><th style="padding:8px; text-align:left; border:1px solid #ddd;">Hinweis</th></tr>
+        ${schedules.map((s, i) => {
+          const dateObj = new Date(s.drill_date);
+          const dateStr = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+          return `<tr><td style="padding:8px; border:1px solid #ddd;">${i + 1}</td><td style="padding:8px; border:1px solid #ddd;">${dateStr}</td><td style="padding:8px; border:1px solid #ddd;">${s.start_time || '–'}</td><td style="padding:8px; border:1px solid #ddd;">${s.notes || '–'}</td></tr>`;
+        }).join('')}
+      </table>
+      <p style="margin-top:16px;">Bitte stellen Sie sicher, dass der Zugang zum Bohrstandort an den genannten Tagen frei ist.</p>
+      <p>Bei Fragen oder falls Sie einen Termin verschieben muessen, kontaktieren Sie uns bitte umgehend.</p>
+      <p style="margin-top:20px; color:#666;">${sig.replace(/\n/g, '<br>')}</p>
+    `;
+
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: cs.email_from,
+      to: inquiry.email,
+      subject: `Terminbestaetigung Brunnenbau – ${inquiry.inquiry_id}`,
+      text,
+      html,
+    });
+
+    // Im Chat-Archiv loggen
+    db.prepare(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, 'system', 'System', `Bohrtermin-Info per E-Mail an ${inquiry.email} gesendet.\n\n${terminListe}`, req.tenantId);
+
+    res.json({ message: 'Termininfo per E-Mail gesendet' });
+  } catch (err) {
+    console.error('Fehler beim Senden der Termininfo:', err);
+    res.status(500).json({ error: 'Fehler beim Senden' });
+  }
+});
+
+// ==================== Behoerden-Links ====================
+
+// GET /api/admin/authority-links — Alle Links (Admin)
+router.get('/authority-links', requireAuth, (req, res) => {
+  const db = getDb();
+  const { bundesland } = req.query;
+  let links;
+  if (bundesland) {
+    links = db.prepare('SELECT * FROM authority_links WHERE bundesland = ? ORDER BY sort_order, title').all(bundesland);
+  } else {
+    links = db.prepare('SELECT * FROM authority_links ORDER BY bundesland, sort_order, title').all();
+  }
+  res.json(links);
+});
+
+// POST /api/admin/authority-links
+router.post('/authority-links', requireAuth, (req, res) => {
+  const { bundesland, title, url, description, link_type, sort_order } = req.body;
+  if (!bundesland || !title || !url) {
+    return res.status(400).json({ error: 'Bundesland, Titel und URL erforderlich' });
+  }
+  const db = getDb();
+  db.prepare(
+    'INSERT INTO authority_links (bundesland, title, url, description, link_type, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0);
+  res.json({ message: 'Link erstellt' });
+});
+
+// PUT /api/admin/authority-links/:id
+router.put('/authority-links/:id', requireAuth, (req, res) => {
+  const { bundesland, title, url, description, link_type, sort_order, is_active } = req.body;
+  const db = getDb();
+  db.prepare(
+    'UPDATE authority_links SET bundesland=?, title=?, url=?, description=?, link_type=?, sort_order=?, is_active=? WHERE id=?'
+  ).run(bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0, is_active !== undefined ? is_active : 1, req.params.id);
+  res.json({ message: 'Link aktualisiert' });
+});
+
+// DELETE /api/admin/authority-links/:id
+router.delete('/authority-links/:id', requireAuth, (req, res) => {
+  const db = getDb();
+  db.prepare('DELETE FROM authority_links WHERE id = ?').run(req.params.id);
+  res.json({ message: 'Link geloescht' });
+});
+
 // ==================== Kalender-Events ====================
 
-// GET /api/admin/calendar/events — Alle Inquiries mit preferred_date als Events
+// GET /api/admin/calendar/events — Alle Events (Kundentermine + Bohrtermine)
 router.get('/calendar/events', requireAuth, (req, res) => {
   const db = getDb();
-  const inquiries = db.prepare(
-    "SELECT * FROM inquiries WHERE preferred_date IS NOT NULL AND preferred_date != ''"
-  ).all();
 
   const statusColors = {
     neu: '#3f93d3',
     in_bearbeitung: '#f59e0b',
     angebot_erstellt: '#8b5cf6',
     auftrag_erteilt: '#10b981',
+    bohrung_terminiert: '#06b6d4',
     abgeschlossen: '#6b7280',
     abgesagt: '#ef4444',
   };
 
-  const events = inquiries.map((inq) => {
+  const events = [];
+
+  // 1) Kundentermine (preferred_date)
+  const inquiries = db.prepare(
+    "SELECT * FROM inquiries WHERE preferred_date IS NOT NULL AND preferred_date != '' AND tenant_id = ?"
+  ).all(req.tenantId);
+
+  for (const inq of inquiries) {
     const start = new Date(inq.preferred_date);
-    // Default 10:00 falls nur Datum
     if (start.getHours() === 0 && start.getMinutes() === 0) {
       start.setHours(10, 0, 0, 0);
     }
-
     const wellLabel = WELL_TYPE_LABELS[inq.well_type] || inq.well_type || '';
-    return {
-      id: inq.inquiry_id,
-      title: `${inq.last_name} – ${wellLabel}`,
+    events.push({
+      id: `visit-${inq.inquiry_id}`,
+      title: `Besichtigung: ${inq.last_name || ''} – ${wellLabel}`,
       start: start.toISOString(),
       color: statusColors[inq.status] || '#3f93d3',
       extendedProps: {
+        type: 'site_visit',
         inquiry_id: inq.inquiry_id,
         address: `${inq.street || ''} ${inq.house_number || ''}, ${inq.zip_code || ''} ${inq.city || ''}`.trim(),
         status: inq.status,
         first_name: inq.first_name,
         last_name: inq.last_name,
       },
-    };
-  });
+    });
+  }
+
+  // 2) Bohrtermine
+  const drillDays = db.prepare(
+    'SELECT ds.*, i.first_name, i.last_name, i.well_type, i.street, i.house_number, i.zip_code, i.city, i.status FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.tenant_id = ? ORDER BY ds.drill_date'
+  ).all(req.tenantId);
+
+  for (const d of drillDays) {
+    const start = new Date(d.drill_date);
+    if (d.start_time) {
+      const [h, m] = d.start_time.split(':');
+      start.setHours(parseInt(h) || 7, parseInt(m) || 0, 0, 0);
+    } else {
+      start.setHours(7, 0, 0, 0);
+    }
+    const wellLabel = WELL_TYPE_LABELS[d.well_type] || d.well_type || '';
+    events.push({
+      id: `drill-${d.id}`,
+      title: `Bohrung: ${d.last_name || ''} – ${wellLabel}`,
+      start: start.toISOString(),
+      color: '#0891b2',
+      extendedProps: {
+        type: 'drilling',
+        inquiry_id: d.inquiry_id,
+        schedule_id: d.id,
+        address: `${d.street || ''} ${d.house_number || ''}, ${d.zip_code || ''} ${d.city || ''}`.trim(),
+        status: d.status,
+        first_name: d.first_name,
+        last_name: d.last_name,
+        start_time: d.start_time,
+        notes: d.notes,
+      },
+    });
+  }
 
   res.json(events);
 });
@@ -564,7 +877,7 @@ router.get('/calendar/events', requireAuth, (req, res) => {
 router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) => {
   try {
     const db = getDb();
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ?').get(req.params.id);
+    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ? AND inquiry_id = ?').get(
@@ -584,10 +897,10 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
     const transporter2 = createTransporter();
 
     await transporter2.sendMail({
-      from: getCompanySettings().email_from,
+      from: getCompanySettings(req.tenantId).email_from,
       to: inquiry.email,
       subject: `Ihr Kostenvoranschlag – Anfrage ${inquiry.inquiry_id}`,
-      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature()}`,
+      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature(getCompanySettings(req.tenantId))}`,
       attachments: [{
         filename: `Kostenvoranschlag_${inquiry.inquiry_id}.pdf`,
         content: pdfBuffer,
@@ -597,8 +910,8 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
 
     // Im Chat-Archiv loggen
     db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', `Angebot #${quote.id} per Email an ${inquiry.email} gesendet.`);
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, 'system', 'System', `Angebot #${quote.id} per Email an ${inquiry.email} gesendet.`, req.tenantId);
 
     res.json({ message: 'Angebot per Email gesendet' });
   } catch (err) {
@@ -641,7 +954,7 @@ router.get('/regulations', (req, res) => {
 
 // GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
 router.get('/company-settings', (req, res) => {
-  const settings = getCompanySettings();
+  const settings = getCompanySettings(req.tenantId);
   // Ohne Auth: nur oeffentliche Felder
   if (!req.session?.isAdmin) {
     const { company_name, company_name_short, tagline, company_phone, company_email,
@@ -665,8 +978,8 @@ router.put('/company-settings', requireAuth, (req, res) => {
   for (const [key, value] of Object.entries(settings)) {
     if (!validKeys.includes(key)) continue;
     db.prepare(
-      'INSERT OR REPLACE INTO company_settings (key, value) VALUES (?, ?)'
-    ).run(key, value ?? '');
+      'INSERT OR REPLACE INTO company_settings (key, value, tenant_id) VALUES (?, ?, ?)'
+    ).run(key, value ?? '', req.tenantId);
   }
 
   res.json({ message: 'Firmendaten gespeichert' });
@@ -681,8 +994,8 @@ router.post('/company-logo', requireAuth, logoUpload.single('logo'), (req, res) 
   const logoUrl = `/api/uploads/${req.file.filename}`;
   const db = getDb();
   db.prepare(
-    'INSERT OR REPLACE INTO company_settings (key, value) VALUES (?, ?)'
-  ).run('logo_path', logoUrl);
+    'INSERT OR REPLACE INTO company_settings (key, value, tenant_id) VALUES (?, ?, ?)'
+  ).run('logo_path', logoUrl, req.tenantId);
 
   res.json({ message: 'Logo hochgeladen', logo_path: logoUrl });
 });
@@ -690,13 +1003,13 @@ router.post('/company-logo', requireAuth, logoUpload.single('logo'), (req, res) 
 // DELETE /api/admin/company-logo — Logo entfernen
 router.delete('/company-logo', requireAuth, (req, res) => {
   const db = getDb();
-  const row = db.prepare("SELECT value FROM company_settings WHERE key = 'logo_path'").get();
+  const row = db.prepare("SELECT value FROM company_settings WHERE key = 'logo_path' AND tenant_id = ?").get(req.tenantId);
   if (row && row.value) {
     const filename = path.basename(row.value);
     const filepath = path.join(__dirname, '..', '..', 'uploads', filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
   }
-  db.prepare("DELETE FROM company_settings WHERE key = 'logo_path'").run();
+  db.prepare("DELETE FROM company_settings WHERE key = 'logo_path' AND tenant_id = ?").run(req.tenantId);
   res.json({ message: 'Logo entfernt' });
 });
 
@@ -748,7 +1061,7 @@ router.post('/request-password-reset', async (req, res) => {
   try {
     const transporter = createTransporter();
     await transporter.sendMail({
-      from: getCompanySettings().email_from,
+      from: getCompanySettings(req.tenantId).email_from,
       to: adminEmail,
       subject: 'Brunnenbau-App: Neues Passwort',
       text: `Ihr neues Admin-Passwort lautet:\n\n${tempPassword}\n\nBitte aendern Sie das Passwort nach der Anmeldung unter Einstellungen.\n\nDiese Nachricht wurde automatisch generiert.`,

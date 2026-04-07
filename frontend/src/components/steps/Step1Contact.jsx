@@ -1,4 +1,5 @@
 import { useValueList } from '../../hooks/useValueList';
+import { LANDKREISE } from '../../data/landkreiseData';
 
 const BUNDESLAENDER = [
   'Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen',
@@ -9,9 +10,15 @@ const BUNDESLAENDER = [
 
 export default function Step1Contact({ data, errors, onChange }) {
   const { items: contactOptions } = useValueList('preferred_contact');
+  const landkreise = data.bundesland ? (LANDKREISE[data.bundesland] || []) : [];
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     onChange(name, type === 'checkbox' ? checked : value);
+    // Landkreis zurücksetzen wenn Bundesland gewechselt wird
+    if (name === 'bundesland') {
+      onChange('landkreis', '');
+    }
   };
 
   return (
@@ -52,6 +59,26 @@ export default function Step1Contact({ data, errors, onChange }) {
           </select>
           {errors.bundesland && <p className="text-red-500 text-xs mt-1">{errors.bundesland}</p>}
         </div>
+
+        {data.bundesland && landkreise.length > 0 && (
+          <div className="md:col-span-2">
+            <label className="form-label">Landkreis / Bezirk</label>
+            <select
+              name="landkreis"
+              value={data.landkreis || ''}
+              onChange={handleChange}
+              className="form-input"
+            >
+              <option value="">Bitte wählen...</option>
+              {landkreise.map((lk) => (
+                <option key={lk} value={lk}>{lk}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Der Landkreis ist relevant für die zuständige Genehmigungsbehörde.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-earth-100 pt-4 mb-4">
@@ -59,6 +86,22 @@ export default function Step1Contact({ data, errors, onChange }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="form-label">Anrede</label>
+          <select
+            name="salutation"
+            value={data.salutation || ''}
+            onChange={handleChange}
+            className="form-input"
+          >
+            <option value="">Keine Angabe</option>
+            <option value="Herr">Herr</option>
+            <option value="Frau">Frau</option>
+          </select>
+        </div>
+
+        <div>{/* Platzhalter für Grid-Ausrichtung */}</div>
+
         <div>
           <label className="form-label">Vorname</label>
           <input
@@ -179,6 +222,32 @@ export default function Step1Contact({ data, errors, onChange }) {
           {errors.zip_code && <p className="text-red-500 text-xs mt-1">{errors.zip_code}</p>}
         </div>
       </div>
+
+      {data.street && data.house_number && data.zip_code && data.city && (
+        <div className="mt-4 p-4 bg-earth-50 border border-earth-200 rounded-lg flex items-center gap-3">
+          <svg className="w-6 h-6 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-sm text-gray-700">
+              <strong>{data.street} {data.house_number}, {data.zip_code} {data.city}</strong>
+            </p>
+            <p className="text-xs text-gray-500">Grundstück in Google Earth anzeigen</p>
+          </div>
+          <a
+            href={`https://earth.google.com/web/search/${encodeURIComponent(`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}, Deutschland`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary text-sm px-4 py-2 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Google Earth
+          </a>
+        </div>
+      )}
 
       <div className="mt-6">
         <label className="flex items-start gap-3 cursor-pointer">

@@ -1,6 +1,7 @@
 import { WELL_TYPE_LABELS } from '../../data/wellTypeData.jsx';
 import { FLOW_RATES } from '../../data/flowRateData.js';
 import { useValueList } from '../../hooks/useValueList';
+import AuthorityLinks from '../AuthorityLinks';
 
 const SURFACE_LABELS = {
   rasen: 'Rasen / Wiese',
@@ -200,6 +201,9 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
             </>
           )}
         </div>
+
+        {/* Behoerden-Links basierend auf Bundesland */}
+        <AuthorityLinks bundesland={data.bundesland} />
       </div>
     );
   }

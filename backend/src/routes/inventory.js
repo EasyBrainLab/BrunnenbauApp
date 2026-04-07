@@ -1,18 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database');
-
-function requireAuth(req, res, next) {
-  if (req.session?.isAdmin) return next();
-  res.status(401).json({ error: 'Nicht autorisiert' });
-}
+const { requireAuth } = require('../middleware/tenantContext');
 
 // === Lagerorte ===
 
 // GET /api/inventory/locations
 router.get('/locations', requireAuth, (req, res) => {
   const db = getDb();
-  const locations = db.prepare('SELECT * FROM storage_locations ORDER BY name').all();
+  const locations = db.prepare('SELECT * FROM storage_locations WHERE tenant_id = ? ORDER BY name').all(req.tenantId);
   res.json(locations);
 });
 
@@ -21,7 +17,7 @@ router.post('/locations', requireAuth, (req, res) => {
   const { name, address, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
   const db = getDb();
-  db.prepare('INSERT INTO storage_locations (name, address, description) VALUES (?, ?, ?)').run(name, address || null, description || null);
+  db.prepare('INSERT INTO storage_locations (name, address, description, tenant_id) VALUES (?, ?, ?, ?)').run(name, address || null, description || null, req.tenantId);
   res.status(201).json({ message: 'Lagerort angelegt' });
 });
 
@@ -30,7 +26,7 @@ router.put('/locations/:id', requireAuth, (req, res) => {
   const { name, address, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
   const db = getDb();
-  const result = db.prepare('UPDATE storage_locations SET name = ?, address = ?, description = ? WHERE id = ?').run(name, address || null, description || null, req.params.id);
+  const result = db.prepare('UPDATE storage_locations SET name = ?, address = ?, description = ? WHERE id = ? AND tenant_id = ?').run(name, address || null, description || null, req.params.id, req.tenantId);
   if (result.changes === 0) return res.status(404).json({ error: 'Lagerort nicht gefunden' });
   res.json({ message: 'Lagerort aktualisiert' });
 });
@@ -38,11 +34,11 @@ router.put('/locations/:id', requireAuth, (req, res) => {
 // DELETE /api/inventory/locations/:id
 router.delete('/locations/:id', requireAuth, (req, res) => {
   const db = getDb();
-  const hasStock = db.prepare('SELECT id FROM inventory WHERE location_id = ? AND quantity > 0').get(req.params.id);
+  const hasStock = db.prepare('SELECT id FROM inventory WHERE location_id = ? AND quantity > 0 AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (hasStock) return res.status(400).json({ error: 'Lagerort hat noch Bestand und kann nicht geloescht werden' });
-  db.prepare('DELETE FROM inventory WHERE location_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM stock_movements WHERE location_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM storage_locations WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM inventory WHERE location_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('DELETE FROM stock_movements WHERE location_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('DELETE FROM storage_locations WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'Lagerort geloescht' });
 });
 
@@ -59,10 +55,11 @@ router.get('/stock', requireAuth, (req, res) => {
     JOIN cost_items ci ON ci.id = i.cost_item_id
     JOIN storage_locations sl ON sl.id = i.location_id
     LEFT JOIN suppliers s ON s.id = i.default_supplier_id
+    WHERE i.tenant_id = ?
   `;
-  const params = [];
+  const params = [req.tenantId];
   if (location_id) {
-    sql += ' WHERE i.location_id = ?';
+    sql += ' AND i.location_id = ?';
     params.push(location_id);
   }
   sql += ' ORDER BY ci.name, sl.name';
@@ -78,9 +75,9 @@ router.get('/stock/:costItemId', requireAuth, (req, res) => {
     FROM inventory i
     JOIN storage_locations sl ON sl.id = i.location_id
     LEFT JOIN suppliers s ON s.id = i.default_supplier_id
-    WHERE i.cost_item_id = ?
+    WHERE i.cost_item_id = ? AND i.tenant_id = ?
     ORDER BY sl.name
-  `).all(req.params.costItemId);
+  `).all(req.params.costItemId, req.tenantId);
   res.json(stock);
 });
 
@@ -100,20 +97,20 @@ router.post('/movement', requireAuth, (req, res) => {
   const db = getDb();
 
   // UPSERT inventory
-  const existing = db.prepare('SELECT * FROM inventory WHERE cost_item_id = ? AND location_id = ?').get(cost_item_id, location_id);
+  const existing = db.prepare('SELECT * FROM inventory WHERE cost_item_id = ? AND location_id = ? AND tenant_id = ?').get(cost_item_id, location_id, req.tenantId);
   if (existing) {
     const newQty = movement_type === 'in' ? existing.quantity + quantity : existing.quantity - quantity;
     if (newQty < 0) return res.status(400).json({ error: 'Nicht genug Bestand fuer Auslagerung' });
-    db.prepare('UPDATE inventory SET quantity = ? WHERE id = ?').run(newQty, existing.id);
+    db.prepare('UPDATE inventory SET quantity = ? WHERE id = ? AND tenant_id = ?').run(newQty, existing.id, req.tenantId);
   } else {
     if (movement_type === 'out') return res.status(400).json({ error: 'Kein Bestand vorhanden fuer Auslagerung' });
-    db.prepare('INSERT INTO inventory (cost_item_id, location_id, quantity) VALUES (?, ?, ?)').run(cost_item_id, location_id, quantity);
+    db.prepare('INSERT INTO inventory (cost_item_id, location_id, quantity, tenant_id) VALUES (?, ?, ?, ?)').run(cost_item_id, location_id, quantity, req.tenantId);
   }
 
   // INSERT movement
   db.prepare(
-    'INSERT INTO stock_movements (cost_item_id, location_id, movement_type, quantity, reference) VALUES (?, ?, ?, ?, ?)'
-  ).run(cost_item_id, location_id, movement_type, quantity, reference || null);
+    'INSERT INTO stock_movements (cost_item_id, location_id, movement_type, quantity, reference, tenant_id) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(cost_item_id, location_id, movement_type, quantity, reference || null, req.tenantId);
 
   res.status(201).json({ message: movement_type === 'in' ? 'Eingelagert' : 'Ausgelagert' });
 });

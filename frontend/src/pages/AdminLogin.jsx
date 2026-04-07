@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiPost, apiGet } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const { login, loginLegacy, isAuthenticated, loading: authLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,26 +17,26 @@ export default function AdminLogin() {
   const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
-    apiGet('/api/admin/check').then(async (res) => {
-      const data = await res.json();
-      if (data.isAdmin) navigate('/admin/dashboard', { replace: true });
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [navigate]);
+    if (!authLoading && isAuthenticated) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+    if (!authLoading) setLoading(false);
+  }, [authLoading, isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     try {
-      const res = await apiPost('/api/admin/login', { username, password });
-      if (res.ok) {
-        navigate('/admin/dashboard');
-      } else {
-        setError('Ungültige Zugangsdaten');
+      // Versuche neuen Auth-Endpoint, Fallback auf Legacy
+      try {
+        await login(username, password);
+      } catch {
+        await loginLegacy(username, password);
       }
+      navigate('/admin/dashboard');
     } catch {
-      setError('Verbindungsfehler');
+      setError('Ungueltige Zugangsdaten');
     }
   };
 
@@ -172,6 +174,11 @@ export default function AdminLogin() {
         >
           Passwort vergessen?
         </button>
+
+        <p className="text-center text-sm text-gray-500 mt-3">
+          Noch kein Konto?{' '}
+          <Link to="/register" className="text-primary-500 hover:underline">Firma registrieren</Link>
+        </p>
       </div>
     </div>
   );

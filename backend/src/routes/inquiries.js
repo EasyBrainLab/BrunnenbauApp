@@ -6,6 +6,7 @@ const { body, validationResult } = require('express-validator');
 const { getDb } = require('../database');
 const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
 const { sendTelegramNotification, sendTelegramCustomerConfirmation } = require('../telegram');
+const { resolveTenantFromSlug } = require('../middleware/tenantContext');
 
 const router = express.Router();
 
@@ -35,6 +36,8 @@ const upload = multer({
 
 // Validierungsregeln für die Anfrage
 const inquiryValidation = [
+  body('salutation').optional({ checkFalsy: true }).trim().escape(),
+  body('landkreis').optional({ checkFalsy: true }).trim().escape(),
   body('first_name').optional({ checkFalsy: true }).trim().escape(),
   body('last_name').optional({ checkFalsy: true }).trim().escape(),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Ungültige E-Mail-Adresse').normalizeEmail(),
@@ -82,9 +85,9 @@ const inquiryValidation = [
 // POST /api/inquiries – Neue Anfrage erstellen
 router.post('/',
   upload.fields([
-    { name: 'site_plan_file', maxCount: 10 },
-    { name: 'soil_report_file', maxCount: 10 },
-    { name: 'aerial_image_file', maxCount: 5 },
+    { name: 'site_plan_file', maxCount: 3 },
+    { name: 'soil_report_file', maxCount: 3 },
+    { name: 'aerial_image_file', maxCount: 3 },
   ]),
   inquiryValidation,
   async (req, res) => {
@@ -98,6 +101,10 @@ router.post('/',
       const inquiryId = 'BRN-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
       const data = req.body;
+
+      // Resolve tenant from body/query or default
+      const tenantSlug = data.tenantSlug || req.query.tenantSlug || 'default';
+      const tenantId = resolveTenantFromSlug(tenantSlug);
 
       // Datei-Referenzen verarbeiten
       const fileFields = [
@@ -113,9 +120,9 @@ router.post('/',
         if (req.files?.[field]) {
           for (const file of req.files[field]) {
             db.prepare(`
-              INSERT INTO inquiry_files (inquiry_id, file_type, original_name, stored_name, mime_type, size)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `).run(inquiryId, type, file.originalname, file.filename, file.mimetype, file.size);
+              INSERT INTO inquiry_files (inquiry_id, file_type, original_name, stored_name, mime_type, size, tenant_id)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(inquiryId, type, file.originalname, file.filename, file.mimetype, file.size, tenantId);
 
             // Keep first filename for legacy columns
             if (field === 'site_plan_file' && !sitePlanFile) sitePlanFile = file.filename;
@@ -127,8 +134,8 @@ router.post('/',
       // Anfrage in DB speichern
       const stmt = db.prepare(`
         INSERT INTO inquiries (
-          inquiry_id, first_name, last_name, email, phone,
-          street, house_number, zip_code, city, bundesland, privacy_accepted,
+          inquiry_id, salutation, first_name, last_name, email, phone,
+          street, house_number, zip_code, city, bundesland, landkreis, privacy_accepted,
           well_type, well_cover_type, drill_location, site_plan_file, access_situation,
           access_restriction_details, groundwater_known, groundwater_depth,
           soil_report_available, soil_report_file, soil_types,
@@ -137,10 +144,11 @@ router.post('/',
           additional_notes, site_visit_requested, preferred_date,
           telegram_handle, preferred_contact,
           pump_type, pump_installation_location, installation_floor,
-          wall_breakthrough, control_device
+          wall_breakthrough, control_device,
+          tenant_id
         ) VALUES (
-          ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
           ?, ?, ?,
           ?, ?, ?,
@@ -149,13 +157,14 @@ router.post('/',
           ?, ?, ?,
           ?, ?,
           ?, ?, ?,
-          ?, ?
+          ?, ?,
+          ?
         )
       `);
 
       stmt.run(
-        inquiryId, data.first_name || '', data.last_name || '', data.email || '', data.phone || null,
-        data.street || '', data.house_number || '', data.zip_code || '', data.city, data.bundesland, data.privacy_accepted ? 1 : 0,
+        inquiryId, data.salutation || null, data.first_name || '', data.last_name || '', data.email || '', data.phone || null,
+        data.street || '', data.house_number || '', data.zip_code || '', data.city, data.bundesland, data.landkreis || null, data.privacy_accepted ? 1 : 0,
         data.well_type, data.well_cover_type || null, data.drill_location || null, sitePlanFile, data.access_situation || null,
         data.access_restriction_details || null, data.groundwater_known ? 1 : 0, data.groundwater_depth || null,
         data.soil_report_available ? 1 : 0, soilReportFile, data.soil_types || null,
@@ -164,13 +173,14 @@ router.post('/',
         data.additional_notes || null, data.site_visit_requested ? 1 : 0, data.preferred_date || null,
         data.telegram_handle || null, data.preferred_contact || 'email',
         data.pump_type || null, data.pump_installation_location || null, data.installation_floor || null,
-        data.wall_breakthrough || null, data.control_device || null
+        data.wall_breakthrough || null, data.control_device || null,
+        tenantId
       );
 
       // E-Mails + Telegram senden (asynchron, Fehler nicht blockierend)
       const inquiry = { ...data, inquiry_id: inquiryId };
-      sendCustomerConfirmation(inquiry).catch(err => console.error('Kunden-E-Mail fehlgeschlagen:', err));
-      sendCompanyNotification(inquiry).catch(err => console.error('Firmen-E-Mail fehlgeschlagen:', err));
+      sendCustomerConfirmation(inquiry, tenantId).catch(err => console.error('Kunden-E-Mail fehlgeschlagen:', err));
+      sendCompanyNotification(inquiry, tenantId).catch(err => console.error('Firmen-E-Mail fehlgeschlagen:', err));
       sendTelegramNotification(inquiry).catch(err => console.error('Telegram-Benachrichtigung fehlgeschlagen:', err));
       sendTelegramCustomerConfirmation(inquiry).catch(err => console.error('Telegram-Kundenbenachrichtigung fehlgeschlagen:', err));
 

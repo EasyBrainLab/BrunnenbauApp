@@ -3,14 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../database');
+const { requireAuth } = require('../middleware/tenantContext');
 
 const router = express.Router();
-
-// Admin-Authentifizierung (gleiche Logik wie admin.js)
-function requireAuth(req, res, next) {
-  if (req.session?.isAdmin) return next();
-  res.status(401).json({ error: 'Nicht autorisiert' });
-}
 
 // Multer for material images
 const imageStorage = multer.diskStorage({
@@ -74,11 +69,11 @@ function getCategoryPrefix(db) {
 }
 
 // Helper: next material_number based on category
-function nextMaterialNumber(db, category) {
+function nextMaterialNumber(db, category, tenantId) {
   const categoryPrefix = getCategoryPrefix(db);
   const prefix = categoryPrefix[category] || 'MAT';
   const pattern = prefix + '-%';
-  const row = db.prepare("SELECT MAX(CAST(SUBSTR(material_number, " + (prefix.length + 2) + ") AS INTEGER)) as max_num FROM cost_items WHERE material_number LIKE ?").get(pattern);
+  const row = db.prepare("SELECT MAX(CAST(SUBSTR(material_number, " + (prefix.length + 2) + ") AS INTEGER)) as max_num FROM cost_items WHERE material_number LIKE ? AND tenant_id = ?").get(pattern, tenantId);
   const next = (row && row.max_num ? row.max_num : 0) + 1;
   return prefix + '-' + String(next).padStart(4, '0');
 }
@@ -90,8 +85,8 @@ router.get('/items', requireAuth, (req, res) => {
   const db = getDb();
   const { active_only, search, type } = req.query;
 
-  let sql = 'SELECT * FROM cost_items WHERE 1=1';
-  const params = [];
+  let sql = 'SELECT * FROM cost_items WHERE tenant_id = ?';
+  const params = [req.tenantId];
 
   if (active_only === '1') {
     sql += ' AND (is_active = 1 OR is_active IS NULL)';
@@ -118,11 +113,11 @@ router.post('/items', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Name, Kategorie, Einheit und Preis sind erforderlich' });
   }
   const db = getDb();
-  const material_number = nextMaterialNumber(db, category);
+  const material_number = nextMaterialNumber(db, category, req.tenantId);
 
-  const fields = ['material_number'];
-  const placeholders = ['?'];
-  const values = [material_number];
+  const fields = ['material_number', 'tenant_id'];
+  const placeholders = ['?', '?'];
+  const values = [material_number, req.tenantId];
 
   for (const f of COST_ITEM_FIELDS) {
     if (req.body[f] !== undefined) {
@@ -158,8 +153,8 @@ router.put('/items/:id', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Keine Felder zum Aktualisieren' });
   }
 
-  values.push(req.params.id);
-  db.prepare(`UPDATE cost_items SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  values.push(req.params.id, req.tenantId);
+  db.prepare(`UPDATE cost_items SET ${sets.join(', ')} WHERE id = ? AND tenant_id = ?`).run(...values);
   res.json({ message: 'Material aktualisiert' });
 });
 
@@ -167,13 +162,14 @@ router.put('/items/:id', requireAuth, (req, res) => {
 router.delete('/items/:id', requireAuth, (req, res) => {
   const db = getDb();
   // Delete image file if exists
-  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ?').get(req.params.id);
-  if (item && item.image_url) {
+  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  if (!item) return res.status(404).json({ error: 'Position nicht gefunden' });
+  if (item.image_url) {
     const imgPath = path.join(__dirname, '..', '..', 'uploads', 'materials', item.image_url);
     if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
   }
-  db.prepare('DELETE FROM well_type_bom WHERE cost_item_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM cost_items WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM well_type_bom WHERE cost_item_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('DELETE FROM cost_items WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'Position geloescht' });
 });
 
@@ -183,32 +179,32 @@ router.post('/items/:id/image', requireAuth, imageUpload.single('image'), (req, 
   const db = getDb();
 
   // Delete old image if exists
-  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ?').get(req.params.id);
+  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (item && item.image_url) {
     const oldPath = path.join(__dirname, '..', '..', 'uploads', 'materials', item.image_url);
     if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
   }
 
-  db.prepare('UPDATE cost_items SET image_url = ? WHERE id = ?').run(req.file.filename, req.params.id);
+  db.prepare('UPDATE cost_items SET image_url = ? WHERE id = ? AND tenant_id = ?').run(req.file.filename, req.params.id, req.tenantId);
   res.json({ message: 'Bild hochgeladen', image_url: req.file.filename });
 });
 
 // DELETE /api/costs/items/:id/image — Bild loeschen
 router.delete('/items/:id/image', requireAuth, (req, res) => {
   const db = getDb();
-  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ?').get(req.params.id);
+  const item = db.prepare('SELECT image_url FROM cost_items WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (item && item.image_url) {
     const imgPath = path.join(__dirname, '..', '..', 'uploads', 'materials', item.image_url);
     if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
   }
-  db.prepare('UPDATE cost_items SET image_url = NULL WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE cost_items SET image_url = NULL WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'Bild geloescht' });
 });
 
 // GET /api/costs/items/export/csv — CSV-Export
 router.get('/items/export/csv', requireAuth, (req, res) => {
   const db = getDb();
-  const items = db.prepare('SELECT * FROM cost_items ORDER BY category, name').all();
+  const items = db.prepare('SELECT * FROM cost_items WHERE tenant_id = ? ORDER BY category, name').all(req.tenantId);
 
   const headers = [
     'Materialnr.', 'Name', 'Kategorie', 'Materialtyp', 'Einheit', 'VK-Preis',
@@ -249,7 +245,7 @@ router.get('/items/export/csv', requireAuth, (req, res) => {
 // GET /api/costs/units
 router.get('/units', requireAuth, (req, res) => {
   const db = getDb();
-  const units = db.prepare('SELECT * FROM units ORDER BY name').all();
+  const units = db.prepare('SELECT * FROM units WHERE tenant_id = ? ORDER BY name').all(req.tenantId);
   res.json(units);
 });
 
@@ -259,7 +255,7 @@ router.post('/units', requireAuth, (req, res) => {
   if (!name || !abbreviation) return res.status(400).json({ error: 'Name und Abkuerzung erforderlich' });
   const db = getDb();
   try {
-    db.prepare('INSERT INTO units (name, abbreviation) VALUES (?, ?)').run(name, abbreviation);
+    db.prepare('INSERT INTO units (name, abbreviation, tenant_id) VALUES (?, ?, ?)').run(name, abbreviation, req.tenantId);
     res.status(201).json({ message: 'Einheit angelegt' });
   } catch (e) {
     res.status(400).json({ error: 'Abkuerzung existiert bereits' });
@@ -269,7 +265,7 @@ router.post('/units', requireAuth, (req, res) => {
 // DELETE /api/costs/units/:id
 router.delete('/units/:id', requireAuth, (req, res) => {
   const db = getDb();
-  db.prepare('DELETE FROM units WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM units WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'Einheit geloescht' });
 });
 
@@ -282,9 +278,9 @@ router.get('/bom/:wellType', requireAuth, (req, res) => {
     SELECT b.*, c.name, c.category, c.unit, c.unit_price
     FROM well_type_bom b
     JOIN cost_items c ON b.cost_item_id = c.id
-    WHERE b.well_type = ?
+    WHERE b.well_type = ? AND b.tenant_id = ?
     ORDER BY b.sort_order, c.category, c.name
-  `).all(req.params.wellType);
+  `).all(req.params.wellType, req.tenantId);
   res.json(bom);
 });
 
@@ -293,11 +289,11 @@ router.post('/bom', requireAuth, (req, res) => {
   const { well_type, cost_item_id, quantity_min, quantity_max, notes } = req.body;
   const db = getDb();
   // Auto-assign next sort_order
-  const last = db.prepare('SELECT MAX(sort_order) as max_sort FROM well_type_bom WHERE well_type = ?').get(well_type);
+  const last = db.prepare('SELECT MAX(sort_order) as max_sort FROM well_type_bom WHERE well_type = ? AND tenant_id = ?').get(well_type, req.tenantId);
   const nextSort = (last && last.max_sort != null ? last.max_sort : 0) + 10;
   db.prepare(
-    'INSERT INTO well_type_bom (well_type, cost_item_id, quantity_min, quantity_max, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(well_type, cost_item_id, quantity_min || 1, quantity_max || 1, notes || null, nextSort);
+    'INSERT INTO well_type_bom (well_type, cost_item_id, quantity_min, quantity_max, notes, sort_order, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(well_type, cost_item_id, quantity_min || 1, quantity_max || 1, notes || null, nextSort, req.tenantId);
   res.status(201).json({ message: 'BOM-Eintrag erstellt' });
 });
 
@@ -306,18 +302,18 @@ router.put('/bom/:id', requireAuth, (req, res) => {
   const { quantity_min, quantity_max, notes, sort_order } = req.body;
   const db = getDb();
   // Check existence first (sql.js getRowsModified can be unreliable)
-  const existing = db.prepare('SELECT id FROM well_type_bom WHERE id = ?').get(req.params.id);
+  const existing = db.prepare('SELECT id FROM well_type_bom WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!existing) return res.status(404).json({ error: 'BOM-Eintrag nicht gefunden' });
   db.prepare(
-    'UPDATE well_type_bom SET quantity_min = ?, quantity_max = ?, notes = ?, sort_order = ? WHERE id = ?'
-  ).run(quantity_min || 1, quantity_max || 1, notes || null, sort_order != null ? sort_order : 0, req.params.id);
+    'UPDATE well_type_bom SET quantity_min = ?, quantity_max = ?, notes = ?, sort_order = ? WHERE id = ? AND tenant_id = ?'
+  ).run(quantity_min || 1, quantity_max || 1, notes || null, sort_order != null ? sort_order : 0, req.params.id, req.tenantId);
   res.json({ message: 'BOM-Eintrag aktualisiert' });
 });
 
 // DELETE /api/costs/bom/:id
 router.delete('/bom/:id', requireAuth, (req, res) => {
   const db = getDb();
-  db.prepare('DELETE FROM well_type_bom WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM well_type_bom WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'BOM-Eintrag geloescht' });
 });
 
@@ -335,8 +331,8 @@ router.post('/quotes', requireAuth, (req, res) => {
     SELECT b.*, c.name, c.unit, c.unit_price
     FROM well_type_bom b
     JOIN cost_items c ON b.cost_item_id = c.id
-    WHERE b.well_type = ?
-  `).all(well_type);
+    WHERE b.well_type = ? AND b.tenant_id = ?
+  `).all(well_type, req.tenantId);
 
   const items = bom.map((b) => ({
     name: b.name,
@@ -354,8 +350,8 @@ router.post('/quotes', requireAuth, (req, res) => {
   const total_max = items.reduce((s, i) => s + i.total_max, 0);
 
   db.prepare(
-    'INSERT INTO quotes (inquiry_id, items_json, total_min, total_max, notes, footer_text) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(inquiry_id, JSON.stringify(items), total_min, total_max, notes || null, footer_text || defaultFooter);
+    'INSERT INTO quotes (inquiry_id, items_json, total_min, total_max, notes, footer_text, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(inquiry_id, JSON.stringify(items), total_min, total_max, notes || null, footer_text || defaultFooter, req.tenantId);
 
   res.status(201).json({ items, total_min, total_max });
 });
@@ -372,8 +368,8 @@ router.put('/quotes/:id', requireAuth, (req, res) => {
   const total = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
 
   db.prepare(
-    'UPDATE quotes SET items_json = ?, total_min = ?, total_max = ?, footer_text = ? WHERE id = ?'
-  ).run(JSON.stringify(items), total, total, footer_text || null, req.params.id);
+    'UPDATE quotes SET items_json = ?, total_min = ?, total_max = ?, footer_text = ? WHERE id = ? AND tenant_id = ?'
+  ).run(JSON.stringify(items), total, total, footer_text || null, req.params.id, req.tenantId);
 
   res.json({ message: 'Angebot aktualisiert' });
 });
@@ -382,8 +378,8 @@ router.put('/quotes/:id', requireAuth, (req, res) => {
 router.get('/quotes/:inquiryId', requireAuth, (req, res) => {
   const db = getDb();
   const quotes = db.prepare(
-    'SELECT * FROM quotes WHERE inquiry_id = ? ORDER BY created_at DESC'
-  ).all(req.params.inquiryId);
+    'SELECT * FROM quotes WHERE inquiry_id = ? AND tenant_id = ? ORDER BY created_at DESC'
+  ).all(req.params.inquiryId, req.tenantId);
 
   // Parse items_json
   const parsed = quotes.map((q) => ({
@@ -399,7 +395,7 @@ router.get('/quotes/:inquiryId', requireAuth, (req, res) => {
 // GET /api/costs/well-type-costs — Kostenrichtwerte (oeffentlich)
 router.get('/well-type-costs', (req, res) => {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM well_type_costs').all();
+  const rows = db.prepare('SELECT * FROM well_type_costs WHERE tenant_id = ?').all(req.tenantId);
   const result = {};
   for (const row of rows) {
     result[row.well_type] = {
@@ -427,8 +423,8 @@ router.put('/well-type-costs', requireAuth, (req, res) => {
     const typicalItemsJson = data.typicalItems ? JSON.stringify(data.typicalItems) : '[]';
 
     db.prepare(
-      'INSERT OR REPLACE INTO well_type_costs (well_type, range_min, range_max, breakdown_json, typical_items_json) VALUES (?, ?, ?, ?, ?)'
-    ).run(wellType, rangeMin, rangeMax, breakdownJson, typicalItemsJson);
+      'INSERT OR REPLACE INTO well_type_costs (well_type, range_min, range_max, breakdown_json, typical_items_json, tenant_id) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(wellType, rangeMin, rangeMax, breakdownJson, typicalItemsJson, req.tenantId);
   }
 
   res.json({ message: 'Kostenrichtwerte gespeichert' });

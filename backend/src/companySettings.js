@@ -56,9 +56,11 @@ const DEFAULTS = {
 };
 
 // Alle Firmendaten aus DB laden, mit Defaults mergen
-function getCompanySettings() {
+// tenantId ist optional — ohne tenantId wird 'default' verwendet (backward compatible)
+function getCompanySettings(tenantId) {
+  const tid = tenantId || 'default';
   const db = getDb();
-  const rows = db.prepare('SELECT key, value FROM company_settings').all();
+  const rows = db.prepare('SELECT key, value FROM company_settings WHERE tenant_id = ?').all(tid);
   const settings = { ...DEFAULTS };
 
   // Env-Variablen als Fallback
@@ -74,9 +76,10 @@ function getCompanySettings() {
 }
 
 // Einzelnen Wert lesen
-function getCompanySetting(key) {
+function getCompanySetting(key, tenantId) {
+  const tid = tenantId || 'default';
   const db = getDb();
-  const row = db.prepare('SELECT value FROM company_settings WHERE key = ?').get(key);
+  const row = db.prepare('SELECT value FROM company_settings WHERE key = ? AND tenant_id = ?').get(key, tid);
   return row ? row.value : (DEFAULTS[key] || '');
 }
 

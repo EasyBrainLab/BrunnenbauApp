@@ -41,7 +41,7 @@ export default function AdminCalendar() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-primary-500">Kalender</h1>
-          <p className="text-gray-500 text-sm">Vor-Ort-Termine und bevorzugte Kundentermine</p>
+          <p className="text-gray-500 text-sm">Besichtigungen, Bohrtermine und Kundentermine</p>
         </div>
       </div>
 

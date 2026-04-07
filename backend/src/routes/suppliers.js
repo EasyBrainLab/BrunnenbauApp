@@ -35,10 +35,7 @@ function decrypt(text) {
   }
 }
 
-function requireAuth(req, res, next) {
-  if (req.session?.isAdmin) return next();
-  res.status(401).json({ error: 'Nicht autorisiert' });
-}
+const { requireAuth } = require('../middleware/tenantContext');
 
 // Multer for supplier documents
 const docStorage = multer.diskStorage({
@@ -68,8 +65,8 @@ const SUPPLIER_FIELDS = [
   'rating', 'notes',
 ];
 
-function generateSupplierNumber(db) {
-  const last = db.prepare("SELECT supplier_number FROM suppliers WHERE supplier_number LIKE 'LIF-%' ORDER BY id DESC").get();
+function generateSupplierNumber(db, tenantId) {
+  const last = db.prepare("SELECT supplier_number FROM suppliers WHERE supplier_number LIKE 'LIF-%' AND tenant_id = ? ORDER BY id DESC").get(tenantId);
   if (last && last.supplier_number) {
     const num = parseInt(last.supplier_number.replace('LIF-', ''), 10) + 1;
     return 'LIF-' + String(num).padStart(4, '0');
@@ -88,10 +85,10 @@ function decryptBankFields(supplier) {
   };
 }
 
-function computeOrderStats(db, supplierId) {
+function computeOrderStats(db, supplierId, tenantId) {
   // Count orders from stock_movements where this supplier is referenced
   // Also count from cost_item_suppliers
-  const assignments = db.prepare('SELECT COUNT(*) as cnt FROM cost_item_suppliers WHERE supplier_id = ?').get(supplierId);
+  const assignments = db.prepare('SELECT COUNT(*) as cnt FROM cost_item_suppliers WHERE supplier_id = ? AND tenant_id = ?').get(supplierId, tenantId);
   return { assigned_items: assignments ? assignments.cnt : 0 };
 }
 
@@ -100,8 +97,8 @@ router.get('/', requireAuth, (req, res) => {
   const db = getDb();
   const { type, active, search, order_ready } = req.query;
 
-  let sql = 'SELECT * FROM suppliers WHERE 1=1';
-  const params = [];
+  let sql = 'SELECT * FROM suppliers WHERE tenant_id = ?';
+  const params = [req.tenantId];
 
   if (type) { sql += ' AND supplier_type = ?'; params.push(type); }
   if (active !== undefined && active !== '') { sql += ' AND is_active = ?'; params.push(Number(active)); }
@@ -118,7 +115,7 @@ router.get('/', requireAuth, (req, res) => {
   suppliers = suppliers.map((s) => {
     const dec = decryptBankFields(s);
     dec.is_order_ready = !!(s.name && s.order_email && s.customer_number && s.supplier_type && s.supplier_type !== 'sonstiges');
-    const stats = computeOrderStats(db, s.id);
+    const stats = computeOrderStats(db, s.id, req.tenantId);
     dec.assigned_items = stats.assigned_items;
     return dec;
   });
@@ -135,7 +132,7 @@ router.get('/', requireAuth, (req, res) => {
 // GET /api/suppliers/export/csv - CSV-Export
 router.get('/export/csv', requireAuth, (req, res) => {
   const db = getDb();
-  const suppliers = db.prepare('SELECT * FROM suppliers ORDER BY name').all();
+  const suppliers = db.prepare('SELECT * FROM suppliers WHERE tenant_id = ? ORDER BY name').all(req.tenantId);
 
   const headers = ['Lieferanten-Nr', 'Name', 'Typ', 'Aktiv', 'Ansprechpartner', 'E-Mail', 'Bestell-E-Mail', 'Telefon', 'Strasse', 'PLZ', 'Ort', 'Land', 'Kundennummer', 'Zahlungsziel', 'Skonto %', 'Waehrung', 'USt-IdNr', 'Bewertung', 'Notizen'];
 
@@ -157,13 +154,13 @@ router.get('/export/csv', requireAuth, (req, res) => {
 // GET /api/suppliers/:id - Einzelner Lieferant mit Dokumenten
 router.get('/:id', requireAuth, (req, res) => {
   const db = getDb();
-  const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id);
+  const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
   if (!supplier) return res.status(404).json({ error: 'Lieferant nicht gefunden' });
 
   const dec = decryptBankFields(supplier);
   dec.is_order_ready = !!(supplier.name && supplier.order_email && supplier.customer_number && supplier.supplier_type && supplier.supplier_type !== 'sonstiges');
 
-  const docs = db.prepare('SELECT * FROM supplier_documents WHERE supplier_id = ? ORDER BY created_at DESC').all(req.params.id);
+  const docs = db.prepare('SELECT * FROM supplier_documents WHERE supplier_id = ? AND tenant_id = ? ORDER BY created_at DESC').all(req.params.id, req.tenantId);
   dec.documents = docs;
 
   res.json(dec);
@@ -175,9 +172,9 @@ router.post('/', requireAuth, (req, res) => {
   if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
 
   const db = getDb();
-  const supplierNumber = generateSupplierNumber(db);
+  const supplierNumber = generateSupplierNumber(db, req.tenantId);
 
-  const fields = ['supplier_number', ...SUPPLIER_FIELDS, 'iban_encrypted', 'bic_encrypted'];
+  const fields = ['supplier_number', ...SUPPLIER_FIELDS, 'iban_encrypted', 'bic_encrypted', 'tenant_id'];
   const placeholders = fields.map(() => '?').join(', ');
 
   const values = [
@@ -192,6 +189,7 @@ router.post('/', requireAuth, (req, res) => {
     }),
     encrypt(iban || null),
     encrypt(bic || null),
+    req.tenantId,
   ];
 
   db.prepare(`INSERT INTO suppliers (${fields.join(', ')}) VALUES (${placeholders})`).run(...values);
@@ -220,9 +218,10 @@ router.put('/:id', requireAuth, (req, res) => {
     encrypt(iban || null),
     encrypt(bic || null),
     req.params.id,
+    req.tenantId,
   ];
 
-  const result = db.prepare(`UPDATE suppliers SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+  const result = db.prepare(`UPDATE suppliers SET ${setClauses.join(', ')} WHERE id = ? AND tenant_id = ?`).run(...values);
   if (result.changes === 0) return res.status(404).json({ error: 'Lieferant nicht gefunden' });
   res.json({ message: 'Lieferant aktualisiert' });
 });
@@ -231,15 +230,15 @@ router.put('/:id', requireAuth, (req, res) => {
 router.delete('/:id', requireAuth, (req, res) => {
   const db = getDb();
   // Delete documents from disk
-  const docs = db.prepare('SELECT stored_name FROM supplier_documents WHERE supplier_id = ?').all(req.params.id);
+  const docs = db.prepare('SELECT stored_name FROM supplier_documents WHERE supplier_id = ? AND tenant_id = ?').all(req.params.id, req.tenantId);
   for (const doc of docs) {
     const filePath = path.join(__dirname, '..', '..', 'uploads', 'suppliers', doc.stored_name);
     try { fs.unlinkSync(filePath); } catch (e) { /* file may not exist */ }
   }
-  db.prepare('DELETE FROM supplier_documents WHERE supplier_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM cost_item_suppliers WHERE supplier_id = ?').run(req.params.id);
-  db.prepare('UPDATE inventory SET default_supplier_id = NULL WHERE default_supplier_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM suppliers WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM supplier_documents WHERE supplier_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('DELETE FROM cost_item_suppliers WHERE supplier_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('UPDATE inventory SET default_supplier_id = NULL WHERE default_supplier_id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
+  db.prepare('DELETE FROM suppliers WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenantId);
   res.json({ message: 'Lieferant geloescht' });
 });
 
@@ -249,19 +248,19 @@ router.post('/:id/documents', requireAuth, docUpload.single('file'), (req, res) 
   const db = getDb();
   const docType = req.body.doc_type || 'sonstiges';
   db.prepare(
-    'INSERT INTO supplier_documents (supplier_id, doc_type, original_name, stored_name, mime_type, size) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(req.params.id, docType, req.file.originalname, req.file.filename, req.file.mimetype, req.file.size);
+    'INSERT INTO supplier_documents (supplier_id, doc_type, original_name, stored_name, mime_type, size, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(req.params.id, docType, req.file.originalname, req.file.filename, req.file.mimetype, req.file.size, req.tenantId);
   res.status(201).json({ message: 'Dokument hochgeladen' });
 });
 
 // DELETE /api/suppliers/documents/:docId - Dokument loeschen
 router.delete('/documents/:docId', requireAuth, (req, res) => {
   const db = getDb();
-  const doc = db.prepare('SELECT * FROM supplier_documents WHERE id = ?').get(req.params.docId);
+  const doc = db.prepare('SELECT * FROM supplier_documents WHERE id = ? AND tenant_id = ?').get(req.params.docId, req.tenantId);
   if (!doc) return res.status(404).json({ error: 'Dokument nicht gefunden' });
   const filePath = path.join(__dirname, '..', '..', 'uploads', 'suppliers', doc.stored_name);
   try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
-  db.prepare('DELETE FROM supplier_documents WHERE id = ?').run(req.params.docId);
+  db.prepare('DELETE FROM supplier_documents WHERE id = ? AND tenant_id = ?').run(req.params.docId, req.tenantId);
   res.json({ message: 'Dokument geloescht' });
 });
 
