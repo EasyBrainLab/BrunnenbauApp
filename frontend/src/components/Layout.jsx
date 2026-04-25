@@ -7,6 +7,7 @@ export default function Layout() {
   const { company } = useAuth();
 
   const companyName = company?.company_name || 'Brunnenbau';
+  const headerTitle = 'Brunnen Konfigurator';
   const tagline = company?.tagline || 'Wasser aus dem eigenen Brunnen';
   const logoPath = company?.logo_path || '';
   const primaryColor = company?.primary_color || '#1b59b7';
@@ -30,7 +31,7 @@ export default function Layout() {
               </div>
             )}
             <div>
-              <h1 className="text-xl font-heading font-semibold">{companyName}</h1>
+              <h1 className="text-xl font-heading font-semibold">{headerTitle}</h1>
               <p className="text-xs text-[#5ca8db]">{tagline}</p>
             </div>
           </Link>
