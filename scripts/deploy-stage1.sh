@@ -35,7 +35,7 @@ docker compose -f "$COMPOSE_FILE" config >/dev/null
 
 if [[ "$SKIP_BACKUP" != "1" ]]; then
   echo "Creating pre-deploy backup from current production state..."
-  ./scripts/backup-stage1.sh
+  bash ./scripts/backup-stage1.sh
 fi
 
 echo "Fetching latest code from origin/$GIT_BRANCH..."

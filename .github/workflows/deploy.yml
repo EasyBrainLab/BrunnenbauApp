@@ -26,8 +26,7 @@ jobs:
             whoami
             hostname
             cd ${{ secrets.VPS_APP_DIR }}
-            chmod +x scripts/deploy-stage1.sh scripts/backup-stage1.sh
-            ./scripts/deploy-stage1.sh
+            bash ./scripts/deploy-stage1.sh
             echo "=== Running containers ==="
             docker compose -f docker-compose.prod.yml ps
             echo "=== Latest git commit on server ==="
