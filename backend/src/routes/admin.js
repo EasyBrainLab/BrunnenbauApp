@@ -5,11 +5,12 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { dbGet, dbAll, dbRun } = require('../database');
 const { WELL_TYPE_LABELS } = require('../email');
-const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
+const { sendCustomerConfirmation, sendCompanyNotification, sendPrivacyPolicyEmail } = require('../email');
 const nodemailer = require('nodemailer');
-const { generateQuotePdf } = require('../pdfGenerator');
+const { generateQuotePdf, generatePrivacyPolicyPdf } = require('../pdfGenerator');
 const { getCompanySettingsAsync, getSettingsKeys, getEmailSignature } = require('../companySettings');
 const { requireAuth: tenantRequireAuth } = require('../middleware/tenantContext');
+const { buildDefaultPrivacyPolicyText, getPrivacyPolicy, formatGermanDate, todayIso } = require('../privacyPolicy');
 
 // Multer fuer Logo-Upload
 const logoStorage = multer.diskStorage({
@@ -130,6 +131,8 @@ function getPublicCompanyFields(settings) {
     primary_color,
     logo_path,
     legal_form,
+    privacy_policy_title,
+    privacy_policy_last_updated,
   } = settings;
 
   return {
@@ -144,6 +147,8 @@ function getPublicCompanyFields(settings) {
     primary_color,
     logo_path,
     legal_form,
+    privacy_policy_title,
+    privacy_policy_last_updated,
   };
 }
 
@@ -1030,6 +1035,12 @@ router.get('/company-settings', async (req, res) => {
     if (!req.session?.isAdmin) {
       return res.json(getPublicCompanyFields(settings));
     }
+    if (!settings.privacy_policy_body) {
+      settings.privacy_policy_body = buildDefaultPrivacyPolicyText(settings);
+    }
+    if (!settings.privacy_policy_last_updated) {
+      settings.privacy_policy_last_updated = todayIso();
+    }
     res.json(settings);
   } catch (err) {
     console.error('Company settings konnten nicht geladen werden:', err);
@@ -1045,13 +1056,70 @@ router.put('/company-settings', requireAuth, async (req, res) => {
   }
 
   const validKeys = getSettingsKeys();
+  const privacyKeys = new Set([
+    'privacy_policy_title',
+    'privacy_policy_body',
+    'privacy_contact_email',
+    'privacy_dpo_name',
+    'privacy_dpo_email',
+    'privacy_supervisory_authority',
+  ]);
+  let privacyChanged = false;
 
   for (const [key, value] of Object.entries(settings)) {
     if (!validKeys.includes(key)) continue;
     await upsertCompanySetting(req.tenantId, key, value);
+    if (privacyKeys.has(key)) privacyChanged = true;
+  }
+
+  if (privacyChanged) {
+    await upsertCompanySetting(req.tenantId, 'privacy_policy_last_updated', todayIso());
   }
 
   res.json({ message: 'Firmendaten gespeichert' });
+});
+
+router.get('/privacy-policy', async (req, res) => {
+  try {
+    const policy = await getPrivacyPolicy(req.tenantId);
+    res.json({
+      title: policy.title,
+      bodyText: policy.bodyText,
+      lastUpdated: policy.lastUpdated,
+      lastUpdatedFormatted: formatGermanDate(policy.lastUpdated),
+      contactEmail: policy.contactEmail,
+    });
+  } catch (err) {
+    console.error('Datenschutzerklaerung konnte nicht geladen werden:', err);
+    res.status(500).json({ error: 'Datenschutzerklaerung konnte nicht geladen werden' });
+  }
+});
+
+router.get('/privacy-policy/pdf', async (req, res) => {
+  try {
+    const pdfBuffer = await generatePrivacyPolicyPdf({ tenantId: req.tenantId });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="datenschutzerklaerung.pdf"');
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Datenschutzerklaerungs-PDF konnte nicht erstellt werden:', err);
+    res.status(500).json({ error: 'PDF konnte nicht erstellt werden' });
+  }
+});
+
+router.post('/privacy-policy/email', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Gueltige E-Mail-Adresse erforderlich' });
+  }
+
+  try {
+    await sendPrivacyPolicyEmail(email, req.tenantId);
+    res.json({ message: 'Datenschutzerklaerung wurde per E-Mail versendet.' });
+  } catch (err) {
+    console.error('Datenschutzerklaerung konnte nicht versendet werden:', err);
+    res.status(500).json({ error: 'Datenschutzerklaerung konnte nicht versendet werden' });
+  }
 });
 
 // POST /api/admin/company-logo — Logo hochladen

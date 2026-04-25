@@ -13,6 +13,7 @@ import AdminInventory from './pages/AdminInventory';
 import AdminValueLists from './pages/AdminValueLists';
 import AdminCompany from './pages/AdminCompany';
 import AdminAuthorityLinks from './pages/AdminAuthorityLinks';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<WizardPage />} />
+          <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
           <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/admin" element={<AdminLogin />} />

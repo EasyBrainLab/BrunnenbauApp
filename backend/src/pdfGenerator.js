@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const { getCompanySettingsAsync, getCompanyFooterLine, getCompanyAddressLine } = require('./companySettings');
+const { getPrivacyPolicy, formatGermanDate } = require('./privacyPolicy');
 
 async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
   const cs = await getCompanySettingsAsync(tenantId || inquiry?.tenant_id);
@@ -179,4 +180,41 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
   });
 }
 
-module.exports = { generateQuotePdf };
+async function generatePrivacyPolicyPdf({ tenantId }) {
+  const { title, bodyText, lastUpdated, settings } = await getPrivacyPolicy(tenantId);
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const buffers = [];
+      doc.on('data', (chunk) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      let y = 50;
+      doc.fontSize(20).font('Helvetica-Bold').fillColor(settings.primary_color || '#1b59b7').text(title, 50, y);
+      y = doc.y + 6;
+      doc.fontSize(9).font('Helvetica').fillColor('#666666').text(`Stand: ${formatGermanDate(lastUpdated)}`, 50, y);
+      y = doc.y + 16;
+      doc.moveTo(50, y).lineTo(545, y).strokeColor(settings.primary_color || '#1b59b7').lineWidth(1.2).stroke();
+      y += 18;
+
+      doc.fillColor('#000000').font('Helvetica').fontSize(10);
+      for (const paragraph of bodyText.split(/\n{2,}/)) {
+        if (y > 730) {
+          doc.addPage();
+          y = 50;
+        }
+        doc.text(paragraph, 50, y, { width: 495, align: 'left' });
+        y = doc.y + 12;
+      }
+
+      doc.fontSize(8).fillColor('#999999').text(getCompanyFooterLine(settings), 50, 780, { align: 'center', width: 495 });
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+module.exports = { generateQuotePdf, generatePrivacyPolicyPdf };

@@ -293,7 +293,7 @@ export default function Step7Final({ data, errors, onChange, showSummary }) {
             />
             <span className="text-sm text-gray-600">
               Ich bestätige, dass meine Angaben korrekt sind und stimme der{' '}
-              <a href="https://example.com/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary-500 underline">
+              <a href="/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary-500 underline">
                 Datenschutzerklärung
               </a>{' '}
               zu. *

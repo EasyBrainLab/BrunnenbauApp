@@ -260,10 +260,10 @@ export default function Step1Contact({ data, errors, onChange }) {
           />
           <span className="text-sm text-gray-600">
             Ich stimme der{' '}
-            <a href="https://example.com/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary-500 underline hover:text-primary-600">
+            <a href="/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary-500 underline hover:text-primary-600">
               Datenschutzerklärung
             </a>{' '}
-            zu. Ihre Daten werden ausschließlich zur Bearbeitung Ihrer Anfrage verwendet und nicht an Dritte weitergegeben. *
+            zu. Ihre Daten werden ausschliesslich zur Bearbeitung Ihrer Anfrage verwendet und nur weitergegeben, soweit dies fuer Hosting, IT-Betrieb oder die konkrete Leistungserbringung erforderlich ist. *
           </span>
         </label>
         {errors.privacy_accepted && <p className="text-red-500 text-xs mt-1">{errors.privacy_accepted}</p>}

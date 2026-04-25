@@ -75,6 +75,18 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Datenschutz',
+    fields: [
+      { key: 'privacy_policy_title', label: 'Titel der Datenschutzerklaerung' },
+      { key: 'privacy_contact_email', label: 'Datenschutz-Kontakt E-Mail', placeholder: 'datenschutz@firma.de' },
+      { key: 'privacy_dpo_name', label: 'Datenschutzbeauftragte/r' },
+      { key: 'privacy_dpo_email', label: 'E-Mail Datenschutzbeauftragte/r', placeholder: 'dsb@firma.de' },
+      { key: 'privacy_supervisory_authority', label: 'Zustaendige Aufsichtsbehoerde', type: 'textarea' },
+      { key: 'privacy_policy_last_updated', label: 'Stand Datenschutzerklaerung', placeholder: 'YYYY-MM-DD' },
+      { key: 'privacy_policy_body', label: 'Datenschutzerklaerung (bearbeitbarer Text)', type: 'textarea', rows: 18 },
+    ],
+  },
+  {
     title: 'Branding',
     fields: [
       { key: 'primary_color', label: 'Primaerfarbe', type: 'color' },
@@ -95,7 +107,9 @@ export default function AdminCompany() {
 
   useEffect(() => {
     apiGet('/api/admin/company-settings')
-      .then((data) => {
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Firmendaten konnten nicht geladen werden');
+        const data = await res.json();
         setSettings(data);
         setLoading(false);
       })
@@ -110,7 +124,11 @@ export default function AdminCompany() {
     setSaving(true);
     setMessage('');
     try {
-      await apiPut('/api/admin/company-settings', { settings });
+      const res = await apiPut('/api/admin/company-settings', { settings });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Unbekannter Fehler');
+      }
       setMessage('Firmendaten gespeichert.');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -277,7 +295,7 @@ export default function AdminCompany() {
                     {field.type === 'textarea' ? (
                       <textarea
                         className="form-input w-full"
-                        rows={3}
+                        rows={field.rows || 3}
                         value={settings[field.key] || ''}
                         placeholder={field.placeholder || ''}
                         onChange={(e) => handleChange(field.key, e.target.value)}

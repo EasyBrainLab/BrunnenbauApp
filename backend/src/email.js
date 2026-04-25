@@ -2,6 +2,8 @@ const nodemailer = require('nodemailer');
 const { generateIcs } = require('./icsGenerator');
 const { getCompanySettingsAsync, getEmailSignature } = require('./companySettings');
 const { dbGet } = require('./database');
+const { generatePrivacyPolicyPdf } = require('./pdfGenerator');
+const { getPrivacyPolicy } = require('./privacyPolicy');
 
 // E-Mail-Transporter erstellen (mit optionalem Tenant-SMTP)
 async function createTransporter(tenantId) {
@@ -206,4 +208,23 @@ async function sendCompanyNotification(inquiry, tenantId) {
   });
 }
 
-module.exports = { sendCustomerConfirmation, sendCompanyNotification, WELL_TYPE_LABELS };
+async function sendPrivacyPolicyEmail(recipientEmail, tenantId) {
+  const transporter = await createTransporter(tenantId);
+  const cs = await getCompanySettingsAsync(tenantId);
+  const policy = await getPrivacyPolicy(tenantId);
+  const pdfBuffer = await generatePrivacyPolicyPdf({ tenantId });
+
+  await transporter.sendMail({
+    from: cs.email_from,
+    to: recipientEmail,
+    subject: `${policy.title} - ${cs.company_name || 'Brunnenbau'}`,
+    text: `Anbei erhalten Sie die aktuelle Datenschutzerklaerung von ${cs.company_name || 'unserem Unternehmen'}.\n\nStand: ${policy.lastUpdated}\n\nBei Rueckfragen kontaktieren Sie uns bitte unter ${policy.contactEmail || cs.company_email || cs.email_from}.`,
+    attachments: [{
+      filename: 'datenschutzerklaerung.pdf',
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
+}
+
+module.exports = { sendCustomerConfirmation, sendCompanyNotification, sendPrivacyPolicyEmail, WELL_TYPE_LABELS };

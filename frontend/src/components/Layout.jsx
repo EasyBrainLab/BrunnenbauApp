@@ -63,7 +63,7 @@ export default function Layout() {
         <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-[#efefef]">
           <p>&copy; {new Date().getFullYear()} {companyName}. Alle Rechte vorbehalten.</p>
           <div className="flex gap-6">
-            <a href="https://example.com/datenschutz" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+            <a href="/datenschutz" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
               Datenschutz
             </a>
             <a href="https://example.com/impressum" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">

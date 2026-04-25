@@ -49,6 +49,13 @@ const DEFAULTS = {
   payment_terms: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang ohne Abzug.',
   email_signature: 'Mit freundlichen Gruessen\nIhr Brunnenbau-Team',
   pdf_footer_text: '',
+  privacy_policy_title: 'Datenschutzerklaerung',
+  privacy_policy_body: '',
+  privacy_policy_last_updated: '',
+  privacy_contact_email: '',
+  privacy_dpo_name: '',
+  privacy_dpo_email: '',
+  privacy_supervisory_authority: '',
 
   // Branding
   primary_color: '#1b59b7',
