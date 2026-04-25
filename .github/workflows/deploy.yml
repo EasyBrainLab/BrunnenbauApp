@@ -3,20 +3,34 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Test SSH connection
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: root
+          username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /opt/brunnenbau
-            git pull origin main
-            docker compose -f docker-compose.prod.yml build --no-cache
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
+            set -e
+            echo "=== SSH-Login erfolgreich ==="
+            whoami
+            hostname
+            echo "=== Repo-Verzeichnis ==="
+            cd ${{ secrets.VPS_APP_DIR }}
+            pwd
+            ls -la | head -n 10
+            echo "=== Git-Stand ==="
+            git status
+            git log --oneline -3
+            echo "=== Docker-Containers ==="
+            docker ps --filter "name=brunnenbau" --format "table {{.Names}}\t{{.Status}}"
+            echo "=== Test fertig ==="
