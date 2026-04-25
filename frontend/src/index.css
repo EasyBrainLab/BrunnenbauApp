@@ -54,3 +54,58 @@
     @apply bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm;
   }
 }
+
+.admin-shell .btn-primary,
+.admin-shell .btn-secondary,
+.admin-shell .btn-accent {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border-radius: 0.5rem;
+}
+
+.admin-shell .form-input {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border-radius: 0.5rem;
+}
+
+.admin-shell textarea.form-input {
+  min-height: 5.5rem;
+}
+
+.admin-shell .form-label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.admin-shell .card {
+  padding: 1rem;
+  border-radius: 0.875rem;
+}
+
+.admin-shell h1.text-2xl {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
+
+.admin-shell h2.text-lg {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.admin-shell table {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.admin-shell thead th {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.admin-shell tbody td {
+  line-height: 1.25rem;
+}

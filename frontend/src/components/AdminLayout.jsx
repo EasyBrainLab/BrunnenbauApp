@@ -126,7 +126,7 @@ export default function AdminLayout() {
     }`;
 
   return (
-    <div className="flex min-h-[calc(100vh-72px)]">
+    <div className="admin-shell flex min-h-[calc(100vh-72px)]">
       {/* Mobile toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
