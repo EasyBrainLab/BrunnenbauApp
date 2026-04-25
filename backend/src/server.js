@@ -51,7 +51,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(attachTenantContext);
 
 // Session-Konfiguration
 const sessionSecret = process.env.SESSION_SECRET;
@@ -71,6 +70,9 @@ app.use(session({
     maxAge: 8 * 60 * 60 * 1000, // 8 Stunden
   },
 }));
+
+// Tenant-Kontext erst nach Session aufloesen, damit Session-Tenant als Fallback verfuegbar ist.
+app.use(attachTenantContext);
 
 // Rate-Limiting fuer Login (Brute-Force-Schutz)
 const loginLimiter = rateLimit({
