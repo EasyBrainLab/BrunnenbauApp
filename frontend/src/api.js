@@ -27,68 +27,54 @@ export async function fetchCsrfToken() {
   return csrfToken;
 }
 
-export async function apiPost(url, body, isFormData = false) {
-  if (!csrfToken) await fetchCsrfToken();
+async function apiRequest(url, method, body, isFormData = false) {
+  if (method !== 'GET' && !csrfToken) {
+    await fetchCsrfToken();
+  }
 
   const options = {
-    method: 'POST',
+    method,
     credentials: 'include',
-    headers: { 'X-CSRF-Token': csrfToken },
+    headers: {},
   };
 
-  if (isFormData) {
-    options.body = body;
-  } else {
-    options.headers['Content-Type'] = 'application/json';
-    options.body = JSON.stringify(body);
+  if (method !== 'GET') {
+    options.headers['X-CSRF-Token'] = csrfToken;
+  }
+
+  if (body !== undefined) {
+    if (isFormData) {
+      options.body = body;
+    } else {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
+    }
   }
 
   const targetUrl = withTenantContext(url);
-  const res = await fetch(targetUrl, options);
+  let res = await fetch(targetUrl, options);
 
-  if (res.status === 403) {
-    // CSRF-Token erneuern und erneut versuchen
+  if (method !== 'GET' && res.status === 403) {
     await fetchCsrfToken();
     options.headers['X-CSRF-Token'] = csrfToken;
-    const retry = await fetch(targetUrl, options);
-    return retry;
+    res = await fetch(targetUrl, options);
   }
 
   return res;
 }
 
+export async function apiPost(url, body, isFormData = false) {
+  return apiRequest(url, 'POST', body, isFormData);
+}
+
 export async function apiPut(url, body) {
-  if (!csrfToken) await fetchCsrfToken();
-
-  const res = await fetch(withTenantContext(url), {
-    method: 'PUT',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify(body),
-  });
-
-  return res;
+  return apiRequest(url, 'PUT', body);
 }
 
 export async function apiGet(url) {
-  const res = await fetch(withTenantContext(url), { credentials: 'include' });
-  return res;
+  return apiRequest(url, 'GET');
 }
 
 export async function apiDelete(url) {
-  if (!csrfToken) await fetchCsrfToken();
-
-  const res = await fetch(withTenantContext(url), {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-    },
-  });
-
-  return res;
+  return apiRequest(url, 'DELETE');
 }
