@@ -1,11 +1,94 @@
 const express = require('express');
 const router = express.Router();
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requireRole } = require('../middleware/tenantContext');
+const { requireAuth, requireRole, requirePermission } = require('../middleware/tenantContext');
 const { hashPassword } = require('../services/encryption');
+const {
+  PERMISSION_CATALOG,
+  getRoleDefinitions,
+  isValidRole,
+  upsertRoleDefinition,
+  deleteRoleDefinition,
+} = require('../services/roles');
 
 router.use(requireAuth);
-router.use(requireRole('owner', 'admin'));
+router.use(requirePermission('users_manage'));
+
+router.get('/roles', async (req, res) => {
+  try {
+    const roles = await getRoleDefinitions(req.tenantId);
+    res.json({ roles, permissionCatalog: PERMISSION_CATALOG });
+  } catch (err) {
+    console.error('Rollen konnten nicht geladen werden:', err);
+    res.status(500).json({ error: 'Rollen konnten nicht geladen werden' });
+  }
+});
+
+router.post('/roles', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { value, label, description, permissions, sort_order, is_active } = req.body;
+    if (!value || !label) {
+      return res.status(400).json({ error: 'Rollen-Schluessel und Anzeigename sind erforderlich' });
+    }
+
+    const normalizedValue = String(value).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+    const existing = (await getRoleDefinitions(req.tenantId)).find((role) => role.value === normalizedValue);
+    if (existing) {
+      return res.status(409).json({ error: 'Rolle mit diesem Schluessel existiert bereits' });
+    }
+
+    const role = await upsertRoleDefinition(req.tenantId, {
+      value: normalizedValue,
+      label: String(label).trim(),
+      description: description || '',
+      permissions,
+      sort_order,
+      is_active: is_active !== false,
+    });
+
+    res.status(201).json(role);
+  } catch (err) {
+    console.error('Rolle konnte nicht erstellt werden:', err);
+    res.status(500).json({ error: 'Rolle konnte nicht erstellt werden' });
+  }
+});
+
+router.put('/roles/:value', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const roles = await getRoleDefinitions(req.tenantId);
+    const existing = roles.find((role) => role.value === req.params.value);
+    if (!existing) return res.status(404).json({ error: 'Rolle nicht gefunden' });
+
+    const role = await upsertRoleDefinition(req.tenantId, {
+      id: existing.id,
+      value: existing.value,
+      label: req.body.label || existing.label,
+      description: req.body.description ?? existing.description,
+      permissions: Array.isArray(req.body.permissions) ? req.body.permissions : existing.permissions,
+      sort_order: req.body.sort_order ?? existing.sort_order,
+      is_active: req.body.is_active !== undefined ? !!req.body.is_active : !!existing.is_active,
+      is_system: !!existing.is_system,
+    });
+
+    res.json(role);
+  } catch (err) {
+    console.error('Rolle konnte nicht aktualisiert werden:', err);
+    res.status(500).json({ error: 'Rolle konnte nicht aktualisiert werden' });
+  }
+});
+
+router.delete('/roles/:value', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const result = await deleteRoleDefinition(req.tenantId, req.params.value);
+    if (result.reason === 'not_found') return res.status(404).json({ error: 'Rolle nicht gefunden' });
+    if (result.reason === 'system_role') return res.status(403).json({ error: 'Systemrollen koennen nicht geloescht werden' });
+    if (result.reason === 'in_use') return res.status(409).json({ error: 'Rolle ist noch Benutzern zugeordnet' });
+    res.json({ message: 'Rolle geloescht' });
+  } catch (err) {
+    console.error('Rolle konnte nicht geloescht werden:', err);
+    res.status(500).json({ error: 'Rolle konnte nicht geloescht werden' });
+  }
+});
 
 router.get('/', async (req, res) => {
   const users = await dbAll(
@@ -27,12 +110,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen lang sein' });
     }
 
-    const allowedRoles = ['admin', 'worker', 'readonly'];
     if (role === 'owner' && req.userRole !== 'owner') {
       return res.status(403).json({ error: 'Nur der Inhaber kann weitere Inhaber anlegen' });
     }
 
-    const userRole = allowedRoles.includes(role) ? role : 'worker';
+    const userRole = role || 'worker';
+    if (!(await isValidRole(req.tenantId, userRole))) {
+      return res.status(400).json({ error: 'Ungueltige oder inaktive Rolle' });
+    }
 
     const existing = await dbGet(
       'SELECT id FROM users WHERE tenant_id = $1 AND (email = $2 OR username = $3)',
@@ -74,9 +159,8 @@ router.put('/:id', async (req, res) => {
   const params = [];
 
   if (role !== undefined) {
-    const allowedRoles = ['owner', 'admin', 'worker', 'readonly'];
-    if (!allowedRoles.includes(role)) return res.status(400).json({ error: 'Ungueltige Rolle' });
     if (role === 'owner' && req.userRole !== 'owner') return res.status(403).json({ error: 'Nur Inhaber kann Owner-Rolle vergeben' });
+    if (!(await isValidRole(req.tenantId, role))) return res.status(400).json({ error: 'Ungueltige oder inaktive Rolle' });
     updates.push(`role = $${params.length + 1}`);
     params.push(role);
   }

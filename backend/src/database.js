@@ -162,6 +162,10 @@ function initDatabase() {
         total_min REAL NOT NULL,
         total_max REAL NOT NULL,
         notes TEXT,
+        document_title TEXT,
+        intro_text TEXT,
+        post_items_text_1 TEXT,
+        post_items_text_2 TEXT,
         footer_text TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (inquiry_id) REFERENCES inquiries(inquiry_id)
@@ -226,6 +230,10 @@ function initDatabase() {
       db.run('ALTER TABLE quotes ADD COLUMN footer_text TEXT');
       saveDb();
     } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN document_title TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN intro_text TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN post_items_text_1 TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN post_items_text_2 TEXT'); saveDb(); } catch (e) {}
 
     // Migration: Brunnenabdeckung
     try { db.run('ALTER TABLE inquiries ADD COLUMN well_cover_type TEXT'); saveDb(); } catch (e) {}

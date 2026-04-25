@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
+import { apiGet } from '../api';
 
 export default function AuthorityLinks({ bundesland }) {
   const [links, setLinks] = useState([]);
 
   useEffect(() => {
     if (!bundesland) return;
-    fetch(`/api/authority-links?bundesland=${encodeURIComponent(bundesland)}`)
-      .then(r => r.json())
-      .then(setLinks)
+    apiGet(`/api/authority-links?bundesland=${encodeURIComponent(bundesland)}`)
+      .then(async (r) => (r.ok ? r.json() : []))
+      .then((data) => setLinks(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [bundesland]);
 

@@ -33,6 +33,7 @@ const DEFAULTS = {
   vat_id: '',
   trade_register_number: '',
   trade_register_court: '',
+  court_of_jurisdiction: '',
 
   // Bankverbindung
   bank_name: '',
@@ -49,6 +50,14 @@ const DEFAULTS = {
   payment_terms: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang ohne Abzug.',
   email_signature: 'Mit freundlichen Gruessen\nIhr Brunnenbau-Team',
   pdf_footer_text: '',
+  quote_document_title: 'Kostenvoranschlag Brunnenbau',
+  quote_intro_text: 'Sehr geehrte(r) {{customer_name}},\n\nvielen Dank fuer Ihre Anfrage {{inquiry_id}}. Nachfolgend erhalten Sie unser Angebot fuer die ausgewaehlte Brunnenart {{well_type_label}}.',
+  quote_post_items_text_1: 'Leistungsumfang und Voraussetzungen:\n- Die angegebenen Positionen basieren auf dem aktuell gewaehlten Brunnentyp.\n- Unvorhergesehene Bodenverhaeltnisse oder Zusatzleistungen werden nur nach Abstimmung berechnet.',
+  quote_post_items_text_2: 'Naechste Schritte:\n- Bei Fragen oder Anpassungswuenschen sprechen Sie uns bitte an.\n- Zur Beauftragung antworten Sie bitte auf dieses Angebot oder bestaetigen Sie es schriftlich.',
+  invoice_document_title: 'Rechnung',
+  invoice_intro_text: 'Vielen Dank fuer Ihren Auftrag. Nachfolgend erhalten Sie die Abrechnung der ausgefuehrten Leistungen.',
+  invoice_post_items_text_1: 'Bitte pruefen Sie die aufgefuehrten Positionen und Leistungsumfaenge.',
+  invoice_post_items_text_2: 'Sofern nicht anders vereinbart, gelten die in den Firmenstammdaten hinterlegten Zahlungsbedingungen.',
   privacy_policy_title: 'Datenschutzerklaerung',
   privacy_policy_body: '',
   privacy_policy_last_updated: '',

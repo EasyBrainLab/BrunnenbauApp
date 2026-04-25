@@ -2,11 +2,11 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const router = express.Router();
 const { dbGet, dbRun } = require('../database');
-const { requireAuth, requireRole } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission } = require('../middleware/tenantContext');
 const { encrypt, decrypt } = require('../services/encryption');
 
 router.use(requireAuth);
-router.use(requireRole('owner', 'admin'));
+router.use(requirePermission('smtp_manage'));
 
 router.get('/', async (req, res) => {
   const smtp = await dbGet('SELECT * FROM tenant_smtp WHERE tenant_id = $1', [req.tenantId]);

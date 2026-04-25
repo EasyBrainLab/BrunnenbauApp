@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { apiGet } from '../api';
 
 // In-memory cache: listKey → { data, promise, timestamp }
 const cache = {};
 
 async function fetchList(listKey) {
-  const res = await fetch(`/api/value-lists/${listKey}/items`);
+  const res = await apiGet(`/api/value-lists/${listKey}/items`);
   if (!res.ok) throw new Error(`Failed to load value list: ${listKey}`);
   return res.json();
 }

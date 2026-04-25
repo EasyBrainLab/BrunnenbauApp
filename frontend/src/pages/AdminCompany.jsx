@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { apiGet, apiPut, apiDelete } from '../api';
+import { apiGet, apiPut, apiDelete, fetchCsrfToken, withTenantContext } from '../api';
 
 const SECTIONS = [
   {
@@ -47,6 +47,7 @@ const SECTIONS = [
       { key: 'vat_id', label: 'USt-IdNr.' },
       { key: 'trade_register_number', label: 'Handelsregisternummer', placeholder: 'z.B. HRB 12345' },
       { key: 'trade_register_court', label: 'Registergericht', placeholder: 'z.B. Amtsgericht Muenchen' },
+      { key: 'court_of_jurisdiction', label: 'Gerichtsstand', placeholder: 'z.B. Oranienburg' },
     ],
   },
   {
@@ -72,6 +73,19 @@ const SECTIONS = [
       { key: 'payment_terms', label: 'Zahlungsbedingungen', type: 'textarea' },
       { key: 'email_signature', label: 'E-Mail-Signatur', type: 'textarea' },
       { key: 'pdf_footer_text', label: 'PDF-Fusszeile (zusaetzlich)', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Dokument-Layout',
+    fields: [
+      { key: 'quote_document_title', label: 'Dokumenttitel Angebot' },
+      { key: 'quote_intro_text', label: 'Einleitung Angebot', type: 'textarea', rows: 5 },
+      { key: 'quote_post_items_text_1', label: 'Textblock 1 nach Positionen', type: 'textarea', rows: 5 },
+      { key: 'quote_post_items_text_2', label: 'Textblock 2 nach Positionen', type: 'textarea', rows: 5 },
+      { key: 'invoice_document_title', label: 'Dokumenttitel Rechnung' },
+      { key: 'invoice_intro_text', label: 'Einleitung Rechnung', type: 'textarea', rows: 4 },
+      { key: 'invoice_post_items_text_1', label: 'Textblock 1 Rechnung', type: 'textarea', rows: 4 },
+      { key: 'invoice_post_items_text_2', label: 'Textblock 2 Rechnung', type: 'textarea', rows: 4 },
     ],
   },
   {
@@ -145,14 +159,12 @@ export default function AdminCompany() {
     setLogoUploading(true);
     setMessage('');
     try {
-      // CSRF-Token holen
-      const csrfRes = await fetch('/api/csrf-token', { credentials: 'include' });
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await fetchCsrfToken();
 
       const formData = new FormData();
       formData.append('logo', file);
 
-      const res = await fetch('/api/admin/company-logo', {
+      const res = await fetch(withTenantContext('/api/admin/company-logo'), {
         method: 'POST',
         headers: { 'X-CSRF-Token': csrfToken },
         credentials: 'include',

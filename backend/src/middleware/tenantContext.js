@@ -1,4 +1,5 @@
 const { getDb, dbGet, isPostgres } = require('../database');
+const { getPermissionsForRole } = require('../services/roles');
 
 function normalizeSlug(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -111,10 +112,34 @@ function requireAuth(req, res, next) {
 // Rollenbasierte Berechtigung
 function requireRole(...roles) {
   return (req, res, next) => {
+    if (req.userRole === 'owner') {
+      return next();
+    }
+
     if (!roles.includes(req.userRole)) {
       return res.status(403).json({ error: 'Keine Berechtigung fuer diese Aktion' });
     }
     next();
+  };
+}
+
+function requirePermission(...permissions) {
+  return async (req, res, next) => {
+    if (req.userRole === 'owner') {
+      req.userPermissions = permissions;
+      return next();
+    }
+
+    try {
+      const currentPermissions = await getPermissionsForRole(req.tenantId || req.session?.tenantId || 'default', req.userRole);
+      req.userPermissions = currentPermissions;
+      if (!permissions.every((permission) => currentPermissions.includes(permission))) {
+        return res.status(403).json({ error: 'Keine Berechtigung fuer diese Aktion' });
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
   };
 }
 
@@ -240,4 +265,4 @@ async function resolveTenantFromSlugAsync(slug) {
   return tenant ? tenant.tenant_id : 'default';
 }
 
-module.exports = { requireAuth, requireRole, resolveTenant, attachTenantContext, resolveTenantFromSlug, resolveTenantFromSlugAsync };
+module.exports = { requireAuth, requireRole, requirePermission, resolveTenant, attachTenantContext, resolveTenantFromSlug, resolveTenantFromSlugAsync };

@@ -50,6 +50,10 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
   // Edit state
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [editItems, setEditItems] = useState([]);
+  const [editDocumentTitle, setEditDocumentTitle] = useState('');
+  const [editIntroText, setEditIntroText] = useState('');
+  const [editPostItemsText1, setEditPostItemsText1] = useState('');
+  const [editPostItemsText2, setEditPostItemsText2] = useState('');
   const [editFooterText, setEditFooterText] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +100,10 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
       quantity: item.quantity ?? item.quantity_min,
       total: item.total ?? (item.unit_price * (item.quantity ?? item.quantity_min)),
     })));
+    setEditDocumentTitle(q.document_title || '');
+    setEditIntroText(q.intro_text || '');
+    setEditPostItemsText1(q.post_items_text_1 || '');
+    setEditPostItemsText2(q.post_items_text_2 || '');
     setEditFooterText(q.footer_text || '');
     setShowAddItem(false);
 
@@ -109,6 +117,10 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
   const cancelEdit = () => {
     setEditingQuoteId(null);
     setEditItems([]);
+    setEditDocumentTitle('');
+    setEditIntroText('');
+    setEditPostItemsText1('');
+    setEditPostItemsText2('');
     setEditFooterText('');
     setShowAddItem(false);
   };
@@ -159,6 +171,10 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
     try {
       const res = await apiPut(`/api/costs/quotes/${editingQuoteId}`, {
         items: editItems,
+        document_title: editDocumentTitle,
+        intro_text: editIntroText,
+        post_items_text_1: editPostItemsText1,
+        post_items_text_2: editPostItemsText2,
         footer_text: editFooterText,
       });
       if (res.ok) {
@@ -206,6 +222,27 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                   {editingQuoteId === q.id ? (
                     /* ===== EDIT MODE ===== */
                     <div>
+                      <div className="grid grid-cols-1 gap-3 mb-3">
+                        <div>
+                          <label className="form-label text-xs">Dokumenttitel</label>
+                          <input
+                            type="text"
+                            value={editDocumentTitle}
+                            onChange={(e) => setEditDocumentTitle(e.target.value)}
+                            className="form-input text-xs w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label text-xs">Einleitung vor den Positionen</label>
+                          <textarea
+                            value={editIntroText}
+                            onChange={(e) => setEditIntroText(e.target.value)}
+                            rows={4}
+                            className="form-input text-xs w-full"
+                          />
+                        </div>
+                      </div>
+
                       <table className="w-full text-xs mb-2">
                         <thead>
                           <tr className="text-left text-gray-500 border-b">
@@ -370,9 +407,30 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                         </div>
                       )}
 
+                      {/* Post-item text blocks */}
+                      <div className="mb-3">
+                        <label className="form-label text-xs">Textblock 1 nach der Positionsliste</label>
+                        <textarea
+                          value={editPostItemsText1}
+                          onChange={(e) => setEditPostItemsText1(e.target.value)}
+                          rows={4}
+                          className="form-input text-xs w-full"
+                        />
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="form-label text-xs">Textblock 2 nach der Positionsliste</label>
+                        <textarea
+                          value={editPostItemsText2}
+                          onChange={(e) => setEditPostItemsText2(e.target.value)}
+                          rows={4}
+                          className="form-input text-xs w-full"
+                        />
+                      </div>
+
                       {/* Footer text */}
                       <div className="mb-3">
-                        <label className="form-label text-xs">Info-Text (PDF-Footer)</label>
+                        <label className="form-label text-xs">Zusaetzlicher Hinweisblock</label>
                         <textarea
                           value={editFooterText}
                           onChange={(e) => setEditFooterText(e.target.value)}
@@ -408,6 +466,12 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                   ) : (
                     /* ===== READ-ONLY MODE ===== */
                     <>
+                      {(q.document_title || q.intro_text) && (
+                        <div className="mb-3 rounded-lg border border-earth-100 bg-white p-3">
+                          {q.document_title && <p className="text-sm font-semibold text-gray-800">{q.document_title}</p>}
+                          {q.intro_text && <p className="mt-1 whitespace-pre-line text-xs text-gray-600">{q.intro_text}</p>}
+                        </div>
+                      )}
                       <table className="w-full text-xs mb-2">
                         <thead>
                           <tr className="text-left text-gray-500 border-b">
@@ -477,6 +541,13 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                           }
                         </div>
                       </div>
+                      {(q.post_items_text_1 || q.post_items_text_2 || q.footer_text) && (
+                        <div className="mt-3 space-y-2 rounded-lg border border-earth-100 bg-white p-3">
+                          {q.post_items_text_1 && <p className="whitespace-pre-line text-xs text-gray-700">{q.post_items_text_1}</p>}
+                          {q.post_items_text_2 && <p className="whitespace-pre-line text-xs text-gray-700">{q.post_items_text_2}</p>}
+                          {q.footer_text && <p className="whitespace-pre-line text-xs text-gray-500">{q.footer_text}</p>}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

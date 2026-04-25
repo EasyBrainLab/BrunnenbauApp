@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const router = express.Router();
 const { dbGet, dbRun } = require('../database');
 const { hashPassword, verifyPassword } = require('../services/encryption');
+const { getPermissionsForRole } = require('../services/roles');
 
 // POST /api/auth/register — Neuen Tenant + Owner-User anlegen
 router.post('/register', async (req, res) => {
@@ -72,7 +73,13 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       tenant: { tenantId, companyName, slug, plan: 'free' },
-      user: { email, username, role: 'owner', displayName: displayName || username },
+      user: {
+        email,
+        username,
+        role: 'owner',
+        displayName: displayName || username,
+        permissions: await getPermissionsForRole(tenantId, 'owner'),
+      },
     });
   } catch (err) {
     console.error('Registrierungsfehler:', err);
@@ -120,7 +127,12 @@ router.post('/login', async (req, res) => {
 
         const tenant = await dbGet("SELECT * FROM tenants WHERE tenant_id = 'default'");
         return res.json({
-          user: { username: envUser, role: 'owner', displayName: 'Administrator' },
+          user: {
+            username: envUser,
+            role: 'owner',
+            displayName: 'Administrator',
+            permissions: await getPermissionsForRole('default', 'owner'),
+          },
           tenant: tenant ? { tenantId: tenant.tenant_id, companyName: tenant.company_name, slug: tenant.slug, plan: tenant.plan } : null,
         });
       }
@@ -148,8 +160,10 @@ router.post('/login', async (req, res) => {
     // Last login aktualisieren
     await dbRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
 
+    const permissions = await getPermissionsForRole(user.tenant_id, user.role);
+
     res.json({
-      user: { id: user.id, email: user.email, username: user.username, role: user.role, displayName: user.display_name },
+      user: { id: user.id, email: user.email, username: user.username, role: user.role, displayName: user.display_name, permissions },
       tenant: { tenantId: tenant.tenant_id, companyName: tenant.company_name, slug: tenant.slug, plan: tenant.plan },
     });
   } catch (err) {
@@ -178,12 +192,18 @@ router.get('/me', async (req, res) => {
 
     if (req.session.userId) {
       const user = await dbGet('SELECT id, email, username, role, display_name FROM users WHERE id = $1', [req.session.userId]);
-      return res.json({ user, tenant });
+      const permissions = await getPermissionsForRole(tenantId, user.role);
+      return res.json({ user: { ...user, permissions }, tenant });
     }
 
     // Legacy admin
     res.json({
-      user: { username: process.env.ADMIN_USERNAME || 'admin', role: 'owner', displayName: 'Administrator' },
+      user: {
+        username: process.env.ADMIN_USERNAME || 'admin',
+        role: 'owner',
+        displayName: 'Administrator',
+        permissions: await getPermissionsForRole(tenantId, 'owner'),
+      },
       tenant,
     });
   } catch (err) {

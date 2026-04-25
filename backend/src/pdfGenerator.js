@@ -4,6 +4,17 @@ const fs = require('fs');
 const { getCompanySettingsAsync, getCompanyFooterLine, getCompanyAddressLine } = require('./companySettings');
 const { getPrivacyPolicy, formatGermanDate } = require('./privacyPolicy');
 
+function writeParagraphBlock(doc, text, x, y, options = {}) {
+  if (!text) return y;
+  if (y > (options.pageBreakAt || 720)) {
+    doc.addPage();
+    y = 50;
+  }
+  doc.font(options.font || 'Helvetica').fontSize(options.fontSize || 8).fillColor(options.color || '#333333');
+  doc.text(text, x, y, { width: options.width || 495, align: options.align || 'left' });
+  return doc.y + (options.gapAfter || 10);
+}
+
 async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
   const cs = await getCompanySettingsAsync(tenantId || inquiry?.tenant_id);
   return new Promise((resolve, reject) => {
@@ -51,7 +62,7 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
       // Angebotsnummer und Datum
       const now = new Date();
       const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      doc.font('Helvetica-Bold').text('Angebot', 380, addrY);
+      doc.font('Helvetica-Bold').text(quote.document_title || cs.quote_document_title || 'Angebot', 380, addrY);
       doc.font('Helvetica').fontSize(9);
       doc.text(`Nr.: ANG-${quote.id}`, 380, addrY + 17);
       doc.text(`Datum: ${dateStr}`, 380, addrY + 30);
@@ -64,17 +75,18 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
 
       // Betreff
       doc.fontSize(13).font('Helvetica-Bold').fillColor(cs.primary_color || '#1b59b7')
-        .text('Kostenvoranschlag Brunnenbau', 50, 190);
+        .text(quote.document_title || cs.quote_document_title || 'Kostenvoranschlag Brunnenbau', 50, 190);
       doc.fillColor('#000000');
 
       // Einleitung
       const kundenName = `${inquiry.first_name || ''} ${inquiry.last_name || ''}`.trim();
-      doc.fontSize(9).font('Helvetica')
-        .text(`Sehr geehrte(r) ${kundenName || 'Kunde'},`, 50, 215)
-        .text('vielen Dank fuer Ihre Anfrage. Nachfolgend unser Kostenvoranschlag:', 50, 230);
+      const introText = quote.intro_text || `Sehr geehrte(r) ${kundenName || 'Kunde'},\n\nvielen Dank fuer Ihre Anfrage. Nachfolgend unser Kostenvoranschlag:`;
+      let introY = 215;
+      doc.fontSize(9).font('Helvetica').fillColor('#000000');
+      doc.text(introText, 50, introY, { width: 495 });
 
       // Tabelle
-      const tableTop = 260;
+      const tableTop = Math.max(doc.y + 18, 260);
       const colX = { pos: 50, qty: 310, price: 380, total: 470 };
 
       // Header-Zeile
@@ -135,21 +147,11 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
       y += 35;
 
       // Zahlungsbedingungen
-      if (cs.payment_terms) {
-        doc.fillColor('#000000').font('Helvetica').fontSize(8);
-        doc.text(cs.payment_terms, 50, y, { width: 495 });
-        y = doc.y + 8;
-      }
-
-      // Info-Block (footer_text)
-      if (quote.footer_text) {
-        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9);
-        doc.text('Info:', 50, y);
-        y += 14;
-        doc.font('Helvetica').fontSize(8).fillColor('#333333');
-        doc.text(quote.footer_text, 50, y, { width: 495 });
-        y = doc.y + 10;
-      }
+      y = writeParagraphBlock(doc, quote.post_items_text_1, 50, y, { fontSize: 8, gapAfter: 8 });
+      y = writeParagraphBlock(doc, quote.post_items_text_2, 50, y, { fontSize: 8, gapAfter: 8 });
+      y = writeParagraphBlock(doc, cs.payment_terms, 50, y, { fontSize: 8, gapAfter: 8, color: '#000000' });
+      y = writeParagraphBlock(doc, quote.footer_text, 50, y, { fontSize: 8, gapAfter: 8 });
+      y = writeParagraphBlock(doc, cs.pdf_footer_text, 50, y, { fontSize: 7, gapAfter: 10, color: '#666666' });
 
       // Bankverbindung
       if (cs.bank_iban) {
@@ -162,6 +164,7 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
       const legalParts = [];
       if (cs.managing_director) legalParts.push(`GF: ${cs.managing_director}`);
       if (cs.trade_register_court && cs.trade_register_number) legalParts.push(`${cs.trade_register_court} ${cs.trade_register_number}`);
+      if (cs.court_of_jurisdiction) legalParts.push(`Gerichtsstand: ${cs.court_of_jurisdiction}`);
       if (cs.tax_number) legalParts.push(`St-Nr.: ${cs.tax_number}`);
       if (cs.vat_id) legalParts.push(`USt-IdNr.: ${cs.vat_id}`);
       if (legalParts.length > 0) {

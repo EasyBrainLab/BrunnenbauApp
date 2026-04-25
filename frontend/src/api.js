@@ -2,7 +2,7 @@
 
 let csrfToken = null;
 
-function withTenantContext(url) {
+export function withTenantContext(url) {
   if (typeof window === 'undefined') return url;
 
   const currentUrl = new URL(url, window.location.origin);

@@ -1,0 +1,5 @@
+ALTER TABLE IF EXISTS quotes
+  ADD COLUMN IF NOT EXISTS document_title TEXT,
+  ADD COLUMN IF NOT EXISTS intro_text TEXT,
+  ADD COLUMN IF NOT EXISTS post_items_text_1 TEXT,
+  ADD COLUMN IF NOT EXISTS post_items_text_2 TEXT;

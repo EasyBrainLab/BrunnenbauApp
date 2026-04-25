@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiGet, apiPost, apiPut } from '../api';
+import { invalidateValueListCache } from '../hooks/useValueList';
 
 const AuthContext = createContext(null);
 
@@ -25,13 +26,16 @@ export function AuthProvider({ children }) {
 
       if (authRes.ok) {
         const authData = await authRes.json();
+        invalidateValueListCache();
         setUser(authData.user);
         setTenant(authData.tenant);
       } else {
+        invalidateValueListCache();
         setUser(null);
         setTenant(null);
       }
     } catch {
+      invalidateValueListCache();
       setUser(null);
       setTenant(null);
     } finally {
@@ -51,6 +55,7 @@ export function AuthProvider({ children }) {
     const res = await apiPost('/api/auth/login', payload);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Login fehlgeschlagen');
+    invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
     return data;
@@ -68,6 +73,7 @@ export function AuthProvider({ children }) {
     const res = await apiPost('/api/auth/register', { companyName, email, username, password, displayName });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registrierung fehlgeschlagen');
+    invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
     return data;
@@ -75,6 +81,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await apiPost('/api/auth/logout');
+    invalidateValueListCache();
     setUser(null);
     setTenant(null);
   };
@@ -95,6 +102,8 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     isOwner: user?.role === 'owner',
     isAdmin: user?.role === 'owner' || user?.role === 'admin',
+    permissions: user?.permissions || [],
+    hasPermission: (permission) => user?.role === 'owner' || (user?.permissions || []).includes(permission),
     login,
     loginLegacy,
     register,

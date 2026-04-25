@@ -1,21 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission } = require('../middleware/tenantContext');
 
-router.get('/locations', requireAuth, async (req, res) => {
+router.use(requireAuth);
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next();
+  return requirePermission('inventory_manage')(req, res, next);
+});
+
+router.get('/locations', async (req, res) => {
   const locations = await dbAll('SELECT * FROM storage_locations WHERE tenant_id = $1 ORDER BY name', [req.tenantId]);
   res.json(locations);
 });
 
-router.post('/locations', requireAuth, async (req, res) => {
+router.post('/locations', async (req, res) => {
   const { name, address, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
   await dbRun('INSERT INTO storage_locations (name, address, description, tenant_id) VALUES ($1, $2, $3, $4)', [name, address || null, description || null, req.tenantId]);
   res.status(201).json({ message: 'Lagerort angelegt' });
 });
 
-router.put('/locations/:id', requireAuth, async (req, res) => {
+router.put('/locations/:id', async (req, res) => {
   const { name, address, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
   const result = await dbRun('UPDATE storage_locations SET name = $1, address = $2, description = $3 WHERE id = $4 AND tenant_id = $5', [name, address || null, description || null, req.params.id, req.tenantId]);
@@ -23,7 +29,7 @@ router.put('/locations/:id', requireAuth, async (req, res) => {
   res.json({ message: 'Lagerort aktualisiert' });
 });
 
-router.delete('/locations/:id', requireAuth, async (req, res) => {
+router.delete('/locations/:id', async (req, res) => {
   const hasStock = await dbGet('SELECT id FROM inventory WHERE location_id = $1 AND quantity > 0 AND tenant_id = $2', [req.params.id, req.tenantId]);
   if (hasStock) return res.status(400).json({ error: 'Lagerort hat noch Bestand und kann nicht geloescht werden' });
   await dbRun('DELETE FROM inventory WHERE location_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
@@ -32,7 +38,7 @@ router.delete('/locations/:id', requireAuth, async (req, res) => {
   res.json({ message: 'Lagerort geloescht' });
 });
 
-router.get('/stock', requireAuth, async (req, res) => {
+router.get('/stock', async (req, res) => {
   const { location_id } = req.query;
   let sql = `
     SELECT i.*, ci.name AS item_name, ci.unit, ci.category, ci.material_number,

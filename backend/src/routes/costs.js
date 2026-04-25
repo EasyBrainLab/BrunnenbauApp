@@ -3,9 +3,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { getCompanySettingsAsync } = require('../companySettings');
 
 const router = express.Router();
+
+router.use(requireAuth);
+
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next();
+  return requirePermission('costs_manage')(req, res, next);
+});
 
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -77,6 +85,27 @@ async function nextMaterialNumber(category, tenantId) {
   );
   const next = (row && row.max_num ? Number(row.max_num) : 0) + 1;
   return `${prefix}-${String(next).padStart(4, '0')}`;
+}
+
+function renderTemplateText(template, context) {
+  if (!template) return '';
+  return String(template).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => context[key] ?? '');
+}
+
+function buildQuoteTemplateContext({ inquiry, wellType, companySettings }) {
+  const now = new Date();
+  const validityDays = parseInt(companySettings.quote_validity_days || '0', 10) || 0;
+  const validUntil = new Date(now);
+  validUntil.setDate(validUntil.getDate() + validityDays);
+
+  return {
+    company_name: companySettings.company_name || '',
+    inquiry_id: inquiry?.inquiry_id || '',
+    customer_name: `${inquiry?.first_name || ''} ${inquiry?.last_name || ''}`.trim() || 'Kunde',
+    well_type,
+    well_type_label: wellType,
+    valid_until: validityDays > 0 ? validUntil.toLocaleDateString('de-DE') : '',
+  };
 }
 
 router.get('/items', requireAuth, async (req, res) => {
@@ -316,7 +345,6 @@ router.delete('/bom/:id', requireAuth, async (req, res) => {
 
 router.post('/quotes', requireAuth, async (req, res) => {
   const { inquiry_id, well_type, notes, footer_text } = req.body;
-  const defaultFooter = 'Wasser und Strom (230V) muss bauseitig gestellt werden.\nGarantieleistung von 2 Jahren auf Pumpen und elektrische Bauteile.\nZahlungsbedingungen: Bar, per EC-Karte oder Online-Ueberweisung nach Fertigstellung.\nDieses Angebot hat eine Gueltigkeit von 3 Monaten.';
 
   const bom = await dbAll(`
     SELECT b.*, c.name, c.unit, c.unit_price
@@ -339,25 +367,67 @@ router.post('/quotes', requireAuth, async (req, res) => {
 
   const total_min = items.reduce((s, i) => s + i.total_min, 0);
   const total_max = items.reduce((s, i) => s + i.total_max, 0);
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiry_id, req.tenantId]);
+  const companySettings = await getCompanySettingsAsync(req.tenantId);
+  const templateContext = buildQuoteTemplateContext({ inquiry, wellType: well_type, companySettings });
+  const documentTitle = renderTemplateText(companySettings.quote_document_title, templateContext) || 'Kostenvoranschlag Brunnenbau';
+  const introText = renderTemplateText(companySettings.quote_intro_text, templateContext);
+  const postItemsText1 = renderTemplateText(companySettings.quote_post_items_text_1, templateContext);
+  const postItemsText2 = renderTemplateText(companySettings.quote_post_items_text_2, templateContext);
 
   await dbRun(
-    'INSERT INTO quotes (inquiry_id, items_json, total_min, total_max, notes, footer_text, tenant_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [inquiry_id, JSON.stringify(items), total_min, total_max, notes || null, footer_text || defaultFooter, req.tenantId]
+    `INSERT INTO quotes (
+      inquiry_id, items_json, total_min, total_max, notes, footer_text,
+      document_title, intro_text, post_items_text_1, post_items_text_2, tenant_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [
+      inquiry_id,
+      JSON.stringify(items),
+      total_min,
+      total_max,
+      notes || null,
+      footer_text || null,
+      documentTitle,
+      introText || null,
+      postItemsText1 || null,
+      postItemsText2 || null,
+      req.tenantId,
+    ]
   );
 
   res.status(201).json({ items, total_min, total_max });
 });
 
 router.put('/quotes/:id', requireAuth, async (req, res) => {
-  const { items, footer_text } = req.body;
+  const { items, footer_text, document_title, intro_text, post_items_text_1, post_items_text_2 } = req.body;
   if (!items || !Array.isArray(items)) {
     return res.status(400).json({ error: 'Items-Array erforderlich' });
   }
 
   const total = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
   await dbRun(
-    'UPDATE quotes SET items_json = $1, total_min = $2, total_max = $3, footer_text = $4 WHERE id = $5 AND tenant_id = $6',
-    [JSON.stringify(items), total, total, footer_text || null, req.params.id, req.tenantId]
+    `UPDATE quotes
+     SET items_json = $1,
+         total_min = $2,
+         total_max = $3,
+         footer_text = $4,
+         document_title = $5,
+         intro_text = $6,
+         post_items_text_1 = $7,
+         post_items_text_2 = $8
+     WHERE id = $9 AND tenant_id = $10`,
+    [
+      JSON.stringify(items),
+      total,
+      total,
+      footer_text || null,
+      document_title || null,
+      intro_text || null,
+      post_items_text_1 || null,
+      post_items_text_2 || null,
+      req.params.id,
+      req.tenantId,
+    ]
   );
 
   res.json({ message: 'Angebot aktualisiert' });

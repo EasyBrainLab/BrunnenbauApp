@@ -9,7 +9,7 @@ const { sendCustomerConfirmation, sendCompanyNotification, sendPrivacyPolicyEmai
 const nodemailer = require('nodemailer');
 const { generateQuotePdf, generatePrivacyPolicyPdf } = require('../pdfGenerator');
 const { getCompanySettingsAsync, getSettingsKeys, getEmailSignature } = require('../companySettings');
-const { requireAuth: tenantRequireAuth } = require('../middleware/tenantContext');
+const { requireAuth: tenantRequireAuth, requirePermission } = require('../middleware/tenantContext');
 const { buildDefaultPrivacyPolicyText, getPrivacyPolicy, formatGermanDate, todayIso } = require('../privacyPolicy');
 
 // Multer fuer Logo-Upload
@@ -438,7 +438,7 @@ router.get('/templates', requireAuth, async (req, res) => {
 });
 
 // POST /api/admin/templates
-router.post('/templates', requireAuth, async (req, res) => {
+router.post('/templates', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
   if (!name || !subject || !body_text) {
     return res.status(400).json({ error: 'Name, Betreff und Text sind erforderlich' });
@@ -451,7 +451,7 @@ router.post('/templates', requireAuth, async (req, res) => {
 });
 
 // PUT /api/admin/templates/:id
-router.put('/templates/:id', requireAuth, async (req, res) => {
+router.put('/templates/:id', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
   await dbRun(
     'UPDATE response_templates SET name = $1, subject = $2, body_html = $3, body_text = $4, category = $5, sort_order = $6 WHERE id = $7 AND tenant_id = $8',
@@ -461,13 +461,13 @@ router.put('/templates/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/admin/templates/:id
-router.delete('/templates/:id', requireAuth, async (req, res) => {
+router.delete('/templates/:id', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   await dbRun('DELETE FROM response_templates WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Vorlage geloescht' });
 });
 
 // POST /api/admin/inquiries/:id/send-response — Vorlage rendern + per Email senden
-router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
+router.post('/inquiries/:id/send-response', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   try {
     const { template_id, subject, body_text, placeholders } = req.body;
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
@@ -588,7 +588,7 @@ router.get('/inquiries/:id/messages/export', requireAuth, async (req, res) => {
 // ==================== PDF-Angebotsgenerierung ====================
 
 // POST /api/admin/inquiries/:id/generate-pdf/:quoteId
-router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res) => {
+router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   try {
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -823,7 +823,7 @@ router.get('/authority-links', requireAuth, async (req, res) => {
 });
 
 // POST /api/admin/authority-links
-router.post('/authority-links', requireAuth, async (req, res) => {
+router.post('/authority-links', requireAuth, requirePermission('authority_links_manage'), async (req, res) => {
   const { bundesland, title, url, description, link_type, sort_order } = req.body;
   if (!bundesland || !title || !url) {
     return res.status(400).json({ error: 'Bundesland, Titel und URL erforderlich' });
@@ -836,7 +836,7 @@ router.post('/authority-links', requireAuth, async (req, res) => {
 });
 
 // PUT /api/admin/authority-links/:id
-router.put('/authority-links/:id', requireAuth, async (req, res) => {
+router.put('/authority-links/:id', requireAuth, requirePermission('authority_links_manage'), async (req, res) => {
   const { bundesland, title, url, description, link_type, sort_order, is_active } = req.body;
   await dbRun(
     'UPDATE authority_links SET bundesland = $1, title = $2, url = $3, description = $4, link_type = $5, sort_order = $6, is_active = $7 WHERE id = $8 AND tenant_id = $9',
@@ -846,7 +846,7 @@ router.put('/authority-links/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/admin/authority-links/:id
-router.delete('/authority-links/:id', requireAuth, async (req, res) => {
+router.delete('/authority-links/:id', requireAuth, requirePermission('authority_links_manage'), async (req, res) => {
   await dbRun('DELETE FROM authority_links WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Link geloescht' });
 });
@@ -935,7 +935,7 @@ router.get('/calendar/events', requireAuth, async (req, res) => {
 // ==================== PDF per Email senden ====================
 
 // POST /api/admin/inquiries/:id/send-quote/:quoteId
-router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) => {
+router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, requirePermission('offers_manage'), async (req, res) => {
   try {
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -1049,7 +1049,7 @@ router.get('/company-settings', async (req, res) => {
 });
 
 // PUT /api/admin/company-settings — Firmendaten aktualisieren
-router.put('/company-settings', requireAuth, async (req, res) => {
+router.put('/company-settings', requireAuth, requirePermission('company_manage'), async (req, res) => {
   const { settings } = req.body;
   if (!settings || typeof settings !== 'object') {
     return res.status(400).json({ error: 'Einstellungen erforderlich' });
@@ -1123,7 +1123,7 @@ router.post('/privacy-policy/email', async (req, res) => {
 });
 
 // POST /api/admin/company-logo — Logo hochladen
-router.post('/company-logo', requireAuth, logoUpload.single('logo'), async (req, res) => {
+router.post('/company-logo', requireAuth, requirePermission('company_manage'), logoUpload.single('logo'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Keine Datei hochgeladen oder ungültiges Format (JPG, PNG, GIF, WebP, SVG)' });
   }
@@ -1135,7 +1135,7 @@ router.post('/company-logo', requireAuth, logoUpload.single('logo'), async (req,
 });
 
 // DELETE /api/admin/company-logo — Logo entfernen
-router.delete('/company-logo', requireAuth, async (req, res) => {
+router.delete('/company-logo', requireAuth, requirePermission('company_manage'), async (req, res) => {
   const row = await dbGet("SELECT value FROM company_settings WHERE key = 'logo_path' AND tenant_id = $1", [req.tenantId]);
   if (row && row.value) {
     const filename = path.basename(row.value);

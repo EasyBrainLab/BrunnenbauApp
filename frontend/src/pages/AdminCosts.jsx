@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
-import { useValueList } from '../hooks/useValueList';
+import { invalidateValueListCache, useValueList } from '../hooks/useValueList';
 import { COST_INFO, WELL_TYPE_LABELS as WELL_LABELS_DATA } from '../data/wellTypeData.jsx';
 
 const EMPTY_FORM = {
@@ -17,8 +17,8 @@ export default function AdminCosts() {
   const [searchParams] = useSearchParams();
   const { items: CATEGORIES } = useValueList('material_categories');
   const { items: MATERIAL_TYPES } = useValueList('material_types');
-  const { items: WELL_TYPES } = useValueList('well_types');
   const [items, setItems] = useState([]);
+  const [allWellTypes, setAllWellTypes] = useState([]);
   const [selectedBomType, setSelectedBomType] = useState('gespuelt');
   const [bom, setBom] = useState([]);
   const [tab, setTab] = useState(searchParams.get('tab') || 'items');
@@ -53,16 +53,29 @@ export default function AdminCosts() {
   // Unit management
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '' });
+  const [wellTypeForm, setWellTypeForm] = useState({ value: '', label: '', sort_order: 0, is_active: true });
+  const [editingWellType, setEditingWellType] = useState(null);
+  const [wellTypeError, setWellTypeError] = useState('');
 
   useEffect(() => {
     loadItems();
     loadAllSuppliers();
     loadUnits();
+    loadWellTypes();
   }, []);
 
   useEffect(() => {
     if (tab === 'bom') loadBom();
   }, [tab, selectedBomType]);
+
+  useEffect(() => {
+    if (allWellTypes.length === 0) return;
+    const currentExists = allWellTypes.some((type) => type.value === selectedBomType);
+    if (!currentExists) {
+      const nextType = allWellTypes.find((type) => type.is_active) || allWellTypes[0];
+      if (nextType) setSelectedBomType(nextType.value);
+    }
+  }, [allWellTypes, selectedBomType]);
 
   const loadItems = async () => {
     const params = new URLSearchParams();
@@ -100,6 +113,14 @@ export default function AdminCosts() {
     if (res.ok) setUnits(await res.json());
   };
 
+  const loadWellTypes = async () => {
+    const res = await apiGet('/api/value-lists/well_types/items?all=1');
+    if (res.ok) {
+      const data = await res.json();
+      setAllWellTypes(data);
+    }
+  };
+
   const loadItemSuppliers = async (costItemId) => {
     const res = await apiGet(`/api/inventory/item-suppliers/${costItemId}`);
     if (res.ok) {
@@ -133,6 +154,85 @@ export default function AdminCosts() {
     if (!confirm('Einheit loeschen?')) return;
     await apiDelete(`/api/costs/units/${id}`);
     loadUnits();
+  };
+
+  const resetWellTypeForm = () => {
+    const maxSort = allWellTypes.reduce((max, item) => Math.max(max, item.sort_order || 0), 0);
+    setEditingWellType(null);
+    setWellTypeForm({ value: '', label: '', sort_order: maxSort + 10, is_active: true });
+    setWellTypeError('');
+  };
+
+  const startEditWellType = (item) => {
+    setEditingWellType(item);
+    setWellTypeForm({
+      value: item.value,
+      label: item.label,
+      sort_order: item.sort_order || 0,
+      is_active: !!item.is_active,
+    });
+    setWellTypeError('');
+  };
+
+  const saveWellType = async (e) => {
+    e.preventDefault();
+    setWellTypeError('');
+    const payload = {
+      value: wellTypeForm.value.trim(),
+      label: wellTypeForm.label.trim(),
+      sort_order: Number(wellTypeForm.sort_order) || 0,
+      is_active: wellTypeForm.is_active ? 1 : 0,
+    };
+
+    if (!payload.value || !payload.label) {
+      setWellTypeError('Schluessel und Anzeigename sind erforderlich');
+      return;
+    }
+
+    const res = editingWellType
+      ? await apiPut(`/api/value-lists/well_types/items/${editingWellType.id}`, payload)
+      : await apiPost('/api/value-lists/well_types/items', payload);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setWellTypeError(data.error || 'Brunnenart konnte nicht gespeichert werden');
+      return;
+    }
+
+    invalidateValueListCache('well_types');
+    await loadWellTypes();
+    await loadBom();
+    if (editingWellType && editingWellType.value === selectedBomType) {
+      setSelectedBomType(payload.value);
+    } else if (!editingWellType) {
+      setSelectedBomType(payload.value);
+    }
+    resetWellTypeForm();
+  };
+
+  const toggleWellTypeActive = async (item) => {
+    const res = await apiPut(`/api/value-lists/well_types/items/${item.id}`, { is_active: !item.is_active });
+    if (res.ok) {
+      invalidateValueListCache('well_types');
+      await loadWellTypes();
+    }
+  };
+
+  const deleteWellType = async (item) => {
+    if (!window.confirm(`Brunnenart "${item.label}" wirklich loeschen?`)) return;
+    const res = await apiDelete(`/api/value-lists/well_types/items/${item.id}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setWellTypeError(data.error || 'Brunnenart konnte nicht geloescht werden');
+      return;
+    }
+    invalidateValueListCache('well_types');
+    await loadWellTypes();
+    await loadBom();
+    if (selectedBomType === item.value) {
+      const nextType = allWellTypes.find((entry) => entry.id !== item.id && entry.is_active) || allWellTypes.find((entry) => entry.id !== item.id);
+      setSelectedBomType(nextType?.value || '');
+    }
   };
 
   // === Material form handlers ===
@@ -700,16 +800,113 @@ export default function AdminCosts() {
       {/* ==================== STUECKLISTEN (BOM) ==================== */}
       {tab === 'bom' && (
         <>
+          <div className="card mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-md font-semibold text-gray-700">Brunnenarten verwalten</h3>
+                <p className="text-xs text-gray-400">Brunnenarten fuer Konfigurator, Anfragebearbeitung, Stuecklisten und Kostenrichtwerte zentral pflegen.</p>
+              </div>
+              <button onClick={resetWellTypeForm} className="btn-secondary text-xs py-1.5 px-3">
+                {editingWellType ? 'Neue Brunnenart' : 'Formular zuruecksetzen'}
+              </button>
+            </div>
+
+            {wellTypeError && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-xs text-red-700">{wellTypeError}</div>}
+
+            <form onSubmit={saveWellType} className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="form-label">Schluessel</label>
+                <input
+                  type="text"
+                  value={wellTypeForm.value}
+                  onChange={(e) => setWellTypeForm((prev) => ({ ...prev, value: e.target.value }))}
+                  className="form-input"
+                  placeholder="z.B. gespuehlt"
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Anzeigename</label>
+                <input
+                  type="text"
+                  value={wellTypeForm.label}
+                  onChange={(e) => setWellTypeForm((prev) => ({ ...prev, label: e.target.value }))}
+                  className="form-input"
+                  placeholder="z.B. Gespuelter Brunnen"
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Sortierung</label>
+                <input
+                  type="number"
+                  value={wellTypeForm.sort_order}
+                  onChange={(e) => setWellTypeForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                  className="form-input"
+                />
+              </div>
+              <div className="flex items-end gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={wellTypeForm.is_active}
+                    onChange={(e) => setWellTypeForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                  Aktiv
+                </label>
+                <button type="submit" className="btn-primary text-sm py-2 px-4">
+                  {editingWellType ? 'Speichern' : 'Hinzufuegen'}
+                </button>
+              </div>
+            </form>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="pb-2">Brunnenart</th>
+                    <th className="pb-2">Schluessel</th>
+                    <th className="pb-2">Status</th>
+                    <th className="pb-2 text-right">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allWellTypes.map((type) => (
+                    <tr key={type.id} className="border-b border-earth-100">
+                      <td className="py-2 font-medium">{type.label}</td>
+                      <td className="py-2 font-mono text-xs text-gray-500">{type.value}</td>
+                      <td className="py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${type.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {type.is_active ? 'Aktiv' : 'Inaktiv'}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setSelectedBomType(type.value)} className="text-xs text-primary-500 hover:text-primary-600">BOM</button>
+                          <button onClick={() => startEditWellType(type)} className="text-xs text-primary-500 hover:text-primary-600">Bearbeiten</button>
+                          <button onClick={() => toggleWellTypeActive(type)} className="text-xs text-yellow-600 hover:text-yellow-700">
+                            {type.is_active ? 'Inaktiv setzen' : 'Aktivieren'}
+                          </button>
+                          <button onClick={() => deleteWellType(type)} className="text-xs text-red-500 hover:text-red-600">Loeschen</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="mb-4">
-            <label className="form-label">Brunnenart</label>
+            <label className="form-label">Brunnenart fuer Stueckliste</label>
             <select value={selectedBomType} onChange={(e) => setSelectedBomType(e.target.value)} className="form-input w-auto">
-              {WELL_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {allWellTypes.map((t) => <option key={t.id} value={t.value}>{t.label}{t.is_active ? '' : ' (inaktiv)'}</option>)}
             </select>
           </div>
 
           <div className="card mb-4">
             <h3 className="text-md font-semibold text-gray-700 mb-3">
-              Stueckliste: {WELL_TYPES.find((t) => t.value === selectedBomType)?.label}
+              Stueckliste: {allWellTypes.find((t) => t.value === selectedBomType)?.label}
             </h3>
             <p className="text-xs text-gray-400 mb-2">Doppelklick auf eine Zeile zum Bearbeiten. Position-Nr. bestimmt die Sortierung.</p>
 
@@ -881,7 +1078,7 @@ export default function AdminCosts() {
 
       {/* ==================== KOSTENRICHTWERTE ==================== */}
       {tab === 'richtwerte' && (
-        <WellTypeCostsEditor />
+        <WellTypeCostsEditor wellTypes={allWellTypes} />
       )}
     </div>
   );
@@ -896,7 +1093,17 @@ const BREAKDOWN_CATS = [
   { key: 'genehmigung', label: 'Genehmigung' },
 ];
 
-function WellTypeCostsEditor() {
+function buildWellTypeCostDefaults(wellType) {
+  const info = COST_INFO[wellType];
+  return {
+    rangeMin: info?.rangeMin || 0,
+    rangeMax: info?.rangeMax || 0,
+    breakdown: info?.breakdown ? { ...info.breakdown } : { material: 40, arbeit: 30, maschine: 20, genehmigung: 10 },
+    typicalItems: info?.typicalItems ? info.typicalItems.map((it) => ({ ...it })) : [],
+  };
+}
+
+function WellTypeCostsEditor({ wellTypes }) {
   const [costs, setCosts] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -904,33 +1111,34 @@ function WellTypeCostsEditor() {
 
   useEffect(() => {
     const defaults = {};
-    for (const [key, info] of Object.entries(COST_INFO)) {
-      if (key === 'beratung') continue;
-      defaults[key] = {
-        rangeMin: info.rangeMin,
-        rangeMax: info.rangeMax,
-        breakdown: { ...info.breakdown },
-        typicalItems: info.typicalItems.map((it) => ({ ...it })),
-      };
+    const sourceTypes = (wellTypes && wellTypes.length > 0)
+      ? wellTypes
+      : Object.keys(COST_INFO)
+        .filter((key) => key !== 'beratung')
+        .map((key) => ({ value: key, label: WELL_LABELS_DATA[key] || key }));
+
+    for (const type of sourceTypes) {
+      defaults[type.value] = buildWellTypeCostDefaults(type.value);
     }
 
     apiGet('/api/costs/well-type-costs').then(async (res) => {
       if (res.ok) {
         const dbCosts = await res.json();
         for (const [key, val] of Object.entries(dbCosts)) {
-          if (defaults[key]) {
-            defaults[key].rangeMin = val.rangeMin;
-            defaults[key].rangeMax = val.rangeMax;
-            if (val.breakdown) defaults[key].breakdown = val.breakdown;
-            if (val.typicalItems && val.typicalItems.length > 0) {
-              defaults[key].typicalItems = val.typicalItems;
-            }
+          if (!defaults[key]) {
+            defaults[key] = buildWellTypeCostDefaults(key);
+          }
+          defaults[key].rangeMin = val.rangeMin;
+          defaults[key].rangeMax = val.rangeMax;
+          if (val.breakdown) defaults[key].breakdown = val.breakdown;
+          if (val.typicalItems && val.typicalItems.length > 0) {
+            defaults[key].typicalItems = val.typicalItems;
           }
         }
       }
       setCosts(defaults);
     }).catch(() => setCosts(defaults));
-  }, []);
+  }, [wellTypes]);
 
   const updateField = (wellType, field, value) => {
     setCosts((prev) => ({
@@ -1000,16 +1208,9 @@ function WellTypeCostsEditor() {
 
   const resetToDefaults = (wellType) => {
     if (!window.confirm('Richtwerte fuer "' + (WELL_LABELS_DATA[wellType] || wellType) + '" auf Standard zuruecksetzen?')) return;
-    const info = COST_INFO[wellType];
-    if (!info) return;
     setCosts((prev) => ({
       ...prev,
-      [wellType]: {
-        rangeMin: info.rangeMin,
-        rangeMax: info.rangeMax,
-        breakdown: { ...info.breakdown },
-        typicalItems: info.typicalItems.map((it) => ({ ...it })),
-      },
+      [wellType]: buildWellTypeCostDefaults(wellType),
     }));
     setSaveMsg('');
   };
@@ -1052,7 +1253,7 @@ function WellTypeCostsEditor() {
                 className="w-full flex items-center justify-between text-left"
               >
                 <div>
-                  <h3 className="font-semibold text-gray-800">{WELL_LABELS_DATA[wellType] || wellType}</h3>
+                  <h3 className="font-semibold text-gray-800">{wellTypes?.find((entry) => entry.value === wellType)?.label || WELL_LABELS_DATA[wellType] || wellType}</h3>
                   <p className="text-sm text-gray-500">
                     {data.rangeMin.toLocaleString('de-DE')} – {data.rangeMax.toLocaleString('de-DE')} EUR
                   </p>

@@ -1,11 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { apiPost, apiPut } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   {
     to: '/admin/dashboard',
     label: 'Dashboard',
+    permission: 'dashboard_view',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2" />
     ),
@@ -13,6 +15,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/kalender',
     label: 'Kalender',
+    permission: 'calendar_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     ),
@@ -21,6 +24,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/kosten',
     label: 'Kosten & Material',
+    permission: 'costs_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     ),
@@ -28,6 +32,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/lieferanten',
     label: 'Lieferanten',
+    permission: 'suppliers_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
     ),
@@ -35,6 +40,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/lager',
     label: 'Lagerverwaltung',
+    permission: 'inventory_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     ),
@@ -43,6 +49,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/firma',
     label: 'Firmendaten',
+    permission: 'company_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
     ),
@@ -50,6 +57,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/wertelisten',
     label: 'Wertelisten',
+    permission: 'value_lists_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     ),
@@ -57,6 +65,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/behoerden-links',
     label: 'Behoerden-Links',
+    permission: 'authority_links_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
     ),
@@ -64,6 +73,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/benutzer',
     label: 'Benutzer',
+    permission: 'users_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     ),
@@ -71,6 +81,7 @@ const NAV_ITEMS = [
   {
     to: '/admin/email-einstellungen',
     label: 'E-Mail (SMTP)',
+    permission: 'smtp_manage',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     ),
@@ -78,6 +89,7 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout() {
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -161,12 +173,15 @@ export default function AdminLayout() {
         <nav className="flex-1 px-3 py-4 space-y-1">
           {NAV_ITEMS.map((item, idx) => {
             if (item.separator) {
+              const hasVisibleItemsAhead = NAV_ITEMS.slice(idx + 1).some((entry) => !entry.separator && (!entry.permission || hasPermission(entry.permission)));
+              if (!hasVisibleItemsAhead) return null;
               return (
                 <div key={idx} className="pt-4 pb-1 px-3">
                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{item.label}</p>
                 </div>
               );
             }
+            if (item.permission && !hasPermission(item.permission)) return null;
             return (
               <NavLink
                 key={item.to}
