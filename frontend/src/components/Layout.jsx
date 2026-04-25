@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { withTenantContext } from '../api';
 
 export default function Layout() {
   const location = useLocation();
@@ -37,12 +38,12 @@ export default function Layout() {
           </Link>
           <nav className="flex items-center gap-4 text-[13px]">
             {!isAdmin && (
-              <Link to="/admin" className="text-[#5ca8db] hover:text-white transition-colors">
+              <Link to={withTenantContext('/admin')} className="text-[#5ca8db] hover:text-white transition-colors">
                 Admin
               </Link>
             )}
             {isAdmin && (
-              <Link to="/" className="text-[#5ca8db] hover:text-white transition-colors">
+              <Link to={withTenantContext('/')} className="text-[#5ca8db] hover:text-white transition-colors">
                 Zum Anfrageformular
               </Link>
             )}

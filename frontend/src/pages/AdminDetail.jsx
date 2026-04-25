@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiPut, apiDelete } from '../api';
+import { apiGet, apiPut, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
 import ResponsePanel from '../components/ResponsePanel';
 import QuoteGenerator from '../components/QuoteGenerator';
@@ -243,8 +243,8 @@ export default function AdminDetail() {
 
   const loadInquiry = async () => {
     const res = await apiGet(`/api/admin/inquiries/${id}`);
-    if (res.status === 401) { navigate('/admin'); return; }
-    if (res.status === 404) { navigate('/admin/dashboard'); return; }
+    if (res.status === 401) { navigate(withTenantContext('/admin')); return; }
+    if (res.status === 404) { navigate(withTenantContext('/admin/dashboard')); return; }
     const data = await res.json();
     setInquiry(data);
     setNotes(data.admin_notes || '');
@@ -265,7 +265,7 @@ export default function AdminDetail() {
     if (!window.confirm('Anfrage "' + inquiry.inquiry_id + '" und alle zugehoerigen Daten (Dateien, Nachrichten, Angebote) unwiderruflich loeschen?')) return;
     const res = await apiDelete('/api/admin/inquiries/' + id);
     if (res.ok) {
-      navigate('/admin/dashboard');
+    navigate(withTenantContext('/admin/dashboard'));
     }
   };
 
@@ -361,7 +361,7 @@ export default function AdminDetail() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
+      <Link to={withTenantContext('/admin/dashboard')} className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>

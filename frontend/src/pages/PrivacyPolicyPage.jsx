@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiGet, apiPost, fetchCsrfToken } from '../api';
+import { apiGet, apiPost, fetchCsrfToken, withTenantContext } from '../api';
 
 function PrivacyParagraphs({ text }) {
   return text.split(/\n{2,}/).map((paragraph, index) => (
@@ -78,7 +78,7 @@ export default function PrivacyPolicyPage() {
         <div className="p-6 border-t border-earth-100 bg-sand-50 flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <a
-              href="/api/admin/privacy-policy/pdf"
+              href={withTenantContext('/api/admin/privacy-policy/pdf')}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-primary text-center"

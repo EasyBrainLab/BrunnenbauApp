@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
 
 const EMPTY_FORM = {
@@ -111,7 +111,7 @@ export default function AdminSuppliers() {
       if (debouncedSearch) params.set('search', debouncedSearch);
       const qs = params.toString() ? `?${params}` : '';
       const res = await apiGet(`/api/suppliers${qs}`);
-      if (res.status === 401) { navigate('/admin'); return; }
+      if (res.status === 401) { navigate(withTenantContext('/admin')); return; }
       if (res.ok) setSuppliers(await res.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -212,7 +212,7 @@ export default function AdminSuppliers() {
   };
 
   const exportCsv = () => {
-    window.open('/api/suppliers/export/csv', '_blank');
+    window.open(withTenantContext('/api/suppliers/export/csv'), '_blank');
   };
 
   const toggleSection = (key) => setSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -221,7 +221,7 @@ export default function AdminSuppliers() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
+      <Link to={withTenantContext('/admin/dashboard')} className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>

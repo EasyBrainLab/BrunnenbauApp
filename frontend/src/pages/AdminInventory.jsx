@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 
 export default function AdminInventory() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export default function AdminInventory() {
         apiGet('/api/costs/items'),
         apiGet('/api/suppliers'),
       ]);
-      if (locRes.status === 401) { navigate('/admin'); return; }
+      if (locRes.status === 401) { navigate(withTenantContext('/admin')); return; }
       if (locRes.ok) setLocations(await locRes.json());
       if (itemsRes.ok) setCostItems(await itemsRes.json());
       if (suppRes.ok) setSuppliers(await suppRes.json());
@@ -166,7 +166,7 @@ export default function AdminInventory() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
+      <Link to={withTenantContext('/admin/dashboard')} className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>

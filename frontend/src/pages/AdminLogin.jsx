@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { apiPost, apiGet } from '../api';
+import { apiPost, apiGet, withTenantContext } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminLogin() {
@@ -18,7 +18,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate('/admin/dashboard', { replace: true });
+      navigate(withTenantContext('/admin/dashboard'), { replace: true });
     }
     if (!authLoading) setLoading(false);
   }, [authLoading, isAuthenticated, navigate]);
@@ -34,7 +34,7 @@ export default function AdminLogin() {
       } catch {
         await loginLegacy(username, password);
       }
-      navigate('/admin/dashboard');
+      navigate(withTenantContext('/admin/dashboard'));
     } catch {
       setError('Ungueltige Zugangsdaten');
     }

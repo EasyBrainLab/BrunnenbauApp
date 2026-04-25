@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiGet, apiPost, apiPut } from '../api';
+import { apiGet, apiPost, apiPut, withTenantContext } from '../api';
 
 function SendQuoteButton({ inquiryId, quoteId }) {
   const [sending, setSending] = useState(false);
@@ -521,7 +521,7 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                                 const res = await apiPost(`/api/admin/inquiries/${inquiryId}/generate-pdf/${q.id}`, {});
                                 if (res.ok) {
                                   const data = await res.json();
-                                  window.open(`/api/uploads/${data.filename}`, '_blank');
+                                  window.open(withTenantContext(`/api/uploads/${data.filename}`), '_blank');
                                 }
                               } catch { /* ignore */ }
                             }}

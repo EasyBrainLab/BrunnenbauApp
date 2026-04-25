@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { withTenantContext } from '../api';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function RegisterPage() {
         password: form.password,
         displayName: form.displayName,
       });
-      navigate('/admin/dashboard');
+      navigate(withTenantContext('/admin/dashboard'));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -140,7 +141,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Bereits registriert?{' '}
-            <Link to="/admin" className="text-blue-600 hover:underline">Anmelden</Link>
+              <Link to={withTenantContext('/admin')} className="text-blue-600 hover:underline">Anmelden</Link>
           </p>
         </div>
       </div>

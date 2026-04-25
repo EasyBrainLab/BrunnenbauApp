@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiDelete } from '../api';
+import { apiGet, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
 
 export default function AdminDashboard() {
@@ -48,7 +48,7 @@ export default function AdminDashboard() {
       ]);
 
       if (inqRes.status === 401) {
-        navigate('/admin');
+        navigate(withTenantContext('/admin'));
         return;
       }
 
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
   };
 
   const exportCsv = () => {
-    window.open('/api/admin/export/csv', '_blank');
+    window.open(withTenantContext('/api/admin/export/csv'), '_blank');
   };
 
   return (
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
               </div>
             ))}
             {alerts.length > 5 && (
-              <Link to="/admin/lager?tab=stock" className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
+                <Link to={withTenantContext('/admin/lager?tab=stock')} className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
             )}
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
               </div>
             ))}
             {reorderSuggestions.length > 5 && (
-              <Link to="/admin/lager?tab=reorder" className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
+                <Link to={withTenantContext('/admin/lager?tab=reorder')} className="text-xs text-primary-500 hover:text-primary-600">Alle anzeigen...</Link>
             )}
           </div>
         </div>
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-4 py-3 flex items-center gap-3">
                     <Link
-                      to={`/admin/anfrage/${inq.inquiry_id}`}
+                      to={withTenantContext(`/admin/anfrage/${inq.inquiry_id}`)}
                       className="text-primary-500 hover:text-primary-600 text-sm font-medium"
                     >
                       Details

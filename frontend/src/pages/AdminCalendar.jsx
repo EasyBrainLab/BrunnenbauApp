@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { apiGet } from '../api';
+import { apiGet, withTenantContext } from '../api';
 
 export default function AdminCalendar() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export default function AdminCalendar() {
     try {
       const res = await apiGet('/api/admin/calendar/events');
       if (res.status === 401) {
-        navigate('/admin');
+        navigate(withTenantContext('/admin'));
         return;
       }
       if (res.ok) {
@@ -32,7 +32,7 @@ export default function AdminCalendar() {
   const handleEventClick = (info) => {
     const inquiryId = info.event.extendedProps.inquiry_id;
     if (inquiryId) {
-      navigate(`/admin/anfrage/${inquiryId}`);
+      navigate(withTenantContext(`/admin/anfrage/${inquiryId}`));
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { invalidateValueListCache, useValueList } from '../hooks/useValueList';
 import { COST_INFO, WELL_TYPE_LABELS as WELL_LABELS_DATA } from '../data/wellTypeData.jsx';
 
@@ -84,7 +84,7 @@ export default function AdminCosts() {
     if (debouncedSearchText) params.set('search', debouncedSearchText);
     const qs = params.toString() ? `?${params.toString()}` : '';
     const res = await apiGet(`/api/costs/items${qs}`);
-    if (res.status === 401) { navigate('/admin'); return; }
+    if (res.status === 401) { navigate(withTenantContext('/admin')); return; }
     if (res.ok) setItems(await res.json());
   };
 
@@ -330,7 +330,7 @@ export default function AdminCosts() {
   };
 
   const handleCsvExport = () => {
-    window.open('/api/costs/items/export/csv', '_blank');
+    window.open(withTenantContext('/api/costs/items/export/csv'), '_blank');
   };
 
   // === BOM handlers ===
@@ -579,7 +579,7 @@ export default function AdminCosts() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <Link to="/admin/dashboard" className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
+      <Link to={withTenantContext('/admin/dashboard')} className="text-primary-500 hover:text-primary-600 text-sm mb-4 inline-flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>

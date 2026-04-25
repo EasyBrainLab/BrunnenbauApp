@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { invalidateValueListCache } from '../hooks/useValueList';
 
 export default function AdminValueLists() {
@@ -21,7 +21,7 @@ export default function AdminValueLists() {
 
   const loadLists = async () => {
     const res = await apiGet('/api/value-lists');
-    if (res.status === 401) { navigate('/admin'); return; }
+    if (res.status === 401) { navigate(withTenantContext('/admin')); return; }
     if (res.ok) {
       const data = await res.json();
       setLists(data);
@@ -142,7 +142,7 @@ export default function AdminValueLists() {
           <h1 className="text-2xl font-heading font-semibold text-primary-500">Wertelisten</h1>
           <p className="text-gray-500 text-sm">Dropdown-Werte fuer die gesamte Anwendung verwalten</p>
         </div>
-        <Link to="/admin/dashboard" className="btn-secondary text-sm py-2 px-4">Zurueck</Link>
+      <Link to={withTenantContext('/admin/dashboard')} className="btn-secondary text-sm py-2 px-4">Zurueck</Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

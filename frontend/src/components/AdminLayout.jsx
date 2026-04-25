@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { apiPost, apiPut } from '../api';
+import { apiPost, apiPut, withTenantContext } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
@@ -100,7 +100,7 @@ export default function AdminLayout() {
 
   const logout = async () => {
     await apiPost('/api/admin/logout', {});
-    navigate('/admin');
+    navigate(withTenantContext('/admin'));
   };
 
   const handleChangePassword = async (e) => {
@@ -185,7 +185,7 @@ export default function AdminLayout() {
             return (
               <NavLink
                 key={item.to}
-                to={item.to}
+                to={withTenantContext(item.to)}
                 className={navLinkClass}
                 onClick={() => setSidebarOpen(false)}
               >
