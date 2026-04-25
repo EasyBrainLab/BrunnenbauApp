@@ -204,7 +204,7 @@ function attachTenantContext(req, res, next) {
         return next();
       }
 
-      req.tenantId = req.tenantId || 'default';
+      req.tenantId = req.tenantId || req.session?.tenantId || 'default';
       req.tenant = req.tenant || null;
       next();
     })().catch(next);
@@ -239,7 +239,7 @@ function attachTenantContext(req, res, next) {
     return next();
   }
 
-  req.tenantId = req.tenantId || 'default';
+  req.tenantId = req.tenantId || req.session?.tenantId || 'default';
   req.tenant = req.tenant || null;
   next();
 }

@@ -92,7 +92,7 @@ router.get('/', requireAuth, async (req, res) => {
 // GET /api/value-lists/:key/items — Aktive Items einer Liste (Public)
 router.get('/:key/items', async (req, res) => {
   try {
-    const tenantId = req.tenantId || req.query.tenantId || 'default';
+    const tenantId = req.tenantId || req.session?.tenantId || req.query.tenantId || 'default';
     const list = await getListForRead(req.params.key, tenantId);
     if (!list) return res.status(404).json({ error: 'Liste nicht gefunden' });
 
