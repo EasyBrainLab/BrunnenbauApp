@@ -1,18 +1,31 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 const DB_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DB_DIR, 'brunnenbau.db');
+const DB_CLIENT = (process.env.DB_CLIENT || 'sqlite').toLowerCase();
 
 let db = null;
 let dbReady = null;
+let pgPool = null;
 
 // Datenbank initialisieren (async, da sql.js WASM laden muss)
 function initDatabase() {
   if (dbReady) return dbReady;
 
   dbReady = (async () => {
+    if (DB_CLIENT === 'postgres') {
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL fehlt fuer DB_CLIENT=postgres');
+      }
+
+      pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      await pgPool.query('SELECT 1');
+      return pgPool;
+    }
+
     const SQL = await initSqlJs();
 
     if (!fs.existsSync(DB_DIR)) {
@@ -736,13 +749,15 @@ function initDatabase() {
     db.run(`
       CREATE TABLE IF NOT EXISTS authority_links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT DEFAULT 'default',
         bundesland TEXT NOT NULL,
         title TEXT NOT NULL,
         url TEXT NOT NULL,
         description TEXT,
         link_type TEXT DEFAULT 'anzeige',
         sort_order INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1
+        is_active INTEGER DEFAULT 1,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
       )
     `);
 
@@ -828,6 +843,21 @@ function initDatabase() {
       )
     `);
 
+    // Tenant-Domains fuer White-Label / Custom Domains
+    db.run(`
+      CREATE TABLE IF NOT EXISTS tenant_domains (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL,
+        domain TEXT UNIQUE NOT NULL,
+        is_primary INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        verification_status TEXT DEFAULT 'verified',
+        verified_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+      )
+    `);
+
     // === Migration: tenant_id zu allen bestehenden Tabellen ===
     const tenantIdMigrations = [
       'ALTER TABLE inquiries ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
@@ -848,6 +878,7 @@ function initDatabase() {
       'ALTER TABLE drilling_schedules ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
       'ALTER TABLE company_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
       'ALTER TABLE admin_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE authority_links ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
     ];
     for (const sql of tenantIdMigrations) {
       try { db.run(sql); } catch (e) { /* column exists */ }
@@ -877,6 +908,17 @@ function initDatabase() {
       }
     } catch (e) { /* ignore */ }
 
+    try {
+      const hasDefaultDomain = db.prepare("SELECT id FROM tenant_domains WHERE domain = 'default'");
+      const exists = hasDefaultDomain.step();
+      hasDefaultDomain.free();
+      if (!exists) {
+        db.run(
+          "INSERT INTO tenant_domains (tenant_id, domain, is_primary, is_active, verification_status, verified_at) VALUES ('default', 'default', 1, 1, 'verified', datetime('now'))"
+        );
+      }
+    } catch (e) { /* ignore */ }
+
     saveDb();
     return db;
   })();
@@ -894,6 +936,9 @@ function saveDb() {
 
 // Hilfs-Wrapper für synchrone-ähnliche API
 function getDb() {
+  if (DB_CLIENT === 'postgres') {
+    throw new Error('getDb() ist im Postgres-Modus nicht verfuegbar. Bitte async DB-Helper verwenden.');
+  }
   if (!db) throw new Error('Datenbank noch nicht initialisiert. Bitte await initDatabase() aufrufen.');
   return {
     // SELECT mit mehreren Ergebnissen
@@ -930,4 +975,46 @@ function getDb() {
   };
 }
 
-module.exports = { initDatabase, getDb, saveDb };
+function toSqliteSql(sql) {
+  return sql.replace(/\$\d+/g, '?');
+}
+
+async function dbAll(sql, params = []) {
+  if (DB_CLIENT === 'postgres') {
+    if (!pgPool) throw new Error('Postgres-Pool noch nicht initialisiert. Bitte await initDatabase() aufrufen.');
+    const result = await pgPool.query(sql, params);
+    return result.rows;
+  }
+
+  const sqliteSql = toSqliteSql(sql);
+  return getDb().prepare(sqliteSql).all(...params);
+}
+
+async function dbGet(sql, params = []) {
+  if (DB_CLIENT === 'postgres') {
+    if (!pgPool) throw new Error('Postgres-Pool noch nicht initialisiert. Bitte await initDatabase() aufrufen.');
+    const result = await pgPool.query(sql, params);
+    return result.rows[0] || null;
+  }
+
+  const sqliteSql = toSqliteSql(sql);
+  return getDb().prepare(sqliteSql).get(...params);
+}
+
+async function dbRun(sql, params = []) {
+  if (DB_CLIENT === 'postgres') {
+    if (!pgPool) throw new Error('Postgres-Pool noch nicht initialisiert. Bitte await initDatabase() aufrufen.');
+    const result = await pgPool.query(sql, params);
+    return { changes: result.rowCount || 0, rows: result.rows || [] };
+  }
+
+  const sqliteSql = toSqliteSql(sql);
+  const result = getDb().prepare(sqliteSql).run(...params);
+  return { changes: result.changes || 0, rows: [] };
+}
+
+function isPostgres() {
+  return DB_CLIENT === 'postgres';
+}
+
+module.exports = { initDatabase, getDb, saveDb, dbAll, dbGet, dbRun, isPostgres };

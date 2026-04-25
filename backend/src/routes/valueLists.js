@@ -1,5 +1,5 @@
 const express = require('express');
-const { getDb, saveDb } = require('../database');
+const { getDb, saveDb, dbGet, dbAll } = require('../database');
 const { requireAuth } = require('../middleware/tenantContext');
 
 const router = express.Router();
@@ -20,24 +20,33 @@ router.get('/', requireAuth, (req, res) => {
 
 // GET /api/value-lists/:key/items — Aktive Items einer Liste (Public)
 // Returns system lists (tenant_id IS NULL) AND tenant-specific lists
-router.get('/:key/items', (req, res) => {
-  const db = getDb();
-  // Find list: system (tenant_id IS NULL) or tenant-specific
-  const tenantId = req.tenantId || req.query.tenantId || null;
-  let list;
-  if (tenantId) {
-    list = db.prepare('SELECT id FROM value_lists WHERE list_key = ? AND (tenant_id IS NULL OR tenant_id = ?)').get(req.params.key, tenantId);
-  } else {
-    list = db.prepare('SELECT id FROM value_lists WHERE list_key = ? AND tenant_id IS NULL').get(req.params.key);
-  }
-  if (!list) return res.status(404).json({ error: 'Liste nicht gefunden' });
+router.get('/:key/items', async (req, res) => {
+  try {
+    const tenantId = req.tenantId || req.query.tenantId || null;
+    let list;
+    if (tenantId) {
+      list = await dbGet(`
+        SELECT id
+        FROM value_lists
+        WHERE list_key = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
+        ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END
+        LIMIT 1
+      `, [req.params.key, tenantId]);
+    } else {
+      list = await dbGet('SELECT id FROM value_lists WHERE list_key = $1 AND tenant_id IS NULL', [req.params.key]);
+    }
+    if (!list) return res.status(404).json({ error: 'Liste nicht gefunden' });
 
-  const activeOnly = req.query.all !== '1';
-  const sql = activeOnly
-    ? 'SELECT * FROM value_list_items WHERE list_id = ? AND is_active = 1 ORDER BY sort_order, label'
-    : 'SELECT * FROM value_list_items WHERE list_id = ? ORDER BY sort_order, label';
-  const items = db.prepare(sql).all(list.id);
-  res.json(items);
+    const activeOnly = req.query.all !== '1';
+    const sql = activeOnly
+      ? 'SELECT * FROM value_list_items WHERE list_id = $1 AND is_active = 1 ORDER BY sort_order, label'
+      : 'SELECT * FROM value_list_items WHERE list_id = $1 ORDER BY sort_order, label';
+    const items = await dbAll(sql, [list.id]);
+    res.json(items);
+  } catch (err) {
+    console.error('Value list konnte nicht geladen werden:', err);
+    res.status(500).json({ error: 'Werteliste konnte nicht geladen werden' });
+  }
 });
 
 // POST /api/value-lists — Neue benutzerdefinierte Liste (Admin)

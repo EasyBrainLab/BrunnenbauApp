@@ -6,7 +6,8 @@ const session = require('express-session');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const { initDatabase } = require('./database');
+const { initDatabase, dbAll } = require('./database');
+const { attachTenantContext } = require('./middleware/tenantContext');
 const inquiryRoutes = require('./routes/inquiries');
 const adminRoutes = require('./routes/admin');
 const costRoutes = require('./routes/costs');
@@ -33,12 +34,24 @@ app.use(helmet({
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin(origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      ...(process.env.FRONTEND_URLS || '').split(','),
+    ].map((entry) => entry && entry.trim()).filter(Boolean);
+
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('CORS origin not allowed'));
+  },
   credentials: true,
 }));
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(attachTenantContext);
 
 // Session-Konfiguration
 const sessionSecret = process.env.SESSION_SECRET;
@@ -137,15 +150,19 @@ app.use('/api/value-lists', (req, res, next) => {
 }, valueListRoutes);
 
 // Oeffentliche Behoerden-Links (kein CSRF noetig, nur GET)
-app.get('/api/authority-links', (req, res) => {
-  const { getDb } = require('./database');
+app.get('/api/authority-links', async (req, res) => {
   const { bundesland } = req.query;
   if (!bundesland) return res.json([]);
-  const db = getDb();
-  const links = db.prepare(
-    'SELECT id, bundesland, title, url, description, link_type FROM authority_links WHERE bundesland = ? AND is_active = 1 ORDER BY sort_order, title'
-  ).all(bundesland);
-  res.json(links);
+  try {
+    const links = await dbAll(
+      'SELECT id, bundesland, title, url, description, link_type FROM authority_links WHERE bundesland = $1 AND tenant_id = $2 AND is_active = 1 ORDER BY sort_order, title',
+      [bundesland, req.tenantId || 'default']
+    );
+    res.json(links);
+  } catch (err) {
+    console.error('Authority links konnten nicht geladen werden:', err);
+    res.status(500).json({ error: 'Behoerden-Links konnten nicht geladen werden' });
+  }
 });
 
 // Gesundheitscheck

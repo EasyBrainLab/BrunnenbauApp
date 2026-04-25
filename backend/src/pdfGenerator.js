@@ -1,12 +1,12 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
-const { getCompanySettings, getCompanyFooterLine, getCompanyAddressLine } = require('./companySettings');
+const { getCompanySettingsAsync, getCompanyFooterLine, getCompanyAddressLine } = require('./companySettings');
 
-function generateQuotePdf({ inquiry, quote, quoteItems }) {
+async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
+  const cs = await getCompanySettingsAsync(tenantId || inquiry?.tenant_id);
   return new Promise((resolve, reject) => {
     try {
-      const cs = getCompanySettings();
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const buffers = [];
 

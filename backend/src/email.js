@@ -1,16 +1,15 @@
 const nodemailer = require('nodemailer');
 const { generateIcs } = require('./icsGenerator');
-const { getCompanySettings, getEmailSignature } = require('./companySettings');
+const { getCompanySettingsAsync, getEmailSignature } = require('./companySettings');
+const { dbGet } = require('./database');
 
 // E-Mail-Transporter erstellen (mit optionalem Tenant-SMTP)
-function createTransporter(tenantId) {
+async function createTransporter(tenantId) {
   // 1. Versuche Tenant-spezifischen SMTP
   if (tenantId) {
     try {
-      const { getDb } = require('./database');
       const { decrypt } = require('./services/encryption');
-      const db = getDb();
-      const smtp = db.prepare('SELECT * FROM tenant_smtp WHERE tenant_id = ? AND is_verified = 1').get(tenantId);
+      const smtp = await dbGet('SELECT * FROM tenant_smtp WHERE tenant_id = $1 AND is_verified = 1', [tenantId]);
       if (smtp && smtp.smtp_host) {
         const smtpPass = smtp.smtp_pass_encrypted ? decrypt(smtp.smtp_pass_encrypted) : '';
         return nodemailer.createTransport({
@@ -62,8 +61,8 @@ const WELL_TYPE_LABELS = {
 
 // Bestätigungs-E-Mail an Kunden
 async function sendCustomerConfirmation(inquiry, tenantId) {
-  const transporter = createTransporter(tenantId);
-  const cs = getCompanySettings(tenantId);
+  const transporter = await createTransporter(tenantId);
+  const cs = await getCompanySettingsAsync(tenantId);
   const sig = getEmailSignature(cs);
   const sigHtml = sig.replace(/\n/g, '<br>');
 
@@ -118,6 +117,7 @@ async function sendCustomerConfirmation(inquiry, tenantId) {
         location,
         description: `Brunnentyp: ${WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type}\nAnfrage-ID: ${inquiry.inquiry_id}`,
         organizer: cs.email_from,
+        companySettings: cs,
       });
 
       mailOptions.attachments = [{
@@ -135,8 +135,8 @@ async function sendCustomerConfirmation(inquiry, tenantId) {
 
 // Benachrichtigungs-E-Mail an Unternehmen
 async function sendCompanyNotification(inquiry, tenantId) {
-  const transporter = createTransporter(tenantId);
-  const cs = getCompanySettings(tenantId);
+  const transporter = await createTransporter(tenantId);
+  const cs = await getCompanySettingsAsync(tenantId);
 
   const html = `
     <h2>Neue Brunnenanfrage eingegangen</h2>

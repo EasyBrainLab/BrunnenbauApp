@@ -3,12 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
-const { getDb } = require('../database');
+const { dbGet, dbAll, dbRun } = require('../database');
 const { WELL_TYPE_LABELS } = require('../email');
 const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
 const nodemailer = require('nodemailer');
 const { generateQuotePdf } = require('../pdfGenerator');
-const { getCompanySettings, getSettingsKeys, getEmailSignature } = require('../companySettings');
+const { getCompanySettingsAsync, getSettingsKeys, getEmailSignature } = require('../companySettings');
 const { requireAuth: tenantRequireAuth } = require('../middleware/tenantContext');
 
 // Multer fuer Logo-Upload
@@ -20,7 +20,8 @@ const logoStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `logo${ext}`);
+    const tenantPrefix = (req.tenantId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+    cb(null, `logo-${tenantPrefix}${ext}`);
   },
 });
 const logoUpload = multer({
@@ -44,8 +45,11 @@ function verifyPassword(password, storedHash, storedSalt) {
   return hash === storedHash;
 }
 
-function getAdminCredentials(db) {
-  const row = db.prepare("SELECT value FROM admin_settings WHERE key = 'admin_password_hash'").get();
+async function getAdminCredentialsAsync(tenantId) {
+  const row = await dbGet(
+    "SELECT value FROM admin_settings WHERE key = 'admin_password_hash' AND tenant_id = $1",
+    [tenantId || 'default']
+  );
   if (row) {
     try {
       const { hash, salt } = JSON.parse(row.value);
@@ -62,6 +66,32 @@ function getAdminCredentials(db) {
     username: process.env.ADMIN_USERNAME || 'admin',
     password: envPassword || 'brunnen2024!',
   };
+}
+
+async function upsertCompanySetting(tenantId, key, value) {
+  const updateResult = await dbRun(
+    'UPDATE company_settings SET value = $1 WHERE key = $2 AND tenant_id = $3',
+    [value ?? '', key, tenantId]
+  );
+  if (updateResult.changes === 0) {
+    await dbRun(
+      'INSERT INTO company_settings (key, value, tenant_id) VALUES ($1, $2, $3)',
+      [key, value ?? '', tenantId]
+    );
+  }
+}
+
+async function upsertAdminSetting(tenantId, key, value) {
+  const updateResult = await dbRun(
+    'UPDATE admin_settings SET value = $1 WHERE key = $2 AND tenant_id = $3',
+    [value, key, tenantId]
+  );
+  if (updateResult.changes === 0) {
+    await dbRun(
+      'INSERT INTO admin_settings (key, value, tenant_id) VALUES ($1, $2, $3)',
+      [key, value, tenantId]
+    );
+  }
 }
 
 function createTransporter() {
@@ -87,17 +117,46 @@ function createTransporter() {
 
 const router = express.Router();
 
+function getPublicCompanyFields(settings) {
+  const {
+    company_name,
+    company_name_short,
+    tagline,
+    company_phone,
+    company_email,
+    company_website,
+    company_city,
+    company_state,
+    primary_color,
+    logo_path,
+    legal_form,
+  } = settings;
+
+  return {
+    company_name,
+    company_name_short,
+    tagline,
+    company_phone,
+    company_email,
+    company_website,
+    company_city,
+    company_state,
+    primary_color,
+    logo_path,
+    legal_form,
+  };
+}
+
 // Admin-Authentifizierung Middleware (nutzt tenant-aware Version)
 function requireAuth(req, res, next) {
   return tenantRequireAuth(req, res, next);
 }
 
 // POST /api/admin/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
-  const db = getDb();
-  const creds = getAdminCredentials(db);
+  const creds = await getAdminCredentialsAsync(req.tenantId || 'default');
 
   let valid = false;
   if (creds.type === 'db') {
@@ -112,7 +171,7 @@ router.post('/login', (req, res) => {
 
   if (valid) {
     req.session.isAdmin = true;
-    req.session.tenantId = 'default';
+    req.session.tenantId = req.tenantId || 'default';
     req.session.userRole = 'owner';
     res.json({ message: 'Erfolgreich angemeldet' });
   } else {
@@ -132,53 +191,51 @@ router.get('/check', (req, res) => {
 });
 
 // GET /api/admin/inquiries – Alle Anfragen
-router.get('/inquiries', requireAuth, (req, res) => {
-  const db = getDb();
+router.get('/inquiries', requireAuth, async (req, res) => {
   const { status, search } = req.query;
 
   let query = 'SELECT * FROM inquiries';
-  const conditions = ['tenant_id = ?'];
+  const conditions = ['tenant_id = $1'];
   const params = [req.tenantId];
 
   if (status && status !== 'alle') {
-    conditions.push('status = ?');
+    conditions.push(`status = $${params.length + 1}`);
     params.push(status);
   }
 
   if (search) {
-    conditions.push('(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR zip_code LIKE ? OR inquiry_id LIKE ?)');
+    const placeholder = `$${params.length + 1}`;
+    conditions.push(`(first_name LIKE ${placeholder} OR last_name LIKE ${placeholder} OR email LIKE ${placeholder} OR zip_code LIKE ${placeholder} OR inquiry_id LIKE ${placeholder})`);
     const searchTerm = `%${search}%`;
-    params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    params.push(searchTerm);
   }
 
   query += ' WHERE ' + conditions.join(' AND ');
 
   query += ' ORDER BY created_at DESC';
 
-  const inquiries = db.prepare(query).all(...params);
+  const inquiries = await dbAll(query, params);
   res.json(inquiries);
 });
 
 // GET /api/admin/inquiries/:id – Einzelne Anfrage
-router.get('/inquiries/:id', requireAuth, (req, res) => {
-  const db = getDb();
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+router.get('/inquiries/:id', requireAuth, async (req, res) => {
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
 
   if (!inquiry) {
     return res.status(404).json({ error: 'Anfrage nicht gefunden' });
   }
 
-  const files = db.prepare('SELECT * FROM inquiry_files WHERE inquiry_id = ? AND tenant_id = ?').all(req.params.id, req.tenantId);
+  const files = await dbAll('SELECT * FROM inquiry_files WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
 
   res.json({ ...inquiry, files });
 });
 
 // PUT /api/admin/inquiries/:id – Kundendaten aktualisieren
-router.put('/inquiries/:id', requireAuth, (req, res) => {
-  const db = getDb();
+router.put('/inquiries/:id', requireAuth, async (req, res) => {
   const inquiryId = req.params.id;
 
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
   // Erlaubte Felder fuer Admin-Bearbeitung
@@ -203,7 +260,7 @@ router.put('/inquiries/:id', requireAuth, (req, res) => {
 
   for (const [key, value] of Object.entries(req.body)) {
     if (!allowedFields.includes(key)) continue;
-    updates.push(`${key} = ?`);
+    updates.push(`${key} = $${values.length + 1}`);
     values.push(value === '' ? null : value);
   }
 
@@ -211,33 +268,40 @@ router.put('/inquiries/:id', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Keine aenderbaren Felder angegeben' });
   }
 
-  values.push(inquiryId);
-  db.prepare(`UPDATE inquiries SET ${updates.join(', ')} WHERE inquiry_id = ? AND tenant_id = ?`).run(...values, req.tenantId);
+  values.push(inquiryId, req.tenantId);
+  await dbRun(
+    `UPDATE inquiries SET ${updates.join(', ')} WHERE inquiry_id = $${values.length - 1} AND tenant_id = $${values.length}`,
+    values
+  );
 
   // Aenderung loggen
   const changedFields = Object.keys(req.body).filter(k => allowedFields.includes(k));
-  db.prepare(
-    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(inquiryId, 'system', 'System', `Kundendaten bearbeitet: ${changedFields.join(', ')}`, req.tenantId);
+  await dbRun(
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+    [inquiryId, 'system', 'System', `Kundendaten bearbeitet: ${changedFields.join(', ')}`, req.tenantId]
+  );
 
   // Aktualisierte Anfrage zurueckgeben
-  const updated = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
-  const files = db.prepare('SELECT * FROM inquiry_files WHERE inquiry_id = ? AND tenant_id = ?').all(inquiryId, req.tenantId);
+  const updated = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
+  const files = await dbAll('SELECT * FROM inquiry_files WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
   res.json({ ...updated, files });
 });
 
 // PUT /api/admin/inquiries/:id/status – Status aktualisieren
-router.put('/inquiries/:id/status', requireAuth, (req, res) => {
+router.put('/inquiries/:id/status', requireAuth, async (req, res) => {
   const { status } = req.body;
-  const db = getDb();
 
   // Load valid statuses from value_list_items
   let validStatuses;
   let statusLabelMap = {};
   try {
-    const statusItems = db.prepare(
-      "SELECT vli.value, vli.label FROM value_list_items vli JOIN value_lists vl ON vl.id = vli.list_id WHERE vl.list_key = 'inquiry_statuses' AND vli.is_active = 1"
-    ).all();
+    const statusItems = await dbAll(
+      "SELECT vli.value, vli.label FROM value_list_items vli JOIN value_lists vl ON vl.id = vli.list_id WHERE (vl.tenant_id = $1 OR vl.tenant_id = 'default') AND vl.list_key = 'inquiry_statuses' AND vli.is_active = 1 ORDER BY CASE WHEN vl.tenant_id = $1 THEN 0 ELSE 1 END, vli.sort_order, vli.id",
+      [req.tenantId]
+    );
+    if (!statusItems || statusItems.length === 0) {
+      throw new Error('Keine Inquiry-Statusliste gefunden');
+    }
     validStatuses = statusItems.map((i) => i.value);
     for (const i of statusItems) statusLabelMap[i.value] = i.label;
   } catch {
@@ -249,32 +313,31 @@ router.put('/inquiries/:id/status', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Ungültiger Status' });
   }
 
-  const result = db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ? AND tenant_id = ?').run(status, req.params.id, req.tenantId);
+  const result = await dbRun('UPDATE inquiries SET status = $1 WHERE inquiry_id = $2 AND tenant_id = $3', [status, req.params.id, req.tenantId]);
 
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Anfrage nicht gefunden' });
   }
 
   // Status-Aenderung als System-Nachricht loggen
-  db.prepare(
-    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabelMap[status] || status}`, req.tenantId);
+  await dbRun(
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+    [req.params.id, 'system', 'System', `Status geaendert auf: ${statusLabelMap[status] || status}`, req.tenantId]
+  );
 
   res.json({ message: 'Status aktualisiert' });
 });
 
 // PUT /api/admin/inquiries/:id/notes – Admin-Notizen aktualisieren
-router.put('/inquiries/:id/notes', requireAuth, (req, res) => {
+router.put('/inquiries/:id/notes', requireAuth, async (req, res) => {
   const { notes } = req.body;
-  const db = getDb();
-  db.prepare('UPDATE inquiries SET admin_notes = ? WHERE inquiry_id = ? AND tenant_id = ?').run(notes, req.params.id, req.tenantId);
+  await dbRun('UPDATE inquiries SET admin_notes = $1 WHERE inquiry_id = $2 AND tenant_id = $3', [notes, req.params.id, req.tenantId]);
   res.json({ message: 'Notizen gespeichert' });
 });
 
 // GET /api/admin/export/csv – CSV-Export
-router.get('/export/csv', requireAuth, (req, res) => {
-  const db = getDb();
-  const inquiries = db.prepare('SELECT * FROM inquiries WHERE tenant_id = ? ORDER BY created_at DESC').all(req.tenantId);
+router.get('/export/csv', requireAuth, async (req, res) => {
+  const inquiries = await dbAll('SELECT * FROM inquiries WHERE tenant_id = $1 ORDER BY created_at DESC', [req.tenantId]);
 
   const headers = [
     'Anfrage-ID', 'Datum', 'Status', 'Vorname', 'Nachname', 'E-Mail', 'Telefon',
@@ -325,40 +388,38 @@ router.get('/export/csv', requireAuth, (req, res) => {
 });
 
 // DELETE /api/admin/inquiries/:id – Anfrage komplett loeschen
-router.delete('/inquiries/:id', requireAuth, (req, res) => {
-  const db = getDb();
+router.delete('/inquiries/:id', requireAuth, async (req, res) => {
   const inquiryId = req.params.id;
 
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(inquiryId, req.tenantId);
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
   // Dateien vom Filesystem loeschen
-  const files = db.prepare('SELECT stored_name FROM inquiry_files WHERE inquiry_id = ?').all(inquiryId);
+  const files = await dbAll('SELECT stored_name FROM inquiry_files WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
   files.forEach(f => {
     const filePath = path.join(__dirname, '..', '..', 'uploads', f.stored_name);
     fs.unlink(filePath, () => {});
   });
 
   // Kind-Tabellen loeschen (Reihenfolge wegen FK)
-  db.prepare('DELETE FROM inquiry_files WHERE inquiry_id = ?').run(inquiryId);
-  db.prepare('DELETE FROM inquiry_responses WHERE inquiry_id = ?').run(inquiryId);
-  db.prepare('DELETE FROM inquiry_messages WHERE inquiry_id = ?').run(inquiryId);
-  db.prepare('DELETE FROM quotes WHERE inquiry_id = ?').run(inquiryId);
+  await dbRun('DELETE FROM inquiry_files WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
+  await dbRun('DELETE FROM inquiry_responses WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
+  await dbRun('DELETE FROM inquiry_messages WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
+  await dbRun('DELETE FROM quotes WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
 
   // Anfrage selbst loeschen
-  db.prepare('DELETE FROM inquiries WHERE inquiry_id = ?').run(inquiryId);
+  await dbRun('DELETE FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiryId, req.tenantId]);
 
   res.json({ message: 'Anfrage und alle zugehoerigen Daten geloescht' });
 });
 
 // GET /api/admin/stats – Dashboard-Statistiken
-router.get('/stats', requireAuth, (req, res) => {
-  const db = getDb();
-  const total = db.prepare('SELECT COUNT(*) as count FROM inquiries WHERE tenant_id = ?').get(req.tenantId).count;
-  const neu = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'neu' AND tenant_id = ?").get(req.tenantId).count;
-  const inBearbeitung = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'in_bearbeitung' AND tenant_id = ?").get(req.tenantId).count;
-  const angebotErstellt = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'angebot_erstellt' AND tenant_id = ?").get(req.tenantId).count;
-  const abgeschlossen = db.prepare("SELECT COUNT(*) as count FROM inquiries WHERE status = 'abgeschlossen' AND tenant_id = ?").get(req.tenantId).count;
+router.get('/stats', requireAuth, async (req, res) => {
+  const total = Number((await dbGet('SELECT COUNT(*) as count FROM inquiries WHERE tenant_id = $1', [req.tenantId]))?.count || 0);
+  const neu = Number((await dbGet("SELECT COUNT(*) as count FROM inquiries WHERE status = 'neu' AND tenant_id = $1", [req.tenantId]))?.count || 0);
+  const inBearbeitung = Number((await dbGet("SELECT COUNT(*) as count FROM inquiries WHERE status = 'in_bearbeitung' AND tenant_id = $1", [req.tenantId]))?.count || 0);
+  const angebotErstellt = Number((await dbGet("SELECT COUNT(*) as count FROM inquiries WHERE status = 'angebot_erstellt' AND tenant_id = $1", [req.tenantId]))?.count || 0);
+  const abgeschlossen = Number((await dbGet("SELECT COUNT(*) as count FROM inquiries WHERE status = 'abgeschlossen' AND tenant_id = $1", [req.tenantId]))?.count || 0);
 
   res.json({ total, neu, inBearbeitung, angebotErstellt, abgeschlossen });
 });
@@ -366,39 +427,37 @@ router.get('/stats', requireAuth, (req, res) => {
 // ==================== Antwortvorlagen ====================
 
 // GET /api/admin/templates
-router.get('/templates', requireAuth, (req, res) => {
-  const db = getDb();
-  const templates = db.prepare('SELECT * FROM response_templates WHERE tenant_id = ? ORDER BY sort_order, id').all(req.tenantId);
+router.get('/templates', requireAuth, async (req, res) => {
+  const templates = await dbAll('SELECT * FROM response_templates WHERE tenant_id = $1 ORDER BY sort_order, id', [req.tenantId]);
   res.json(templates);
 });
 
 // POST /api/admin/templates
-router.post('/templates', requireAuth, (req, res) => {
+router.post('/templates', requireAuth, async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
   if (!name || !subject || !body_text) {
     return res.status(400).json({ error: 'Name, Betreff und Text sind erforderlich' });
   }
-  const db = getDb();
-  db.prepare(
-    'INSERT INTO response_templates (name, subject, body_html, body_text, category, sort_order, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0, req.tenantId);
+  await dbRun(
+    'INSERT INTO response_templates (name, subject, body_html, body_text, category, sort_order, tenant_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0, req.tenantId]
+  );
   res.status(201).json({ message: 'Vorlage erstellt' });
 });
 
 // PUT /api/admin/templates/:id
-router.put('/templates/:id', requireAuth, (req, res) => {
+router.put('/templates/:id', requireAuth, async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
-  const db = getDb();
-  db.prepare(
-    'UPDATE response_templates SET name=?, subject=?, body_html=?, body_text=?, category=?, sort_order=? WHERE id=?'
-  ).run(name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0, req.params.id);
+  await dbRun(
+    'UPDATE response_templates SET name = $1, subject = $2, body_html = $3, body_text = $4, category = $5, sort_order = $6 WHERE id = $7 AND tenant_id = $8',
+    [name, subject, body_html || null, body_text, category || 'allgemein', sort_order || 0, req.params.id, req.tenantId]
+  );
   res.json({ message: 'Vorlage aktualisiert' });
 });
 
 // DELETE /api/admin/templates/:id
-router.delete('/templates/:id', requireAuth, (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM response_templates WHERE id=?').run(req.params.id);
+router.delete('/templates/:id', requireAuth, async (req, res) => {
+  await dbRun('DELETE FROM response_templates WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Vorlage geloescht' });
 });
 
@@ -406,16 +465,14 @@ router.delete('/templates/:id', requireAuth, (req, res) => {
 router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
   try {
     const { template_id, subject, body_text, placeholders } = req.body;
-    const db = getDb();
-
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+    const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
     // Platzhalter ersetzen
     let renderedSubject = subject || '';
     let renderedBody = body_text || '';
 
-    const cs = getCompanySettings(req.tenantId);
+    const cs = await getCompanySettingsAsync(req.tenantId);
     const vars = {
       inquiry_id: inquiry.inquiry_id,
       first_name: inquiry.first_name,
@@ -424,7 +481,7 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
       well_type: WELL_TYPE_LABELS[inquiry.well_type] || inquiry.well_type,
       signature: getEmailSignature(cs),
       company_name: cs.company_name,
-      ...placeholders,
+      ...(placeholders || {}),
     };
 
     for (const [key, val] of Object.entries(vars)) {
@@ -437,21 +494,21 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
     const transporter = createTransporter();
 
     await transporter.sendMail({
-      from: getCompanySettings(req.tenantId).email_from,
+      from: cs.email_from,
       to: inquiry.email,
       subject: renderedSubject,
       text: renderedBody,
     });
 
-    // Antwort in Historie speichern
-    db.prepare(
-      'INSERT INTO inquiry_responses (inquiry_id, template_id, subject, body_text, sent_via, tenant_id) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(inquiry.inquiry_id, template_id || null, renderedSubject, renderedBody, 'email', req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_responses (inquiry_id, template_id, subject, body_text, sent_via, tenant_id) VALUES ($1, $2, $3, $4, $5, $6)',
+      [inquiry.inquiry_id, template_id || null, renderedSubject, renderedBody, 'email', req.tenantId]
+    );
 
-    // Email auch ins Chat-Archiv loggen
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(inquiry.inquiry_id, 'admin', 'Admin (E-Mail)', `Betreff: ${renderedSubject}\n\n${renderedBody}`, req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [inquiry.inquiry_id, 'admin', 'Admin (E-Mail)', `Betreff: ${renderedSubject}\n\n${renderedBody}`, req.tenantId]
+    );
 
     res.json({ message: 'Antwort gesendet' });
   } catch (err) {
@@ -461,64 +518,64 @@ router.post('/inquiries/:id/send-response', requireAuth, async (req, res) => {
 });
 
 // GET /api/admin/inquiries/:id/responses — Antwort-Historie
-router.get('/inquiries/:id/responses', requireAuth, (req, res) => {
-  const db = getDb();
-  const responses = db.prepare(
-    'SELECT * FROM inquiry_responses WHERE inquiry_id = ? ORDER BY sent_at DESC'
-  ).all(req.params.id);
+router.get('/inquiries/:id/responses', requireAuth, async (req, res) => {
+  const responses = await dbAll(
+    'SELECT * FROM inquiry_responses WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY sent_at DESC',
+    [req.params.id, req.tenantId]
+  );
   res.json(responses);
 });
 
 // ==================== Kommunikations-Archiv ====================
 
 // GET /api/admin/inquiries/:id/messages — Alle Nachrichten chronologisch
-router.get('/inquiries/:id/messages', requireAuth, (req, res) => {
-  const db = getDb();
-  const messages = db.prepare(
-    'SELECT * FROM inquiry_messages WHERE inquiry_id = ? ORDER BY created_at ASC'
-  ).all(req.params.id);
+router.get('/inquiries/:id/messages', requireAuth, async (req, res) => {
+  const messages = await dbAll(
+    'SELECT * FROM inquiry_messages WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY created_at ASC',
+    [req.params.id, req.tenantId]
+  );
   res.json(messages);
 });
 
 // POST /api/admin/inquiries/:id/messages — Admin-Nachricht oder Kunden-Auftragserteilung
-router.post('/inquiries/:id/messages', requireAuth, (req, res) => {
+router.post('/inquiries/:id/messages', requireAuth, async (req, res) => {
   const { message, sender_type } = req.body;
   if (!message || !message.trim()) {
     return res.status(400).json({ error: 'Nachricht darf nicht leer sein' });
   }
-  const db = getDb();
 
   if (sender_type === 'customer_order') {
-    // Kunden-Auftragserteilung: Nachricht als Kunde speichern + Status aendern
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'customer', 'Kunde (Auftragserteilung)', message.trim(), req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, 'customer', 'Kunde (Auftragserteilung)', message.trim(), req.tenantId]
+    );
 
-    db.prepare('UPDATE inquiries SET status = ? WHERE inquiry_id = ? AND tenant_id = ?').run('auftrag_erteilt', req.params.id);
+    await dbRun('UPDATE inquiries SET status = $1 WHERE inquiry_id = $2 AND tenant_id = $3', ['auftrag_erteilt', req.params.id, req.tenantId]);
 
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', 'Kunde hat den Auftrag erteilt. Status geaendert auf: Auftrag erteilt', req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, 'system', 'System', 'Kunde hat den Auftrag erteilt. Status geaendert auf: Auftrag erteilt', req.tenantId]
+    );
 
     return res.status(201).json({ message: 'Auftragserteilung gespeichert', status_changed: 'auftrag_erteilt' });
   }
 
-  // Standard: Admin-Nachricht
-  db.prepare(
-    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(req.params.id, 'admin', 'Admin', message.trim(), req.tenantId);
+  await dbRun(
+    'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+    [req.params.id, 'admin', 'Admin', message.trim(), req.tenantId]
+  );
   res.status(201).json({ message: 'Nachricht gespeichert' });
 });
 
 // GET /api/admin/inquiries/:id/messages/export — JSON-Export fuer Chatbot-Kontext
-router.get('/inquiries/:id/messages/export', requireAuth, (req, res) => {
-  const db = getDb();
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+router.get('/inquiries/:id/messages/export', requireAuth, async (req, res) => {
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
-  const messages = db.prepare(
-    'SELECT * FROM inquiry_messages WHERE inquiry_id = ? ORDER BY created_at ASC'
-  ).all(req.params.id);
+  const messages = await dbAll(
+    'SELECT * FROM inquiry_messages WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY created_at ASC',
+    [req.params.id, req.tenantId]
+  );
 
   res.json({ inquiry, messages });
 });
@@ -528,12 +585,12 @@ router.get('/inquiries/:id/messages/export', requireAuth, (req, res) => {
 // POST /api/admin/inquiries/:id/generate-pdf/:quoteId
 router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res) => {
   try {
-    const db = getDb();
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+    const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ? AND inquiry_id = ?').get(
-      parseInt(req.params.quoteId), req.params.id
+    const quote = await dbGet(
+      'SELECT * FROM quotes WHERE id = $1 AND inquiry_id = $2 AND tenant_id = $3',
+      [parseInt(req.params.quoteId, 10), req.params.id, req.tenantId]
     );
     if (!quote) return res.status(404).json({ error: 'Angebot nicht gefunden' });
 
@@ -553,15 +610,15 @@ router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res
     const filepath = path.join(uploadsDir, filename);
     fs.writeFileSync(filepath, pdfBuffer);
 
-    // In inquiry_files eintragen
-    db.prepare(
-      'INSERT INTO inquiry_files (inquiry_id, file_type, original_name, stored_name, mime_type, size) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'quote_pdf', `Angebot-${quote.id}.pdf`, filename, 'application/pdf', pdfBuffer.length);
+    await dbRun(
+      'INSERT INTO inquiry_files (inquiry_id, file_type, original_name, stored_name, mime_type, size, tenant_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [req.params.id, 'quote_pdf', `Angebot-${quote.id}.pdf`, filename, 'application/pdf', pdfBuffer.length, req.tenantId]
+    );
 
-    // Im Chat-Archiv loggen
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', `PDF-Angebot #${quote.id} wurde erstellt.`, req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, 'system', 'System', `PDF-Angebot #${quote.id} wurde erstellt.`, req.tenantId]
+    );
 
     res.json({ message: 'PDF erstellt', filename });
   } catch (err) {
@@ -573,31 +630,31 @@ router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, async (req, res
 // ==================== Bohrtermine ====================
 
 // GET /api/admin/inquiries/:id/drilling-schedule
-router.get('/inquiries/:id/drilling-schedule', requireAuth, (req, res) => {
-  const db = getDb();
-  const schedules = db.prepare(
-    'SELECT * FROM drilling_schedules WHERE inquiry_id = ? ORDER BY drill_date ASC'
-  ).all(req.params.id);
+router.get('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) => {
+  const schedules = await dbAll(
+    'SELECT * FROM drilling_schedules WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY drill_date ASC',
+    [req.params.id, req.tenantId]
+  );
   res.json(schedules);
 });
 
 // POST /api/admin/inquiries/:id/drilling-schedule — Bohrtage anlegen
-router.post('/inquiries/:id/drilling-schedule', requireAuth, (req, res) => {
+router.post('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) => {
   const { dates } = req.body; // [{ drill_date, start_time, notes }]
   if (!Array.isArray(dates) || dates.length === 0) {
     return res.status(400).json({ error: 'Mindestens ein Termin erforderlich' });
   }
 
-  const db = getDb();
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+  const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
   // Doppelbelegung pruefen
   const conflicts = [];
   for (const d of dates) {
-    const existing = db.prepare(
-      "SELECT ds.*, i.first_name, i.last_name, i.inquiry_id FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = ? AND ds.inquiry_id != ?"
-    ).all(d.drill_date, req.params.id);
+    const existing = await dbAll(
+      "SELECT ds.*, i.first_name, i.last_name, i.inquiry_id FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = $1 AND ds.inquiry_id != $2 AND ds.tenant_id = $3",
+      [d.drill_date, req.params.id, req.tenantId]
+    );
     if (existing.length > 0) {
       conflicts.push({
         date: d.drill_date,
@@ -611,32 +668,32 @@ router.post('/inquiries/:id/drilling-schedule', requireAuth, (req, res) => {
   }
 
   // Bestehende Termine dieser Anfrage loeschen und neue anlegen
-  db.prepare('DELETE FROM drilling_schedules WHERE inquiry_id = ?').run(req.params.id);
+  await dbRun('DELETE FROM drilling_schedules WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   for (const d of dates) {
-    db.prepare(
-      'INSERT INTO drilling_schedules (inquiry_id, drill_date, start_time, notes, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, d.drill_date, d.start_time || null, d.notes || null, req.tenantId);
+    await dbRun(
+      'INSERT INTO drilling_schedules (inquiry_id, drill_date, start_time, notes, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, d.drill_date, d.start_time || null, d.notes || null, req.tenantId]
+    );
   }
 
-  // Status auf bohrung_terminiert setzen
-  db.prepare("UPDATE inquiries SET status = 'bohrung_terminiert' WHERE inquiry_id = ?").run(req.params.id);
+  await dbRun("UPDATE inquiries SET status = 'bohrung_terminiert' WHERE inquiry_id = $1 AND tenant_id = $2", [req.params.id, req.tenantId]);
 
   res.json({ message: 'Bohrtermine gespeichert', count: dates.length });
 });
 
 // PUT /api/admin/drilling-schedule/:scheduleId — Einzelnen Termin anpassen
-router.put('/drilling-schedule/:scheduleId', requireAuth, (req, res) => {
+router.put('/drilling-schedule/:scheduleId', requireAuth, async (req, res) => {
   const { drill_date, start_time, notes } = req.body;
-  const db = getDb();
 
-  const schedule = db.prepare('SELECT * FROM drilling_schedules WHERE id = ?').get(req.params.scheduleId);
+  const schedule = await dbGet('SELECT * FROM drilling_schedules WHERE id = $1 AND tenant_id = $2', [req.params.scheduleId, req.tenantId]);
   if (!schedule) return res.status(404).json({ error: 'Termin nicht gefunden' });
 
   // Konfliktpruefung fuer neues Datum
   if (drill_date && drill_date !== schedule.drill_date) {
-    const conflict = db.prepare(
-      "SELECT ds.*, i.first_name, i.last_name FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = ? AND ds.inquiry_id != ?"
-    ).all(drill_date, schedule.inquiry_id);
+    const conflict = await dbAll(
+      "SELECT ds.*, i.first_name, i.last_name FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.drill_date = $1 AND ds.inquiry_id != $2 AND ds.tenant_id = $3",
+      [drill_date, schedule.inquiry_id, req.tenantId]
+    );
     if (conflict.length > 0) {
       return res.status(409).json({
         error: 'Terminkonflikt',
@@ -645,34 +702,34 @@ router.put('/drilling-schedule/:scheduleId', requireAuth, (req, res) => {
     }
   }
 
-  db.prepare(
-    "UPDATE drilling_schedules SET drill_date = ?, start_time = ?, notes = ?, updated_at = datetime('now') WHERE id = ?"
-  ).run(drill_date || schedule.drill_date, start_time !== undefined ? start_time : schedule.start_time, notes !== undefined ? notes : schedule.notes, req.params.scheduleId);
+  await dbRun(
+    "UPDATE drilling_schedules SET drill_date = $1, start_time = $2, notes = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND tenant_id = $5",
+    [drill_date || schedule.drill_date, start_time !== undefined ? start_time : schedule.start_time, notes !== undefined ? notes : schedule.notes, req.params.scheduleId, req.tenantId]
+  );
 
   res.json({ message: 'Termin aktualisiert' });
 });
 
 // DELETE /api/admin/drilling-schedule/:scheduleId
-router.delete('/drilling-schedule/:scheduleId', requireAuth, (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM drilling_schedules WHERE id = ?').run(req.params.scheduleId);
+router.delete('/drilling-schedule/:scheduleId', requireAuth, async (req, res) => {
+  await dbRun('DELETE FROM drilling_schedules WHERE id = $1 AND tenant_id = $2', [req.params.scheduleId, req.tenantId]);
   res.json({ message: 'Termin geloescht' });
 });
 
 // POST /api/admin/inquiries/:id/send-drilling-info — Termininfo an Kunden senden
 router.post('/inquiries/:id/send-drilling-info', requireAuth, async (req, res) => {
   try {
-    const db = getDb();
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+    const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
     if (!inquiry.email) return res.status(400).json({ error: 'Keine E-Mail-Adresse vorhanden' });
 
-    const schedules = db.prepare(
-      'SELECT * FROM drilling_schedules WHERE inquiry_id = ? ORDER BY drill_date ASC'
-    ).all(req.params.id);
+    const schedules = await dbAll(
+      'SELECT * FROM drilling_schedules WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY drill_date ASC',
+      [req.params.id, req.tenantId]
+    );
     if (schedules.length === 0) return res.status(400).json({ error: 'Keine Bohrtermine vorhanden' });
 
-    const cs = getCompanySettings(req.tenantId);
+    const cs = await getCompanySettingsAsync(req.tenantId);
     const sig = getEmailSignature(cs);
 
     // Terminliste formatieren
@@ -734,9 +791,10 @@ ${sig}`;
     });
 
     // Im Chat-Archiv loggen
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', `Bohrtermin-Info per E-Mail an ${inquiry.email} gesendet.\n\n${terminListe}`, req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, 'system', 'System', `Bohrtermin-Info per E-Mail an ${inquiry.email} gesendet.\n\n${terminListe}`, req.tenantId]
+    );
 
     res.json({ message: 'Termininfo per E-Mail gesendet' });
   } catch (err) {
@@ -748,54 +806,50 @@ ${sig}`;
 // ==================== Behoerden-Links ====================
 
 // GET /api/admin/authority-links — Alle Links (Admin)
-router.get('/authority-links', requireAuth, (req, res) => {
-  const db = getDb();
+router.get('/authority-links', requireAuth, async (req, res) => {
   const { bundesland } = req.query;
   let links;
   if (bundesland) {
-    links = db.prepare('SELECT * FROM authority_links WHERE bundesland = ? ORDER BY sort_order, title').all(bundesland);
+    links = await dbAll('SELECT * FROM authority_links WHERE bundesland = $1 AND tenant_id = $2 ORDER BY sort_order, title', [bundesland, req.tenantId]);
   } else {
-    links = db.prepare('SELECT * FROM authority_links ORDER BY bundesland, sort_order, title').all();
+    links = await dbAll('SELECT * FROM authority_links WHERE tenant_id = $1 ORDER BY bundesland, sort_order, title', [req.tenantId]);
   }
   res.json(links);
 });
 
 // POST /api/admin/authority-links
-router.post('/authority-links', requireAuth, (req, res) => {
+router.post('/authority-links', requireAuth, async (req, res) => {
   const { bundesland, title, url, description, link_type, sort_order } = req.body;
   if (!bundesland || !title || !url) {
     return res.status(400).json({ error: 'Bundesland, Titel und URL erforderlich' });
   }
-  const db = getDb();
-  db.prepare(
-    'INSERT INTO authority_links (bundesland, title, url, description, link_type, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0);
+  await dbRun(
+    'INSERT INTO authority_links (tenant_id, bundesland, title, url, description, link_type, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [req.tenantId, bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0]
+  );
   res.json({ message: 'Link erstellt' });
 });
 
 // PUT /api/admin/authority-links/:id
-router.put('/authority-links/:id', requireAuth, (req, res) => {
+router.put('/authority-links/:id', requireAuth, async (req, res) => {
   const { bundesland, title, url, description, link_type, sort_order, is_active } = req.body;
-  const db = getDb();
-  db.prepare(
-    'UPDATE authority_links SET bundesland=?, title=?, url=?, description=?, link_type=?, sort_order=?, is_active=? WHERE id=?'
-  ).run(bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0, is_active !== undefined ? is_active : 1, req.params.id);
+  await dbRun(
+    'UPDATE authority_links SET bundesland = $1, title = $2, url = $3, description = $4, link_type = $5, sort_order = $6, is_active = $7 WHERE id = $8 AND tenant_id = $9',
+    [bundesland, title, url, description || '', link_type || 'anzeige', sort_order || 0, is_active !== undefined ? is_active : 1, req.params.id, req.tenantId]
+  );
   res.json({ message: 'Link aktualisiert' });
 });
 
 // DELETE /api/admin/authority-links/:id
-router.delete('/authority-links/:id', requireAuth, (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM authority_links WHERE id = ?').run(req.params.id);
+router.delete('/authority-links/:id', requireAuth, async (req, res) => {
+  await dbRun('DELETE FROM authority_links WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Link geloescht' });
 });
 
 // ==================== Kalender-Events ====================
 
 // GET /api/admin/calendar/events — Alle Events (Kundentermine + Bohrtermine)
-router.get('/calendar/events', requireAuth, (req, res) => {
-  const db = getDb();
-
+router.get('/calendar/events', requireAuth, async (req, res) => {
   const statusColors = {
     neu: '#3f93d3',
     in_bearbeitung: '#f59e0b',
@@ -809,9 +863,10 @@ router.get('/calendar/events', requireAuth, (req, res) => {
   const events = [];
 
   // 1) Kundentermine (preferred_date)
-  const inquiries = db.prepare(
-    "SELECT * FROM inquiries WHERE preferred_date IS NOT NULL AND preferred_date != '' AND tenant_id = ?"
-  ).all(req.tenantId);
+  const inquiries = await dbAll(
+    "SELECT * FROM inquiries WHERE preferred_date IS NOT NULL AND preferred_date != '' AND tenant_id = $1",
+    [req.tenantId]
+  );
 
   for (const inq of inquiries) {
     const start = new Date(inq.preferred_date);
@@ -836,9 +891,10 @@ router.get('/calendar/events', requireAuth, (req, res) => {
   }
 
   // 2) Bohrtermine
-  const drillDays = db.prepare(
-    'SELECT ds.*, i.first_name, i.last_name, i.well_type, i.street, i.house_number, i.zip_code, i.city, i.status FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.tenant_id = ? ORDER BY ds.drill_date'
-  ).all(req.tenantId);
+  const drillDays = await dbAll(
+    'SELECT ds.*, i.first_name, i.last_name, i.well_type, i.street, i.house_number, i.zip_code, i.city, i.status FROM drilling_schedules ds JOIN inquiries i ON ds.inquiry_id = i.inquiry_id WHERE ds.tenant_id = $1 ORDER BY ds.drill_date',
+    [req.tenantId]
+  );
 
   for (const d of drillDays) {
     const start = new Date(d.drill_date);
@@ -876,12 +932,12 @@ router.get('/calendar/events', requireAuth, (req, res) => {
 // POST /api/admin/inquiries/:id/send-quote/:quoteId
 router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) => {
   try {
-    const db = getDb();
-    const inquiry = db.prepare('SELECT * FROM inquiries WHERE inquiry_id = ? AND tenant_id = ?').get(req.params.id, req.tenantId);
+    const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ? AND inquiry_id = ?').get(
-      parseInt(req.params.quoteId), req.params.id
+    const quote = await dbGet(
+      'SELECT * FROM quotes WHERE id = $1 AND inquiry_id = $2 AND tenant_id = $3',
+      [parseInt(req.params.quoteId, 10), req.params.id, req.tenantId]
     );
     if (!quote) return res.status(404).json({ error: 'Angebot nicht gefunden' });
 
@@ -895,12 +951,13 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
 
     // Email senden
     const transporter2 = createTransporter();
+    const companySettings = await getCompanySettingsAsync(req.tenantId);
 
     await transporter2.sendMail({
-      from: getCompanySettings(req.tenantId).email_from,
+      from: companySettings.email_from,
       to: inquiry.email,
       subject: `Ihr Kostenvoranschlag – Anfrage ${inquiry.inquiry_id}`,
-      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature(getCompanySettings(req.tenantId))}`,
+      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature(companySettings)}`,
       attachments: [{
         filename: `Kostenvoranschlag_${inquiry.inquiry_id}.pdf`,
         content: pdfBuffer,
@@ -909,9 +966,10 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
     });
 
     // Im Chat-Archiv loggen
-    db.prepare(
-      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, 'system', 'System', `Angebot #${quote.id} per Email an ${inquiry.email} gesendet.`, req.tenantId);
+    await dbRun(
+      'INSERT INTO inquiry_messages (inquiry_id, sender_type, sender_name, message, tenant_id) VALUES ($1, $2, $3, $4, $5)',
+      [req.params.id, 'system', 'System', `Angebot #${quote.id} per Email an ${inquiry.email} gesendet.`, req.tenantId]
+    );
 
     res.json({ message: 'Angebot per Email gesendet' });
   } catch (err) {
@@ -923,18 +981,17 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, async (req, res) 
 // ==================== Vorschriften ====================
 
 // GET /api/regulations?zip=12345
-router.get('/regulations', (req, res) => {
+router.get('/regulations', async (req, res) => {
   const { zip } = req.query;
   if (!zip || zip.length < 2) {
     return res.status(400).json({ error: 'PLZ erforderlich (mind. 2 Ziffern)' });
   }
 
-  const db = getDb();
   // Versuche exakten Prefix-Match, dann kuerzer
   let regulations = [];
   for (let len = Math.min(zip.length, 5); len >= 2; len--) {
     const prefix = zip.substring(0, len);
-    regulations = db.prepare('SELECT * FROM regulations WHERE zip_prefix = ?').all(prefix);
+    regulations = await dbAll('SELECT * FROM regulations WHERE zip_prefix = $1', [prefix]);
     if (regulations.length > 0) break;
   }
 
@@ -943,7 +1000,7 @@ router.get('/regulations', (req, res) => {
     const plzBundesland = require('../data/plzBundesland');
     const state = plzBundesland(zip);
     if (state) {
-      regulations = db.prepare('SELECT * FROM regulations WHERE state = ? AND zip_prefix IS NULL').all(state);
+      regulations = await dbAll('SELECT * FROM regulations WHERE state = $1 AND zip_prefix IS NULL', [state]);
     }
   }
 
@@ -952,71 +1009,79 @@ router.get('/regulations', (req, res) => {
 
 // ==================== Firmendaten ====================
 
-// GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
-router.get('/company-settings', (req, res) => {
-  const settings = getCompanySettings(req.tenantId);
-  // Ohne Auth: nur oeffentliche Felder
-  if (!req.session?.isAdmin) {
-    const { company_name, company_name_short, tagline, company_phone, company_email,
-            company_website, company_city, company_state, primary_color, logo_path } = settings;
-    return res.json({ company_name, company_name_short, tagline, company_phone,
-      company_email, company_website, company_city, company_state, primary_color, logo_path });
+// GET /api/admin/public/bootstrap — Oeffentliche Tenant-Basisdaten fuer Wizard/Branding
+router.get('/public/bootstrap', async (req, res) => {
+  try {
+    const settings = await getCompanySettingsAsync(req.tenantId);
+    res.json({
+      tenant: req.tenant || { tenant_id: req.tenantId || 'default', slug: 'default' },
+      company: getPublicCompanyFields(settings),
+    });
+  } catch (err) {
+    console.error('Public bootstrap fehlgeschlagen:', err);
+    res.status(500).json({ error: 'Bootstrap konnte nicht geladen werden' });
   }
-  res.json(settings);
+});
+
+// GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
+router.get('/company-settings', async (req, res) => {
+  try {
+    const settings = await getCompanySettingsAsync(req.tenantId);
+    if (!req.session?.isAdmin) {
+      return res.json(getPublicCompanyFields(settings));
+    }
+    res.json(settings);
+  } catch (err) {
+    console.error('Company settings konnten nicht geladen werden:', err);
+    res.status(500).json({ error: 'Firmendaten konnten nicht geladen werden' });
+  }
 });
 
 // PUT /api/admin/company-settings — Firmendaten aktualisieren
-router.put('/company-settings', requireAuth, (req, res) => {
+router.put('/company-settings', requireAuth, async (req, res) => {
   const { settings } = req.body;
   if (!settings || typeof settings !== 'object') {
     return res.status(400).json({ error: 'Einstellungen erforderlich' });
   }
 
   const validKeys = getSettingsKeys();
-  const db = getDb();
 
   for (const [key, value] of Object.entries(settings)) {
     if (!validKeys.includes(key)) continue;
-    db.prepare(
-      'INSERT OR REPLACE INTO company_settings (key, value, tenant_id) VALUES (?, ?, ?)'
-    ).run(key, value ?? '', req.tenantId);
+    await upsertCompanySetting(req.tenantId, key, value);
   }
 
   res.json({ message: 'Firmendaten gespeichert' });
 });
 
 // POST /api/admin/company-logo — Logo hochladen
-router.post('/company-logo', requireAuth, logoUpload.single('logo'), (req, res) => {
+router.post('/company-logo', requireAuth, logoUpload.single('logo'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Keine Datei hochgeladen oder ungültiges Format (JPG, PNG, GIF, WebP, SVG)' });
   }
 
   const logoUrl = `/api/uploads/${req.file.filename}`;
-  const db = getDb();
-  db.prepare(
-    'INSERT OR REPLACE INTO company_settings (key, value, tenant_id) VALUES (?, ?, ?)'
-  ).run('logo_path', logoUrl, req.tenantId);
+  await upsertCompanySetting(req.tenantId, 'logo_path', logoUrl);
 
   res.json({ message: 'Logo hochgeladen', logo_path: logoUrl });
 });
 
 // DELETE /api/admin/company-logo — Logo entfernen
-router.delete('/company-logo', requireAuth, (req, res) => {
-  const db = getDb();
-  const row = db.prepare("SELECT value FROM company_settings WHERE key = 'logo_path' AND tenant_id = ?").get(req.tenantId);
+router.delete('/company-logo', requireAuth, async (req, res) => {
+  const row = await dbGet("SELECT value FROM company_settings WHERE key = 'logo_path' AND tenant_id = $1", [req.tenantId]);
   if (row && row.value) {
     const filename = path.basename(row.value);
     const filepath = path.join(__dirname, '..', '..', 'uploads', filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
   }
-  db.prepare("DELETE FROM company_settings WHERE key = 'logo_path' AND tenant_id = ?").run(req.tenantId);
+  await dbRun("DELETE FROM company_settings WHERE key = 'logo_path' AND tenant_id = $1", [req.tenantId]);
   res.json({ message: 'Logo entfernt' });
 });
 
 // ==================== Passwort-Verwaltung ====================
 
 // PUT /api/admin/change-password — Passwort setzen (eingeloggt)
-router.put('/change-password', requireAuth, (req, res) => {
+router.put('/change-password', requireAuth, async (req, res) => {
   const { new_password } = req.body;
   if (!new_password) {
     return res.status(400).json({ error: 'Neues Passwort erforderlich' });
@@ -1025,11 +1090,8 @@ router.put('/change-password', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Neues Passwort muss mindestens 8 Zeichen haben' });
   }
 
-  const db = getDb();
   const { salt, hash } = hashPassword(new_password);
-  db.prepare(
-    "INSERT OR REPLACE INTO admin_settings (key, value) VALUES ('admin_password_hash', ?)"
-  ).run(JSON.stringify({ hash, salt }));
+  await upsertAdminSetting(req.tenantId || 'default', 'admin_password_hash', JSON.stringify({ hash, salt }));
 
   res.json({ message: 'Passwort erfolgreich geaendert' });
 });
@@ -1051,17 +1113,15 @@ router.post('/request-password-reset', async (req, res) => {
 
   // Zufaelliges Passwort generieren
   const tempPassword = crypto.randomBytes(6).toString('base64url');
-  const db = getDb();
   const { salt, hash } = hashPassword(tempPassword);
 
-  db.prepare(
-    "INSERT OR REPLACE INTO admin_settings (key, value) VALUES ('admin_password_hash', ?)"
-  ).run(JSON.stringify({ hash, salt }));
+  await upsertAdminSetting(req.tenantId || 'default', 'admin_password_hash', JSON.stringify({ hash, salt }));
 
   try {
     const transporter = createTransporter();
+    const companySettings = await getCompanySettingsAsync(req.tenantId);
     await transporter.sendMail({
-      from: getCompanySettings(req.tenantId).email_from,
+      from: companySettings.email_from,
       to: adminEmail,
       subject: 'Brunnenbau-App: Neues Passwort',
       text: `Ihr neues Admin-Passwort lautet:\n\n${tempPassword}\n\nBitte aendern Sie das Passwort nach der Anmeldung unter Einstellungen.\n\nDiese Nachricht wurde automatisch generiert.`,

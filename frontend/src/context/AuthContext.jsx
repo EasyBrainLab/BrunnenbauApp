@@ -6,15 +6,27 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [publicTenant, setPublicTenant] = useState(null);
+  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await apiGet('/api/auth/me');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setTenant(data.tenant);
+      const [bootstrapRes, authRes] = await Promise.all([
+        apiGet('/api/admin/public/bootstrap'),
+        apiGet('/api/auth/me'),
+      ]);
+
+      if (bootstrapRes.ok) {
+        const bootstrapData = await bootstrapRes.json();
+        setPublicTenant(bootstrapData.tenant || null);
+        setCompany(bootstrapData.company || null);
+      }
+
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        setUser(authData.user);
+        setTenant(authData.tenant);
       } else {
         setUser(null);
         setTenant(null);
@@ -32,7 +44,11 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   const login = async (username, password) => {
-    const res = await apiPost('/api/auth/login', { username, password });
+    const payload = { username, password };
+    if (publicTenant?.slug && publicTenant.slug !== 'default') {
+      payload.tenantSlug = publicTenant.slug;
+    }
+    const res = await apiPost('/api/auth/login', payload);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Login fehlgeschlagen');
     setUser(data.user);
@@ -73,6 +89,8 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     tenant,
+    publicTenant,
+    company,
     loading,
     isAuthenticated: !!user,
     isOwner: user?.role === 'owner',

@@ -2,7 +2,7 @@
  * iCalendar (.ics) Generator
  * Erzeugt einen iCalendar-String fuer Terminanhaenge in Emails.
  */
-const { getCompanySettings } = require('./companySettings');
+const { DEFAULTS } = require('./companySettings');
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -18,8 +18,17 @@ function formatDateIcs(date) {
   return `${y}${m}${d}T${h}${min}${s}`;
 }
 
-function generateUid() {
-  const cs = getCompanySettings();
+function getIcsSettings(companySettings) {
+  return {
+    company_name: companySettings?.company_name || DEFAULTS.company_name,
+    company_name_short: companySettings?.company_name_short || DEFAULTS.company_name_short,
+    company_website: companySettings?.company_website || DEFAULTS.company_website,
+    email_from: companySettings?.email_from || DEFAULTS.email_from,
+  };
+}
+
+function generateUid(companySettings) {
+  const cs = getIcsSettings(companySettings);
   const domain = (cs.company_website || cs.email_from || 'brunnenbau.de').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}@${domain}`;
 }
@@ -33,17 +42,19 @@ function generateUid() {
  * @param {string} [params.location] - Ort
  * @param {string} [params.description] - Beschreibung
  * @param {string} [params.organizer] - Organizer-Email
+ * @param {object} [params.companySettings] - Firmenstammdaten fuer UID/PRODID
  * @returns {string} iCalendar-String
  */
-function generateIcs({ title, startDate, endDate, location, description, organizer }) {
-  const end = endDate || new Date(startDate.getTime() + 60 * 60 * 1000); // +1h
-  const uid = generateUid();
+function generateIcs({ title, startDate, endDate, location, description, organizer, companySettings }) {
+  const end = endDate || new Date(startDate.getTime() + 60 * 60 * 1000);
+  const cs = getIcsSettings(companySettings);
+  const uid = generateUid(cs);
   const now = new Date();
 
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    `PRODID:-//${getCompanySettings().company_name_short}//Anfrage-Portal//DE`,
+    `PRODID:-//${cs.company_name_short}//Anfrage-Portal//DE`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',

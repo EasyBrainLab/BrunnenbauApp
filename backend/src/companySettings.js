@@ -1,4 +1,4 @@
-const { getDb } = require('./database');
+const { getDb, dbAll, dbGet } = require('./database');
 
 // Standardwerte — werden verwendet, wenn nichts in der DB steht
 const DEFAULTS = {
@@ -75,11 +75,33 @@ function getCompanySettings(tenantId) {
   return settings;
 }
 
+async function getCompanySettingsAsync(tenantId) {
+  const tid = tenantId || 'default';
+  const rows = await dbAll('SELECT key, value FROM company_settings WHERE tenant_id = $1', [tid]);
+  const settings = { ...DEFAULTS };
+
+  if (process.env.EMAIL_FROM) settings.email_from = process.env.EMAIL_FROM;
+  if (process.env.EMAIL_COMPANY) settings.email_company = process.env.EMAIL_COMPANY;
+
+  for (const row of rows) {
+    if (row.value !== null && row.value !== undefined) {
+      settings[row.key] = row.value;
+    }
+  }
+  return settings;
+}
+
 // Einzelnen Wert lesen
 function getCompanySetting(key, tenantId) {
   const tid = tenantId || 'default';
   const db = getDb();
   const row = db.prepare('SELECT value FROM company_settings WHERE key = ? AND tenant_id = ?').get(key, tid);
+  return row ? row.value : (DEFAULTS[key] || '');
+}
+
+async function getCompanySettingAsync(key, tenantId) {
+  const tid = tenantId || 'default';
+  const row = await dbGet('SELECT value FROM company_settings WHERE key = $1 AND tenant_id = $2', [key, tid]);
   return row ? row.value : (DEFAULTS[key] || '');
 }
 
@@ -118,7 +140,9 @@ function getSettingsKeys() {
 
 module.exports = {
   getCompanySettings,
+  getCompanySettingsAsync,
   getCompanySetting,
+  getCompanySettingAsync,
   getCompanyAddressLine,
   getCompanyFooterLine,
   getEmailSignature,

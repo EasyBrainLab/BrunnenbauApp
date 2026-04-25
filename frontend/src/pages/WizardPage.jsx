@@ -10,11 +10,13 @@ import Step6Soil from '../components/steps/Step5Soil';
 import Step7Supply from '../components/steps/Step6Supply';
 import Step8Final from '../components/steps/Step7Final';
 import { apiPost, fetchCsrfToken } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const TOTAL_STEPS = 8;
 
 export default function WizardPage() {
   const navigate = useNavigate();
+  const { publicTenant } = useAuth();
   const [step, setStep] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -166,6 +168,10 @@ export default function WizardPage() {
         } else if (value !== null && value !== undefined) {
           formData.append(key, value);
         }
+      }
+
+      if (publicTenant?.slug && publicTenant.slug !== 'default') {
+        formData.append('tenantSlug', publicTenant.slug);
       }
 
       const res = await apiPost('/api/inquiries', formData, true);

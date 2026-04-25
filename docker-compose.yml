@@ -1,6 +1,22 @@
-version: "3.8"
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-brunnenbau}
+      POSTGRES_USER: ${POSTGRES_USER:-brunnenbau}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brunnenbau}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brunnenbau} -d ${POSTGRES_DB:-brunnenbau}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -9,9 +25,18 @@ services:
       - "3001:3001"
     env_file:
       - .env
+    environment:
+      DB_CLIENT: ${DB_CLIENT:-postgres}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://brunnenbau:brunnenbau@postgres:5432/brunnenbau}
+      POSTGRES_DB: ${POSTGRES_DB:-brunnenbau}
+      POSTGRES_USER: ${POSTGRES_USER:-brunnenbau}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brunnenbau}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -23,3 +48,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres_data:

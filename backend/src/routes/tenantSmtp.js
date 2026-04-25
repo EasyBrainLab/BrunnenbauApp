@@ -1,17 +1,15 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const router = express.Router();
-const { getDb } = require('../database');
+const { dbGet, dbRun } = require('../database');
 const { requireAuth, requireRole } = require('../middleware/tenantContext');
 const { encrypt, decrypt } = require('../services/encryption');
 
 router.use(requireAuth);
 router.use(requireRole('owner', 'admin'));
 
-// GET /api/settings/smtp — SMTP-Einstellungen abrufen
-router.get('/', (req, res) => {
-  const db = getDb();
-  const smtp = db.prepare('SELECT * FROM tenant_smtp WHERE tenant_id = ?').get(req.tenantId);
+router.get('/', async (req, res) => {
+  const smtp = await dbGet('SELECT * FROM tenant_smtp WHERE tenant_id = $1', [req.tenantId]);
 
   if (!smtp) {
     return res.json({
@@ -38,52 +36,50 @@ router.get('/', (req, res) => {
   });
 });
 
-// PUT /api/settings/smtp — SMTP-Einstellungen speichern
-router.put('/', (req, res) => {
-  const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, email_from, email_reply_to } = req.body;
+router.put('/', async (req, res) => {
+  try {
+    const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, email_from, email_reply_to } = req.body;
 
-  if (!smtp_host || !smtp_user) {
-    return res.status(400).json({ error: 'SMTP-Host und Benutzer sind erforderlich' });
+    if (!smtp_host || !smtp_user) {
+      return res.status(400).json({ error: 'SMTP-Host und Benutzer sind erforderlich' });
+    }
+
+    const existing = await dbGet('SELECT tenant_id, smtp_pass_encrypted FROM tenant_smtp WHERE tenant_id = $1', [req.tenantId]);
+
+    let encryptedPass = null;
+    if (smtp_pass && smtp_pass !== '********') {
+      encryptedPass = encrypt(smtp_pass);
+    } else if (existing) {
+      encryptedPass = existing.smtp_pass_encrypted || null;
+    }
+
+    if (existing) {
+      await dbRun(`
+        UPDATE tenant_smtp SET smtp_host = $1, smtp_port = $2, smtp_secure = $3, smtp_user = $4,
+          smtp_pass_encrypted = $5, email_from = $6, email_reply_to = $7, is_verified = 0
+        WHERE tenant_id = $8
+      `, [smtp_host, smtp_port || 587, smtp_secure ? 1 : 0, smtp_user, encryptedPass, email_from || '', email_reply_to || '', req.tenantId]);
+    } else {
+      await dbRun(`
+        INSERT INTO tenant_smtp (tenant_id, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass_encrypted, email_from, email_reply_to)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [req.tenantId, smtp_host, smtp_port || 587, smtp_secure ? 1 : 0, smtp_user, encryptedPass, email_from || '', email_reply_to || '']);
+    }
+
+    res.json({ message: 'SMTP-Einstellungen gespeichert' });
+  } catch (err) {
+    console.error('SMTP-Einstellungen konnten nicht gespeichert werden:', err);
+    res.status(500).json({ error: 'SMTP-Einstellungen konnten nicht gespeichert werden' });
   }
-
-  const db = getDb();
-  const existing = db.prepare('SELECT tenant_id FROM tenant_smtp WHERE tenant_id = ?').get(req.tenantId);
-
-  // Passwort nur verschluesseln wenn es geaendert wurde (nicht ********)
-  let encryptedPass = null;
-  if (smtp_pass && smtp_pass !== '********') {
-    encryptedPass = encrypt(smtp_pass);
-  } else if (existing) {
-    // Altes Passwort behalten
-    const old = db.prepare('SELECT smtp_pass_encrypted FROM tenant_smtp WHERE tenant_id = ?').get(req.tenantId);
-    encryptedPass = old?.smtp_pass_encrypted || null;
-  }
-
-  if (existing) {
-    db.prepare(`
-      UPDATE tenant_smtp SET smtp_host = ?, smtp_port = ?, smtp_secure = ?, smtp_user = ?,
-        smtp_pass_encrypted = ?, email_from = ?, email_reply_to = ?, is_verified = 0
-      WHERE tenant_id = ?
-    `).run(smtp_host, smtp_port || 587, smtp_secure ? 1 : 0, smtp_user, encryptedPass, email_from || '', email_reply_to || '', req.tenantId);
-  } else {
-    db.prepare(`
-      INSERT INTO tenant_smtp (tenant_id, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass_encrypted, email_from, email_reply_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.tenantId, smtp_host, smtp_port || 587, smtp_secure ? 1 : 0, smtp_user, encryptedPass, email_from || '', email_reply_to || '');
-  }
-
-  res.json({ message: 'SMTP-Einstellungen gespeichert' });
 });
 
-// POST /api/settings/smtp/test — Test-Email senden
 router.post('/test', async (req, res) => {
   const { testEmail } = req.body;
   if (!testEmail) {
     return res.status(400).json({ error: 'Test-E-Mail-Adresse erforderlich' });
   }
 
-  const db = getDb();
-  const smtp = db.prepare('SELECT * FROM tenant_smtp WHERE tenant_id = ?').get(req.tenantId);
+  const smtp = await dbGet('SELECT * FROM tenant_smtp WHERE tenant_id = $1', [req.tenantId]);
   if (!smtp || !smtp.smtp_host) {
     return res.status(400).json({ error: 'SMTP ist noch nicht konfiguriert' });
   }
@@ -100,13 +96,12 @@ router.post('/test', async (req, res) => {
     await transporter.sendMail({
       from: smtp.email_from || smtp.smtp_user,
       to: testEmail,
-      subject: 'BrunnenbauApp — SMTP-Test erfolgreich',
+      subject: 'BrunnenbauApp - SMTP-Test erfolgreich',
       text: 'Diese E-Mail bestaetigt, dass Ihre SMTP-Einstellungen korrekt konfiguriert sind.',
       html: '<p>Diese E-Mail bestaetigt, dass Ihre <strong>SMTP-Einstellungen</strong> korrekt konfiguriert sind.</p>',
     });
 
-    // Als verifiziert markieren
-    db.prepare('UPDATE tenant_smtp SET is_verified = 1 WHERE tenant_id = ?').run(req.tenantId);
+    await dbRun('UPDATE tenant_smtp SET is_verified = 1 WHERE tenant_id = $1', [req.tenantId]);
 
     res.json({ message: 'Test-E-Mail erfolgreich gesendet' });
   } catch (err) {

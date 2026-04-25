@@ -3,10 +3,10 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
-const { getDb } = require('../database');
+const { dbRun } = require('../database');
 const { sendCustomerConfirmation, sendCompanyNotification } = require('../email');
 const { sendTelegramNotification, sendTelegramCustomerConfirmation } = require('../telegram');
-const { resolveTenantFromSlug } = require('../middleware/tenantContext');
+const { resolveTenantFromSlugAsync } = require('../middleware/tenantContext');
 
 const router = express.Router();
 
@@ -97,14 +97,13 @@ router.post('/',
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const db = getDb();
       const inquiryId = 'BRN-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
       const data = req.body;
 
-      // Resolve tenant from body/query or default
-      const tenantSlug = data.tenantSlug || req.query.tenantSlug || 'default';
-      const tenantId = resolveTenantFromSlug(tenantSlug);
+      // Tenant bevorzugt aus Request-Kontext (Host/Domain), Fallback fuer dedizierte Instanzen
+      const tenantSlug = data.tenantSlug || req.query.tenantSlug || req.query.tenant || 'default';
+      const tenantId = req.tenantId || await resolveTenantFromSlugAsync(tenantSlug);
 
       // Datei-Referenzen verarbeiten
       const fileFields = [
@@ -119,10 +118,10 @@ router.post('/',
       for (const { field, type } of fileFields) {
         if (req.files?.[field]) {
           for (const file of req.files[field]) {
-            db.prepare(`
+            await dbRun(`
               INSERT INTO inquiry_files (inquiry_id, file_type, original_name, stored_name, mime_type, size, tenant_id)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(inquiryId, type, file.originalname, file.filename, file.mimetype, file.size, tenantId);
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [inquiryId, type, file.originalname, file.filename, file.mimetype, file.size, tenantId]);
 
             // Keep first filename for legacy columns
             if (field === 'site_plan_file' && !sitePlanFile) sitePlanFile = file.filename;
@@ -132,7 +131,7 @@ router.post('/',
       }
 
       // Anfrage in DB speichern
-      const stmt = db.prepare(`
+      await dbRun(`
         INSERT INTO inquiries (
           inquiry_id, salutation, first_name, last_name, email, phone,
           street, house_number, zip_code, city, bundesland, landkreis, privacy_accepted,
@@ -147,22 +146,20 @@ router.post('/',
           wall_breakthrough, control_device,
           tenant_id
         ) VALUES (
-          ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?, ?,
-          ?, ?, ?,
-          ?, ?, ?,
-          ?, ?,
-          ?, ?, ?,
-          ?, ?,
-          ?
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10, $11, $12, $13,
+          $14, $15, $16, $17, $18,
+          $19, $20, $21,
+          $22, $23, $24,
+          $25, $26, $27, $28,
+          $29, $30, $31,
+          $32, $33, $34,
+          $35, $36,
+          $37, $38, $39,
+          $40, $41,
+          $42
         )
-      `);
-
-      stmt.run(
+      `, [
         inquiryId, data.salutation || null, data.first_name || '', data.last_name || '', data.email || '', data.phone || null,
         data.street || '', data.house_number || '', data.zip_code || '', data.city, data.bundesland, data.landkreis || null, data.privacy_accepted ? 1 : 0,
         data.well_type, data.well_cover_type || null, data.drill_location || null, sitePlanFile, data.access_situation || null,
@@ -175,10 +172,10 @@ router.post('/',
         data.pump_type || null, data.pump_installation_location || null, data.installation_floor || null,
         data.wall_breakthrough || null, data.control_device || null,
         tenantId
-      );
+      ]);
 
       // E-Mails + Telegram senden (asynchron, Fehler nicht blockierend)
-      const inquiry = { ...data, inquiry_id: inquiryId };
+      const inquiry = { ...data, inquiry_id: inquiryId, tenant_id: tenantId };
       sendCustomerConfirmation(inquiry, tenantId).catch(err => console.error('Kunden-E-Mail fehlgeschlagen:', err));
       sendCompanyNotification(inquiry, tenantId).catch(err => console.error('Firmen-E-Mail fehlgeschlagen:', err));
       sendTelegramNotification(inquiry).catch(err => console.error('Telegram-Benachrichtigung fehlgeschlagen:', err));

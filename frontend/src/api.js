@@ -2,8 +2,26 @@
 
 let csrfToken = null;
 
+function withTenantContext(url) {
+  if (typeof window === 'undefined') return url;
+
+  const currentUrl = new URL(url, window.location.origin);
+  const pageParams = new URLSearchParams(window.location.search);
+  const tenant = pageParams.get('tenant') || pageParams.get('tenantSlug');
+
+  if (tenant && !currentUrl.searchParams.has('tenant') && !currentUrl.searchParams.has('tenantSlug')) {
+    currentUrl.searchParams.set('tenant', tenant);
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return currentUrl.toString();
+  }
+
+  return currentUrl.pathname + currentUrl.search;
+}
+
 export async function fetchCsrfToken() {
-  const res = await fetch('/api/csrf-token', { credentials: 'include' });
+  const res = await fetch(withTenantContext('/api/csrf-token'), { credentials: 'include' });
   const data = await res.json();
   csrfToken = data.csrfToken;
   return csrfToken;
@@ -25,13 +43,14 @@ export async function apiPost(url, body, isFormData = false) {
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(url, options);
+  const targetUrl = withTenantContext(url);
+  const res = await fetch(targetUrl, options);
 
   if (res.status === 403) {
     // CSRF-Token erneuern und erneut versuchen
     await fetchCsrfToken();
     options.headers['X-CSRF-Token'] = csrfToken;
-    const retry = await fetch(url, options);
+    const retry = await fetch(targetUrl, options);
     return retry;
   }
 
@@ -41,7 +60,7 @@ export async function apiPost(url, body, isFormData = false) {
 export async function apiPut(url, body) {
   if (!csrfToken) await fetchCsrfToken();
 
-  const res = await fetch(url, {
+  const res = await fetch(withTenantContext(url), {
     method: 'PUT',
     credentials: 'include',
     headers: {
@@ -55,14 +74,14 @@ export async function apiPut(url, body) {
 }
 
 export async function apiGet(url) {
-  const res = await fetch(url, { credentials: 'include' });
+  const res = await fetch(withTenantContext(url), { credentials: 'include' });
   return res;
 }
 
 export async function apiDelete(url) {
   if (!csrfToken) await fetchCsrfToken();
 
-  const res = await fetch(url, {
+  const res = await fetch(withTenantContext(url), {
     method: 'DELETE',
     credentials: 'include',
     headers: {

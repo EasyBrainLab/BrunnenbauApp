@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "db:migrate:postgres": "node src/postgres/migrate.js",
+    "db:check:postgres": "node src/postgres/check.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -19,6 +21,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^8.0.3",
     "pdfkit": "^0.17.2",
+    "pg": "^8.20.0",
     "sql.js": "^1.11.0",
     "uuid": "^11.0.3"
   }

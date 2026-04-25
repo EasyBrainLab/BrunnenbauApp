@@ -1,24 +1,23 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { apiGet } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Layout() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
-  const [company, setCompany] = useState(null);
-
-  useEffect(() => {
-    apiGet('/api/admin/company-settings').then(setCompany).catch(() => {});
-  }, []);
+  const { company } = useAuth();
 
   const companyName = company?.company_name || 'Brunnenbau';
   const tagline = company?.tagline || 'Wasser aus dem eigenen Brunnen';
   const logoPath = company?.logo_path || '';
+  const primaryColor = company?.primary_color || '#1b59b7';
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-b from-[#3f93d3] to-[#072370] text-white shadow-lg">
+      <header
+        className="text-white shadow-lg"
+        style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, #072370 100%)` }}
+      >
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             {logoPath ? (
@@ -56,7 +55,10 @@ export default function Layout() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-b from-[#3f93d3] to-[#072370] text-sm">
+      <footer
+        className="text-sm"
+        style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, #072370 100%)` }}
+      >
         <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-[#efefef]">
           <p>&copy; {new Date().getFullYear()} {companyName}. Alle Rechte vorbehalten.</p>
           <div className="flex gap-6">

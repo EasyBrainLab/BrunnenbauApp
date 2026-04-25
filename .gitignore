@@ -8,3 +8,6 @@ test-screenshots/
 *.pdf
 *.png
 *.ps1
+backups/
+*.log
+cookies.txt

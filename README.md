@@ -71,6 +71,30 @@ docker-compose up --build
 
 Die Anwendung ist dann erreichbar unter http://localhost:8080.
 
+## Stage 1 Startskript
+
+Fuer eine dedizierte Stage-1-Instanz mit Postgres, Migrationen und definiertem Startablauf:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-stage1.ps1
+```
+
+Weitere Varianten stehen in [scripts/README-stage1.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/scripts/README-stage1.md:1).
+
+Fuer den Betrieb stehen ausserdem bereit:
+
+- [scripts/stop-stage1.ps1](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/scripts/stop-stage1.ps1:1)
+- [scripts/backup-stage1.ps1](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/scripts/backup-stage1.ps1:1)
+- [scripts/restore-stage1.ps1](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/scripts/restore-stage1.ps1:1)
+- [DEPLOYMENT_STAGE1.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/DEPLOYMENT_STAGE1.md:1)
+- [CHECKLIST_STAGE1_CUSTOMER_ONBOARDING.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/CHECKLIST_STAGE1_CUSTOMER_ONBOARDING.md:1)
+- [UPDATE_STAGE1.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/UPDATE_STAGE1.md:1)
+- [OPERATIONS_STAGE1.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/OPERATIONS_STAGE1.md:1)
+- [GITHUB_VPS_DEPLOYMENT.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/GITHUB_VPS_DEPLOYMENT.md:1)
+- [VPS_UBUNTU_TRAEFIK_SETUP.md](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/VPS_UBUNTU_TRAEFIK_SETUP.md:1)
+- [.env.vps.lies.easybrainlab.example](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/.env.vps.lies.easybrainlab.example:1)
+- [.env.customer.example](/abs/path/C:/Users/Die4marwitzer/OneDrive/Dirk/BrunnenbauApp/.env.customer.example:1)
+
 ## Projektstruktur
 
 ```
