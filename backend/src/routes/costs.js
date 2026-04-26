@@ -285,7 +285,7 @@ router.get('/items/export/csv', requireAuth, async (req, res) => {
 });
 
 router.get('/units', requireAuth, async (req, res) => {
-  const units = await dbAll('SELECT * FROM units WHERE tenant_id = $1 ORDER BY name', [req.tenantId]);
+  const units = await dbAll('SELECT * FROM units ORDER BY name');
   res.json(units);
 });
 
@@ -293,7 +293,7 @@ router.post('/units', requireAuth, async (req, res) => {
   try {
     const { name, abbreviation } = req.body;
     if (!name || !abbreviation) return res.status(400).json({ error: 'Name und Abkuerzung erforderlich' });
-    await dbRun('INSERT INTO units (name, abbreviation, tenant_id) VALUES ($1, $2, $3)', [name, abbreviation, req.tenantId]);
+    await dbRun('INSERT INTO units (name, abbreviation) VALUES ($1, $2)', [name, abbreviation]);
     res.status(201).json({ message: 'Einheit angelegt' });
   } catch (e) {
     res.status(400).json({ error: 'Abkuerzung existiert bereits' });
@@ -301,7 +301,7 @@ router.post('/units', requireAuth, async (req, res) => {
 });
 
 router.delete('/units/:id', requireAuth, async (req, res) => {
-  await dbRun('DELETE FROM units WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
+  await dbRun('DELETE FROM units WHERE id = $1', [req.params.id]);
   res.json({ message: 'Einheit geloescht' });
 });
 
