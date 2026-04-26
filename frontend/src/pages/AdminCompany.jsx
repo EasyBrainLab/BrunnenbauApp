@@ -91,7 +91,12 @@ const SECTIONS = [
   {
     title: 'Branding',
     fields: [
-      { key: 'primary_color', label: 'Primaerfarbe', type: 'color' },
+      { key: 'primary_color', label: 'Hauptfarbe', type: 'color', hint: 'Header-Hintergrund und primäre Buttons' },
+      { key: 'primary_dark_color', label: 'Dunkle Hauptfarbe', type: 'color', hint: 'Farbverlauf-Endwert und Hover-Zustand' },
+      { key: 'secondary_color', label: 'Akzentfarbe', type: 'color', hint: 'Navigationslinks und Untertitel im Header' },
+      { key: 'heading_color', label: 'Überschriftenfarbe', type: 'color', hint: 'Abschnitts-Überschriften im Anfrageformular' },
+      { key: 'button_text_color', label: 'Button-Textfarbe', type: 'color', hint: 'Schriftfarbe auf primären Buttons' },
+      { key: 'header_text_color', label: 'Header-Textfarbe', type: 'color', hint: 'Titel im Header-Bereich' },
     ],
   },
 ];
@@ -301,20 +306,25 @@ export default function AdminCompany() {
                         onChange={(e) => handleChange(field.key, e.target.value)}
                       />
                     ) : field.type === 'color' ? (
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={settings[field.key] || '#1b59b7'}
-                          onChange={(e) => handleChange(field.key, e.target.value)}
-                          className="w-10 h-10 rounded cursor-pointer border"
-                        />
-                        <input
-                          type="text"
-                          className="form-input flex-1"
-                          value={settings[field.key] || ''}
-                          onChange={(e) => handleChange(field.key, e.target.value)}
-                          placeholder="#1b59b7"
-                        />
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={settings[field.key] || '#1b59b7'}
+                            onChange={(e) => handleChange(field.key, e.target.value)}
+                            className="w-10 h-10 rounded cursor-pointer border"
+                          />
+                          <input
+                            type="text"
+                            className="form-input flex-1"
+                            value={settings[field.key] || ''}
+                            onChange={(e) => handleChange(field.key, e.target.value)}
+                            placeholder="#1b59b7"
+                          />
+                        </div>
+                        {field.hint && (
+                          <p className="text-xs text-gray-400 mt-1">{field.hint}</p>
+                        )}
                       </div>
                     ) : (
                       <input
@@ -327,6 +337,62 @@ export default function AdminCompany() {
                     )}
                   </div>
                 ))}
+
+                {/* Live preview for Branding section */}
+                {section.title === 'Branding' && (
+                  <div className="md:col-span-2 mt-2">
+                    <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Vorschau</p>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                      {/* Mock header */}
+                      <div
+                        className="px-4 py-3"
+                        style={{
+                          background: `linear-gradient(180deg, ${settings.primary_color || '#1b59b7'} 0%, ${settings.primary_dark_color || '#072370'} 100%)`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: settings.header_text_color || '#ffffff' }}>
+                              Brunnen Konfigurator
+                            </p>
+                            <p className="text-xs" style={{ color: settings.secondary_color || '#5ca8db' }}>
+                              {settings.tagline || 'Ihr Partner für professionellen Brunnenbau'}
+                            </p>
+                          </div>
+                          <span className="text-xs" style={{ color: settings.secondary_color || '#5ca8db' }}>
+                            Admin
+                          </span>
+                        </div>
+                      </div>
+                      {/* Mock content */}
+                      <div className="px-4 py-4 bg-white">
+                        <h3 className="text-sm font-bold mb-3" style={{ color: settings.heading_color || '#1e3a5f' }}>
+                          Beispiel-Überschrift
+                        </h3>
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            className="px-4 py-1.5 rounded-lg text-sm font-semibold"
+                            style={{
+                              backgroundColor: settings.primary_color || '#1b59b7',
+                              color: settings.button_text_color || '#ffffff',
+                            }}
+                          >
+                            Weiter
+                          </button>
+                          <button
+                            className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-white border-2"
+                            style={{
+                              borderColor: settings.primary_color || '#1b59b7',
+                              color: settings.primary_color || '#1b59b7',
+                            }}
+                          >
+                            Zurück
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,0 +1,47 @@
+# Modell B: Dedizierte Kundeninstanz mit SQLite
+# Verwendung:
+#   cp .env.customer.example .env   # .env anpassen
+#   docker compose -f docker-compose.customer.yml up -d --build
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "3001"
+    env_file:
+      - .env
+    environment:
+      DB_CLIENT: sqlite
+    volumes:
+      - backend_data:/app/data       # SQLite-Datenbankdatei (persistiert)
+      - backend_uploads:/app/uploads # Hochgeladene Dateien (persistiert)
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - traefik-proxy
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.brunnenbau.rule=Host(`${PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.brunnenbau.entrypoints=websecure"
+      - "traefik.http.routers.brunnenbau.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.brunnenbau.loadbalancer.server.port=80"
+
+networks:
+  traefik-proxy:
+    external: true
+
+volumes:
+  backend_data:
+  backend_uploads:

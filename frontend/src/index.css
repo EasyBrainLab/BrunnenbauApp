@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: #1b59b7;
+  --color-primary-dark: #072370;
+  --color-secondary: #5ca8db;
+  --color-heading: #1e3a5f;
+  --color-button-text: #ffffff;
+  --color-header-text: #ffffff;
+}
+
 @layer base {
   body {
     @apply leading-relaxed;
@@ -14,16 +23,20 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-500 text-white px-6 py-3 rounded-lg font-semibold
-           hover:bg-primary-600 transition-colors duration-200
-           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2
+    @apply px-6 py-3 rounded-lg font-semibold
+           transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2
            disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--color-primary);
+    color: var(--color-button-text);
   }
 
   .btn-secondary {
-    @apply bg-white text-primary-500 border-2 border-primary-500 px-6 py-3 rounded-lg font-semibold
-           hover:bg-primary-50 transition-colors duration-200
-           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2;
+    @apply bg-white border-2 px-6 py-3 rounded-lg font-semibold
+           transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
 
   .btn-accent {
@@ -53,6 +66,26 @@
   .info-box {
     @apply bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm;
   }
+}
+
+/* Dynamic hover states using CSS variables */
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-secondary:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 8%, white);
+}
+
+/* Heading color for customer-facing pages (wizard, not admin) */
+main h2,
+main h3 {
+  color: var(--color-heading);
+}
+
+.admin-shell h2,
+.admin-shell h3 {
+  color: inherit;
 }
 
 .admin-shell .btn-primary,
