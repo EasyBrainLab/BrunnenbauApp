@@ -13,6 +13,7 @@ import AdminInventory from './pages/AdminInventory';
 import AdminValueLists from './pages/AdminValueLists';
 import AdminCompany from './pages/AdminCompany';
 import AdminDocumentLayout from './pages/AdminDocumentLayout';
+import AdminDocumentLayoutEditor from './pages/AdminDocumentLayoutEditor';
 import AdminAuthorityLinks from './pages/AdminAuthorityLinks';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import Layout from './components/Layout';
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="/admin/wertelisten" element={<AdminValueLists />} />
               <Route path="/admin/firma" element={<AdminCompany />} />
               <Route path="/admin/dokumentlayout" element={<AdminDocumentLayout />} />
+              <Route path="/admin/dokumentlayout/editor" element={<AdminDocumentLayoutEditor />} />
               <Route path="/admin/behoerden-links" element={<AdminAuthorityLinks />} />
               <Route path="/admin/kalender" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense>} />
               <Route path="/admin/benutzer" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminUsers /></Suspense>} />

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiDelete, apiGet, apiPost, apiPut } from '../api';
+import { withTenantContext } from '../api';
 import { useDialog } from '../context/DialogContext';
 
 const DOCUMENT_TYPES = [
@@ -340,8 +342,10 @@ function A4LayoutEditor({ form, layout, activeBlockKey, onSelectBlock, onReorder
   );
 }
 
-export default function DocumentTemplateManager({ standalone = false }) {
+export default function DocumentTemplateManager({ standalone = false, workspaceMode = false }) {
   const { confirm } = useDialog();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [templates, setTemplates] = useState([]);
   const [placeholders, setPlaceholders] = useState([]);
   const [defaultLayout, setDefaultLayout] = useState(FALLBACK_LAYOUT);
@@ -351,6 +355,8 @@ export default function DocumentTemplateManager({ standalone = false }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const requestedTemplateId = searchParams.get('templateId');
+  const requestedType = searchParams.get('type') || 'quote';
 
   const filteredTemplates = useMemo(
     () => templates.filter((template) => template.document_type === activeType),
@@ -362,11 +368,40 @@ export default function DocumentTemplateManager({ standalone = false }) {
   }, []);
 
   useEffect(() => {
+    if (workspaceMode) {
+      setActiveType(requestedType);
+      return;
+    }
     setForm((prev) => {
       if (prev.id && prev.document_type === activeType) return prev;
       return buildEmptyTemplate(activeType, normalizeLayout(defaultLayout, FALLBACK_LAYOUT));
     });
-  }, [activeType, defaultLayout]);
+  }, [activeType, defaultLayout, requestedType, workspaceMode]);
+
+  useEffect(() => {
+    if (!workspaceMode || loading) return;
+
+    const normalizedDefaultLayout = normalizeLayout(defaultLayout, FALLBACK_LAYOUT);
+    const targetTemplate = requestedTemplateId
+      ? templates.find((template) => String(template.id) === String(requestedTemplateId))
+      : null;
+
+    if (targetTemplate) {
+      setActiveType(targetTemplate.document_type);
+      setForm({
+        ...buildEmptyTemplate(targetTemplate.document_type, normalizedDefaultLayout),
+        ...targetTemplate,
+        layout: normalizeLayout(targetTemplate.layout, normalizedDefaultLayout),
+      });
+      setActiveBlockKey('intro');
+      setMessage('');
+      return;
+    }
+
+    setActiveType(requestedType);
+    setForm(buildEmptyTemplate(requestedType, normalizedDefaultLayout));
+    setActiveBlockKey('intro');
+  }, [defaultLayout, loading, requestedTemplateId, requestedType, templates, workspaceMode]);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -436,6 +471,13 @@ export default function DocumentTemplateManager({ standalone = false }) {
 
   const activeBlock = CONTENT_BLOCKS.find((block) => block.key === activeBlockKey);
 
+  const openWorkspace = (template = null) => {
+    const params = new URLSearchParams();
+    params.set('type', template?.document_type || form.document_type || activeType);
+    if (template?.id) params.set('templateId', String(template.id));
+    navigate(withTenantContext(`/admin/dokumentlayout/editor?${params.toString()}`));
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) {
       setMessage('Bitte einen Vorlagennamen vergeben.');
@@ -494,7 +536,9 @@ export default function DocumentTemplateManager({ standalone = false }) {
       <div className={`${standalone ? 'mb-6' : 'border-b border-earth-100 p-4'}`}>
         <h2 className="text-lg font-semibold text-gray-800">Dokumentkonfigurator</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Dokumente sollen fuer den Anwender einfach bearbeitbar sein. Deshalb arbeitet dieser Bereich jetzt ueber sichtbare Inhaltsbloecke statt ueber technische Layoutschalter.
+          {workspaceMode
+            ? 'Sie arbeiten jetzt in einem eigenen Layout-Arbeitsplatz. Hier sehen Sie nur die Vorlage und die zugehoerigen Inhaltsbereiche.'
+            : 'Dokumente sollen fuer den Anwender einfach bearbeitbar sein. Deshalb gibt es jetzt eine klare Trennung zwischen Vorlagen-Uebersicht und Layout-Arbeitsplatz.'}
         </p>
       </div>
 
@@ -517,6 +561,22 @@ export default function DocumentTemplateManager({ standalone = false }) {
           >
             Neue Vorlage
           </button>
+          {workspaceMode ? (
+            <Link
+              to={withTenantContext('/admin/dokumentlayout')}
+              className="rounded-lg bg-white px-3 py-2 text-sm text-gray-700 ring-1 ring-earth-200 hover:bg-earth-50"
+            >
+              Zurueck zur Uebersicht
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openWorkspace(form.id ? form : null)}
+              className="rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            >
+              Layout-Arbeitsplatz oeffnen
+            </button>
+          )}
         </div>
 
         {message && (
@@ -525,12 +585,14 @@ export default function DocumentTemplateManager({ standalone = false }) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className={`grid grid-cols-1 gap-6 ${workspaceMode ? 'xl:grid-cols-[minmax(0,1fr)_360px]' : 'xl:grid-cols-[320px_minmax(0,1fr)]'}`}>
           <div className="space-y-4">
             <div className="rounded-xl border border-earth-100 bg-earth-50 p-3">
-              <h3 className="text-sm font-semibold text-gray-700">Vorlagenliste</h3>
+              <h3 className="text-sm font-semibold text-gray-700">{workspaceMode ? 'Vorlagenkontext' : 'Vorlagenliste'}</h3>
               <p className="mt-1 text-xs text-gray-500">
-                Eine aktive Standardvorlage wird beim Angebot automatisch vorgeschlagen.
+                {workspaceMode
+                  ? 'Bei Bedarf koennen Sie die Vorlage wechseln oder zur Uebersicht zurueckkehren.'
+                  : 'Eine aktive Standardvorlage wird beim Angebot automatisch vorgeschlagen.'}
               </p>
             </div>
 
@@ -563,6 +625,13 @@ export default function DocumentTemplateManager({ standalone = false }) {
                       className="rounded-lg bg-white px-3 py-1.5 text-xs text-primary-600 shadow-sm ring-1 ring-earth-200 hover:bg-earth-50"
                     >
                       Bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openWorkspace(template)}
+                      className="rounded-lg bg-primary-50 px-3 py-1.5 text-xs text-primary-700 shadow-sm ring-1 ring-primary-100 hover:bg-primary-100"
+                    >
+                      Layout oeffnen
                     </button>
                     <button
                       type="button"
@@ -655,9 +724,27 @@ export default function DocumentTemplateManager({ standalone = false }) {
                 ))}
               </div>
             </div>
+
+            {!workspaceMode ? (
+              <div className="rounded-xl border border-primary-100 bg-primary-50 p-4">
+                <h3 className="text-sm font-semibold text-primary-800">Layout getrennt bearbeiten</h3>
+                <p className="mt-2 text-sm text-primary-700">
+                  Der eigentliche A4-Arbeitsbereich wird in einem eigenen Layout-Fenster geoeffnet. Dadurch stoeren keine weiteren Stammdaten oder Listen.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openWorkspace(form.id ? form : null)}
+                  className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  Eigenes Layout oeffnen
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-4">
+            {workspaceMode ? (
+              <>
             <div className="rounded-xl border border-earth-100 bg-white p-4">
               <h3 className="text-sm font-semibold text-gray-700">Interaktives Dokumentlayout</h3>
               <p className="mt-1 text-sm text-gray-500">
@@ -758,6 +845,22 @@ export default function DocumentTemplateManager({ standalone = false }) {
                 Formular leeren
               </button>
             </div>
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed border-earth-200 bg-white p-6">
+                <h3 className="text-sm font-semibold text-gray-700">Layout bewusst ausgelagert</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Der interaktive Bereich wird nicht mehr in die Uebersicht gepresst. Fuer die eigentliche Dokumentgestaltung oeffnen Sie ein eigenes Layout.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openWorkspace(form.id ? form : null)}
+                  className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  Eigenes Layout oeffnen
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
