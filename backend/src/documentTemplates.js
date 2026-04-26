@@ -9,7 +9,10 @@ const DEFAULT_LAYOUT = {
   showPdfFooter: true,
   showBankDetails: true,
   showLegalFooter: true,
+  blockOrder: ['intro', 'items', 'post_items_text_1', 'post_items_text_2', 'payment_terms', 'footer_text', 'pdf_footer_text'],
 };
+
+const CONTENT_BLOCK_KEYS = DEFAULT_LAYOUT.blockOrder;
 
 const TEMPLATE_PLACEHOLDERS = [
   { key: 'company_name', label: 'Firmenname' },
@@ -40,10 +43,22 @@ function normalizeTemplateLayout(layoutInput) {
     }
   }
 
-  return {
+  const merged = {
     ...DEFAULT_LAYOUT,
     ...(parsed && typeof parsed === 'object' ? parsed : {}),
   };
+  const incomingOrder = Array.isArray(merged.blockOrder) ? merged.blockOrder : [];
+  const dedupedOrder = [];
+  for (const key of incomingOrder) {
+    if (CONTENT_BLOCK_KEYS.includes(key) && !dedupedOrder.includes(key)) {
+      dedupedOrder.push(key);
+    }
+  }
+  for (const key of CONTENT_BLOCK_KEYS) {
+    if (!dedupedOrder.includes(key)) dedupedOrder.push(key);
+  }
+  merged.blockOrder = dedupedOrder;
+  return merged;
 }
 
 function renderTemplateText(template, context) {
@@ -205,6 +220,7 @@ function resolveDocumentTemplate(template, context) {
 
 module.exports = {
   DEFAULT_LAYOUT,
+  CONTENT_BLOCK_KEYS,
   TEMPLATE_PLACEHOLDERS,
   normalizeTemplateLayout,
   renderTemplateText,

@@ -16,7 +16,18 @@ const FALLBACK_LAYOUT = {
   showPdfFooter: true,
   showBankDetails: true,
   showLegalFooter: true,
+  blockOrder: ['intro', 'items', 'post_items_text_1', 'post_items_text_2', 'payment_terms', 'footer_text', 'pdf_footer_text'],
 };
+
+const CONTENT_BLOCKS = [
+  { key: 'intro', label: 'Einleitung', description: 'Begruessung und kurzer Einleitungstext vor den Positionen.', toggleKey: 'showIntro', height: 'h-20' },
+  { key: 'items', label: 'Positionsliste', description: 'Leistungstabelle mit Mengen, Preisen und Summen.', toggleKey: null, height: 'h-32' },
+  { key: 'post_items_text_1', label: 'Textblock 1', description: 'Freier Text direkt nach der Positionsliste.', toggleKey: 'showPostItemsText1', height: 'h-16' },
+  { key: 'post_items_text_2', label: 'Textblock 2', description: 'Weiterer Hinweis- oder Leistungstext.', toggleKey: 'showPostItemsText2', height: 'h-16' },
+  { key: 'payment_terms', label: 'Zahlungsbedingungen', description: 'Kommt aus den Firmendaten.', toggleKey: 'showPaymentTerms', height: 'h-14' },
+  { key: 'footer_text', label: 'Zusatzhinweis', description: 'Freier Hinweisblock fuer individuelle Details.', toggleKey: 'showFooterText', height: 'h-16' },
+  { key: 'pdf_footer_text', label: 'PDF-Fusszeile', description: 'Zusätzlicher freier Fusszeilentext aus den Firmendaten.', toggleKey: 'showPdfFooter', height: 'h-12' },
+];
 
 const LAYOUT_FIELDS = [
   { key: 'showIntro', label: 'Einleitung vor Positionen anzeigen' },
@@ -49,6 +60,123 @@ function buildEmptyTemplate(documentType, defaultLayout) {
   };
 }
 
+function normalizeLayout(layout, defaultLayout) {
+  const merged = { ...defaultLayout, ...(layout || {}) };
+  const order = Array.isArray(merged.blockOrder) ? merged.blockOrder : [];
+  const validKeys = CONTENT_BLOCKS.map((block) => block.key);
+  const nextOrder = [];
+  for (const key of order) {
+    if (validKeys.includes(key) && !nextOrder.includes(key)) nextOrder.push(key);
+  }
+  for (const key of validKeys) {
+    if (!nextOrder.includes(key)) nextOrder.push(key);
+  }
+  merged.blockOrder = nextOrder;
+  return merged;
+}
+
+function A4LayoutPreview({ layout, onReorder, onToggle }) {
+  const [draggedBlock, setDraggedBlock] = useState(null);
+
+  const orderedBlocks = (layout.blockOrder || [])
+    .map((key) => CONTENT_BLOCKS.find((block) => block.key === key))
+    .filter(Boolean);
+
+  const moveBlock = (targetKey) => {
+    if (!draggedBlock || draggedBlock === targetKey) return;
+    const currentOrder = [...(layout.blockOrder || [])];
+    const fromIndex = currentOrder.indexOf(draggedBlock);
+    const targetIndex = currentOrder.indexOf(targetKey);
+    if (fromIndex === -1 || targetIndex === -1) return;
+    currentOrder.splice(fromIndex, 1);
+    currentOrder.splice(targetIndex, 0, draggedBlock);
+    onReorder(currentOrder);
+  };
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="rounded-2xl border border-earth-200 bg-earth-50 p-4">
+        <div className="mx-auto w-full max-w-[620px] rounded-[24px] bg-white p-6 shadow-sm ring-1 ring-earth-200">
+          <div className="mb-4 rounded-xl border border-dashed border-earth-200 bg-earth-50 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">DIN A4 Vorschau</p>
+                <p className="text-xs text-gray-500">Ziehen Sie die Inhaltsbloecke in die gewuenschte Reihenfolge.</p>
+              </div>
+              <div className="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-medium text-primary-700">A4</div>
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-earth-200 bg-white p-4">
+            <div className="flex items-start justify-between gap-4 border-b border-earth-100 pb-3">
+              <div>
+                <div className="h-6 w-36 rounded bg-earth-200" />
+                <div className="mt-2 h-3 w-48 rounded bg-earth-100" />
+              </div>
+              <div className="space-y-2 text-right">
+                <div className="ml-auto h-3 w-24 rounded bg-earth-100" />
+                <div className="ml-auto h-3 w-20 rounded bg-earth-100" />
+                <div className="ml-auto h-3 w-16 rounded bg-earth-100" />
+              </div>
+            </div>
+            <div className="mt-3 h-12 w-44 rounded bg-earth-100" />
+            <div className="mt-3 h-4 w-52 rounded bg-primary-100" />
+          </div>
+
+          <div className="space-y-3">
+            {orderedBlocks.map((block) => {
+              const visible = block.toggleKey ? !!layout[block.toggleKey] : true;
+              return (
+                <div
+                  key={block.key}
+                  draggable
+                  onDragStart={() => setDraggedBlock(block.key)}
+                  onDragEnd={() => setDraggedBlock(null)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => moveBlock(block.key)}
+                  className={`rounded-xl border p-3 transition ${draggedBlock === block.key ? 'border-primary-400 bg-primary-50 shadow-sm' : visible ? 'border-earth-200 bg-white' : 'border-earth-100 bg-gray-50 opacity-60'}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{block.label}</p>
+                      <p className="mt-1 text-xs text-gray-500">{block.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {block.toggleKey ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggle(block.toggleKey, !visible)}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                        >
+                          {visible ? 'Sichtbar' : 'Aus'}
+                        </button>
+                      ) : (
+                        <span className="rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-medium text-primary-700">Pflichtblock</span>
+                      )}
+                      <span className="cursor-grab rounded-lg bg-earth-100 px-2 py-1 text-[11px] text-gray-500">Ziehen</span>
+                    </div>
+                  </div>
+                  <div className={`mt-3 rounded-lg border border-dashed ${visible ? 'border-earth-200 bg-earth-50' : 'border-gray-200 bg-gray-100'} ${block.height}`} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-earth-100 bg-white p-4">
+        <h4 className="text-sm font-semibold text-gray-700">Bedienhinweise</h4>
+        <div className="mt-3 space-y-3 text-sm text-gray-600">
+          <p>1. Ziehen Sie die Blöcke links in die gewünschte Reihenfolge.</p>
+          <p>2. Schalten Sie optionale Bereiche direkt an oder aus.</p>
+          <p>3. Speichern Sie danach die Vorlage.</p>
+          <p>Die Positionstabelle bleibt als Pflichtblock erhalten. So bleibt das PDF fachlich stabil und trotzdem deutlich flexibler.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentTemplateManager() {
   const { confirm } = useDialog();
   const [templates, setTemplates] = useState([]);
@@ -72,7 +200,7 @@ export default function DocumentTemplateManager() {
   useEffect(() => {
     setForm((prev) => {
       if (prev.id && prev.document_type === activeType) return prev;
-      return buildEmptyTemplate(activeType, defaultLayout);
+      return buildEmptyTemplate(activeType, normalizeLayout(defaultLayout, FALLBACK_LAYOUT));
     });
   }, [activeType, defaultLayout]);
 
@@ -84,7 +212,7 @@ export default function DocumentTemplateManager() {
       const data = await res.json();
       setTemplates(data.templates || []);
       setPlaceholders(data.placeholders || []);
-      setDefaultLayout(data.defaultLayout || FALLBACK_LAYOUT);
+      setDefaultLayout(normalizeLayout(data.defaultLayout || FALLBACK_LAYOUT, FALLBACK_LAYOUT));
     } catch (err) {
       setMessage(err.message || 'Dokumentvorlagen konnten nicht geladen werden');
     } finally {
@@ -93,7 +221,7 @@ export default function DocumentTemplateManager() {
   };
 
   const resetForm = (documentType = activeType) => {
-    setForm(buildEmptyTemplate(documentType, defaultLayout));
+    setForm(buildEmptyTemplate(documentType, normalizeLayout(defaultLayout, FALLBACK_LAYOUT)));
   };
 
   const startEdit = (template) => {
@@ -101,7 +229,7 @@ export default function DocumentTemplateManager() {
     setForm({
       ...buildEmptyTemplate(template.document_type, defaultLayout),
       ...template,
-      layout: { ...defaultLayout, ...(template.layout || {}) },
+      layout: normalizeLayout(template.layout, defaultLayout),
     });
     setMessage('');
   };
@@ -113,10 +241,20 @@ export default function DocumentTemplateManager() {
   const handleLayoutChange = (key, checked) => {
     setForm((prev) => ({
       ...prev,
-      layout: {
+      layout: normalizeLayout({
         ...prev.layout,
         [key]: checked,
-      },
+      }, defaultLayout),
+    }));
+  };
+
+  const handleBlockReorder = (blockOrder) => {
+    setForm((prev) => ({
+      ...prev,
+      layout: normalizeLayout({
+        ...prev.layout,
+        blockOrder,
+      }, defaultLayout),
     }));
   };
 
@@ -422,19 +560,16 @@ export default function DocumentTemplateManager() {
             </div>
 
             <div className="rounded-xl border border-earth-100 bg-white p-4">
-              <h3 className="text-sm font-semibold text-gray-700">Sichtbare Dokumentbereiche</h3>
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {LAYOUT_FIELDS.map((field) => (
-                  <label key={field.key} className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={!!form.layout[field.key]}
-                      onChange={(e) => handleLayoutChange(field.key, e.target.checked)}
-                      className="h-4 w-4 rounded border-earth-300 text-primary-500"
-                    />
-                    {field.label}
-                  </label>
-                ))}
+              <h3 className="text-sm font-semibold text-gray-700">Interaktives Dokumentlayout</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Ordnen Sie die Inhaltsbloecke in einer A4-Vorschau an. Das ist fuer Anwender deutlich einfacher als einzelne technische Schalter.
+              </p>
+              <div className="mt-4">
+                <A4LayoutPreview
+                  layout={normalizeLayout(form.layout, defaultLayout)}
+                  onReorder={handleBlockReorder}
+                  onToggle={handleLayoutChange}
+                />
               </div>
             </div>
 
