@@ -16,6 +16,7 @@ import AdminAuthorityLinks from './pages/AdminAuthorityLinks';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
+import { DialogProvider } from './context/DialogContext';
 
 const AdminCalendar = lazy(() => import('./pages/AdminCalendar'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
@@ -24,30 +25,32 @@ const AdminSmtp = lazy(() => import('./pages/AdminSmtp'));
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<WizardPage />} />
-          <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
-          <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/admin" element={<AdminLogin />} />
+      <DialogProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<WizardPage />} />
+            <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
+            <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/admin" element={<AdminLogin />} />
 
-          {/* Admin-Bereich mit Sidebar */}
-          <Route element={<AdminLayout />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/anfrage/:id" element={<AdminDetail />} />
-            <Route path="/admin/kosten" element={<AdminCosts />} />
-            <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
-            <Route path="/admin/lager" element={<AdminInventory />} />
-            <Route path="/admin/wertelisten" element={<AdminValueLists />} />
-            <Route path="/admin/firma" element={<AdminCompany />} />
-            <Route path="/admin/behoerden-links" element={<AdminAuthorityLinks />} />
-            <Route path="/admin/kalender" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense>} />
-            <Route path="/admin/benutzer" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminUsers /></Suspense>} />
-            <Route path="/admin/email-einstellungen" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminSmtp /></Suspense>} />
+            {/* Admin-Bereich mit Sidebar */}
+            <Route element={<AdminLayout />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/anfrage/:id" element={<AdminDetail />} />
+              <Route path="/admin/kosten" element={<AdminCosts />} />
+              <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
+              <Route path="/admin/lager" element={<AdminInventory />} />
+              <Route path="/admin/wertelisten" element={<AdminValueLists />} />
+              <Route path="/admin/firma" element={<AdminCompany />} />
+              <Route path="/admin/behoerden-links" element={<AdminAuthorityLinks />} />
+              <Route path="/admin/kalender" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense>} />
+              <Route path="/admin/benutzer" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminUsers /></Suspense>} />
+              <Route path="/admin/email-einstellungen" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminSmtp /></Suspense>} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
+        </Routes>
+      </DialogProvider>
     </AuthProvider>
   );
 }

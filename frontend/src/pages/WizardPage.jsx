@@ -11,12 +11,14 @@ import Step7Supply from '../components/steps/Step6Supply';
 import Step8Final from '../components/steps/Step7Final';
 import { apiPost, fetchCsrfToken } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 
 const TOTAL_STEPS = 8;
 
 export default function WizardPage() {
   const navigate = useNavigate();
   const { publicTenant } = useAuth();
+  const { alert } = useDialog();
   const [step, setStep] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -183,11 +185,21 @@ export default function WizardPage() {
         });
       } else {
         const errorMsg = result.errors?.map((e) => e.msg).join(', ') || result.error || 'Fehler beim Absenden';
-        alert('Fehler: ' + errorMsg);
+        await alert({
+          title: 'Anfrage konnte nicht gesendet werden',
+          message: 'Bitte pruefen Sie Ihre Angaben und versuchen Sie es erneut.',
+          details: errorMsg,
+          tone: 'error',
+        });
       }
     } catch (err) {
       console.error(err);
-      alert('Verbindungsfehler. Bitte versuchen Sie es erneut.');
+      await alert({
+        title: 'Verbindungsfehler',
+        message: 'Die Anfrage konnte gerade nicht an den Server uebermittelt werden.',
+        details: 'Bitte versuchen Sie es in wenigen Augenblicken erneut.',
+        tone: 'error',
+      });
     } finally {
       setSubmitting(false);
     }

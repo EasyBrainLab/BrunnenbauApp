@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 export default function DrillingSchedule({ inquiryId, inquiryStatus, onStatusChange }) {
+  const { confirm } = useDialog();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newDates, setNewDates] = useState([{ drill_date: '', start_time: '', notes: '' }]);
@@ -83,7 +85,14 @@ export default function DrillingSchedule({ inquiryId, inquiryStatus, onStatusCha
   };
 
   const deleteSchedule = async (id) => {
-    if (!window.confirm('Termin wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Bohrtermin loeschen',
+      message: 'Soll dieser Termin wirklich geloescht werden?',
+      details: 'Der Termin wird aus der Planung entfernt.',
+      confirmLabel: 'Termin loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/admin/drilling-schedule/${id}`);
     loadSchedules();
   };

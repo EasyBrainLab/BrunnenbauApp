@@ -6,6 +6,7 @@ import ResponsePanel from '../components/ResponsePanel';
 import QuoteGenerator from '../components/QuoteGenerator';
 import ChatHistory from '../components/ChatHistory';
 import DrillingSchedule from '../components/DrillingSchedule';
+import { useDialog } from '../context/DialogContext';
 
 function RegulationsInfo({ zip }) {
   const [regulations, setRegulations] = useState([]);
@@ -228,6 +229,7 @@ function EditBar({ onSave, onCancel, saving }) {
 export default function AdminDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { confirm } = useDialog();
   const { STATUS_OPTIONS, WELL_TYPE_LABELS, COVER_LABELS, wellTypeItems, coverItems } = useStatusAndWellTypes();
   const [inquiry, setInquiry] = useState(null);
   const [notes, setNotes] = useState('');
@@ -262,7 +264,14 @@ export default function AdminDetail() {
   };
 
   const deleteInquiry = async () => {
-    if (!window.confirm('Anfrage "' + inquiry.inquiry_id + '" und alle zugehoerigen Daten (Dateien, Nachrichten, Angebote) unwiderruflich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Anfrage loeschen',
+      message: `Soll die Anfrage "${inquiry.inquiry_id}" wirklich unwiderruflich geloescht werden?`,
+      details: 'Dateien, Nachrichten, Termine und Angebote dieser Anfrage werden ebenfalls entfernt.',
+      confirmLabel: 'Endgueltig loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete('/api/admin/inquiries/' + id);
     if (res.ok) {
     navigate(withTenantContext('/admin/dashboard'));

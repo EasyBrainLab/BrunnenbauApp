@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 
 export default function AdminUsers() {
   const { isOwner, isAdmin, hasPermission } = useAuth();
+  const { confirm } = useDialog();
   const canManageUsers = hasPermission('users_manage');
   const canManageRoles = isAdmin;
   const [users, setUsers] = useState([]);
@@ -130,7 +132,14 @@ export default function AdminUsers() {
   };
 
   const deleteRole = async (role) => {
-    if (!window.confirm(`Rolle "${role.label}" wirklich loeschen?`)) return;
+    const confirmed = await confirm({
+      title: 'Rolle loeschen',
+      message: `Soll die Rolle "${role.label}" wirklich geloescht werden?`,
+      details: 'Benutzer mit dieser Rolle muessen danach einer anderen Rolle zugewiesen werden koennen.',
+      confirmLabel: 'Rolle loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete(`/api/users/roles/${role.value}`);
     if (res.ok) loadRoles();
   };

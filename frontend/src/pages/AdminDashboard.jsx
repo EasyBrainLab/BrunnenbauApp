@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
+import { useDialog } from '../context/DialogContext';
 
 export default function AdminDashboard() {
+  const { confirm } = useDialog();
   const { items: statusItems } = useValueList('inquiry_statuses');
   const { items: wellTypeItems } = useValueList('well_types');
 
@@ -76,7 +78,14 @@ export default function AdminDashboard() {
   };
 
   const deleteInquiry = async (inquiryId) => {
-    if (!window.confirm('Anfrage "' + inquiryId + '" und alle zugehoerigen Daten unwiderruflich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Anfrage loeschen',
+      message: `Soll die Anfrage "${inquiryId}" wirklich unwiderruflich geloescht werden?`,
+      details: 'Dabei werden auch zugehoerige Nachrichten, Dateien und Angebotsdaten entfernt.',
+      confirmLabel: 'Endgueltig loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete('/api/admin/inquiries/' + inquiryId);
     if (res.ok) loadData();
   };

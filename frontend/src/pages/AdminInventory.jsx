@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 export default function AdminInventory() {
   const navigate = useNavigate();
+  const { confirm, alert } = useDialog();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(searchParams.get('tab') || 'locations');
   const [locations, setLocations] = useState([]);
@@ -107,11 +109,22 @@ export default function AdminInventory() {
   };
 
   const handleDeleteLoc = async (id) => {
-    if (!confirm('Lagerort wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Lagerort loeschen',
+      message: 'Soll dieser Lagerort wirklich geloescht werden?',
+      details: 'Der Lagerort kann nur geloescht werden, wenn keine abhaengigen Daten dagegen sprechen.',
+      confirmLabel: 'Lagerort loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete(`/api/inventory/locations/${id}`);
     if (!res.ok) {
       const data = await res.json();
-      alert(data.error || 'Fehler beim Loeschen');
+      await alert({
+        title: 'Loeschen nicht moeglich',
+        message: data.error || 'Fehler beim Loeschen des Lagerorts.',
+        tone: 'error',
+      });
       return;
     }
     loadLocations();
@@ -129,7 +142,11 @@ export default function AdminInventory() {
     });
     if (!res.ok) {
       const data = await res.json();
-      alert(data.error || 'Fehler');
+      await alert({
+        title: 'Buchung fehlgeschlagen',
+        message: data.error || 'Die Lagerbewegung konnte nicht gespeichert werden.',
+        tone: 'error',
+      });
       return;
     }
     setMovementForm(null);
@@ -477,7 +494,14 @@ export default function AdminInventory() {
                   const locId = document.getElementById('new-stock-location').value;
                   const qty = document.getElementById('new-stock-qty').value;
                   const ref = document.getElementById('new-stock-ref').value;
-                  if (!itemId || !locId || !qty || parseFloat(qty) <= 0) { alert('Bitte alle Felder ausfuellen'); return; }
+                  if (!itemId || !locId || !qty || parseFloat(qty) <= 0) {
+                    await alert({
+                      title: 'Unvollstaendige Eingabe',
+                      message: 'Bitte Material, Lagerort und eine gueltige Menge ausfuellen.',
+                      tone: 'info',
+                    });
+                    return;
+                  }
                   const res = await apiPost('/api/inventory/movement', {
                     cost_item_id: Number(itemId),
                     location_id: Number(locId),
@@ -485,7 +509,15 @@ export default function AdminInventory() {
                     quantity: parseFloat(qty),
                     reference: ref,
                   });
-                  if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+                  if (!res.ok) {
+                    const d = await res.json();
+                    await alert({
+                      title: 'Einlagerung fehlgeschlagen',
+                      message: d.error || 'Die Einlagerung konnte nicht gespeichert werden.',
+                      tone: 'error',
+                    });
+                    return;
+                  }
                   document.getElementById('new-stock-qty').value = '';
                   document.getElementById('new-stock-ref').value = '';
                   loadStock();

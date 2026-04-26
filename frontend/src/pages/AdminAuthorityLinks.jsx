@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 const BUNDESLAENDER = [
   'Baden-Wuerttemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen', 'Hamburg',
@@ -16,6 +17,7 @@ const LINK_TYPES = [
 ];
 
 export default function AdminAuthorityLinks() {
+  const { confirm } = useDialog();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterBl, setFilterBl] = useState('');
@@ -70,7 +72,14 @@ export default function AdminAuthorityLinks() {
   };
 
   const deleteLink = async (id) => {
-    if (!window.confirm('Link wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Link loeschen',
+      message: 'Soll dieser Behoerden-Link wirklich geloescht werden?',
+      details: 'Die Verknuepfung ist danach sofort nicht mehr verfuegbar.',
+      confirmLabel: 'Link loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/admin/authority-links/${id}`);
     loadLinks();
   };

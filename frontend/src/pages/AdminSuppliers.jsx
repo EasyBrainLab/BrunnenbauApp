@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
+import { useDialog } from '../context/DialogContext';
 
 const EMPTY_FORM = {
   name: '', supplier_type: 'sonstiges', is_active: true,
@@ -71,6 +72,7 @@ function AccordionSection({ title, open, onToggle, children }) {
 
 export default function AdminSuppliers() {
   const navigate = useNavigate();
+  const { confirm } = useDialog();
   const { items: SUPPLIER_TYPES } = useValueList('supplier_types');
   const { items: ORDER_METHODS } = useValueList('order_methods');
   const { items: ORDER_FORMATS } = useValueList('order_formats');
@@ -190,7 +192,14 @@ export default function AdminSuppliers() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Lieferant wirklich loeschen? Alle Zuordnungen und Dokumente werden ebenfalls entfernt.')) return;
+    const confirmed = await confirm({
+      title: 'Lieferant loeschen',
+      message: 'Soll dieser Lieferant wirklich geloescht werden?',
+      details: 'Alle Zuordnungen und hochgeladenen Dokumente werden ebenfalls entfernt.',
+      confirmLabel: 'Lieferant loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/suppliers/${id}`);
     loadSuppliers();
   };
@@ -206,7 +215,14 @@ export default function AdminSuppliers() {
   };
 
   const handleDeleteDoc = async (docId) => {
-    if (!confirm('Dokument loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Dokument loeschen',
+      message: 'Soll dieses Dokument wirklich geloescht werden?',
+      details: 'Die Datei steht danach nicht mehr am Lieferanten zur Verfuegung.',
+      confirmLabel: 'Dokument loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/suppliers/documents/${docId}`);
     if (editItem) loadDocuments(editItem.id);
   };

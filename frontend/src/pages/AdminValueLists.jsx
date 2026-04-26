@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { invalidateValueListCache } from '../hooks/useValueList';
+import { useDialog } from '../context/DialogContext';
 
 export default function AdminValueLists() {
   const navigate = useNavigate();
+  const { confirm, alert } = useDialog();
   const [lists, setLists] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
   const [items, setItems] = useState([]);
@@ -57,7 +59,14 @@ export default function AdminValueLists() {
   };
 
   const handleDeleteList = async (key) => {
-    if (!confirm('Diese Werteliste wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Werteliste loeschen',
+      message: 'Soll diese Werteliste wirklich geloescht werden?',
+      details: 'Alle enthaltenen Eintraege werden ebenfalls entfernt.',
+      confirmLabel: 'Werteliste loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete(`/api/value-lists/${key}`);
     if (res.ok) {
       if (selectedKey === key) setSelectedKey(null);
@@ -70,7 +79,15 @@ export default function AdminValueLists() {
     e.preventDefault();
     const payload = { ...itemForm, is_active: itemForm.is_active ? 1 : 0, sort_order: Number(itemForm.sort_order) || 0 };
     if (payload.metadata_json) {
-      try { JSON.parse(payload.metadata_json); } catch { return alert('metadata_json ist kein gueltiges JSON'); }
+      try { JSON.parse(payload.metadata_json); } catch {
+        await alert({
+          title: 'JSON ungueltig',
+          message: 'Das Feld metadata_json enthaelt kein gueltiges JSON.',
+          details: 'Bitte korrigieren Sie die Struktur, bevor Sie speichern.',
+          tone: 'error',
+        });
+        return;
+      }
     } else {
       payload.metadata_json = null;
     }
@@ -90,7 +107,13 @@ export default function AdminValueLists() {
   };
 
   const handleDeleteItem = async (id) => {
-    if (!confirm('Diesen Eintrag wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Eintrag loeschen',
+      message: 'Soll dieser Eintrag wirklich geloescht werden?',
+      confirmLabel: 'Eintrag loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete(`/api/value-lists/${selectedKey}/items/${id}`);
     if (res.ok) {
       invalidateValueListCache(selectedKey);

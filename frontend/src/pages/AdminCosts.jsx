@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { invalidateValueListCache, useValueList } from '../hooks/useValueList';
 import { COST_INFO, WELL_TYPE_LABELS as WELL_LABELS_DATA } from '../data/wellTypeData.jsx';
+import { useDialog } from '../context/DialogContext';
 
 const EMPTY_FORM = {
   name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '',
@@ -14,6 +15,7 @@ const EMPTY_FORM = {
 
 export default function AdminCosts() {
   const navigate = useNavigate();
+  const { confirm, alert } = useDialog();
   const [searchParams] = useSearchParams();
   const { items: CATEGORIES } = useValueList('material_categories');
   const { items: MATERIAL_TYPES } = useValueList('material_types');
@@ -144,14 +146,28 @@ export default function AdminCosts() {
   const handleAddUnit = async () => {
     if (!newUnit.name.trim() || !newUnit.abbreviation.trim()) return;
     const res = await apiPost('/api/costs/units', newUnit);
-    if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+    if (!res.ok) {
+      const d = await res.json();
+      await alert({
+        title: 'Einheit konnte nicht gespeichert werden',
+        message: d.error || 'Beim Speichern der Einheit ist ein Fehler aufgetreten.',
+        tone: 'error',
+      });
+      return;
+    }
     setNewUnit({ name: '', abbreviation: '' });
     setShowUnitForm(false);
     loadUnits();
   };
 
   const handleDeleteUnit = async (id) => {
-    if (!confirm('Einheit loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Einheit loeschen',
+      message: 'Soll diese Einheit wirklich geloescht werden?',
+      confirmLabel: 'Einheit loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/costs/units/${id}`);
     loadUnits();
   };
@@ -219,7 +235,14 @@ export default function AdminCosts() {
   };
 
   const deleteWellType = async (item) => {
-    if (!window.confirm(`Brunnenart "${item.label}" wirklich loeschen?`)) return;
+    const confirmed = await confirm({
+      title: 'Brunnenart loeschen',
+      message: `Soll die Brunnenart "${item.label}" wirklich geloescht werden?`,
+      details: 'Abhaengige Stuecklisten und Zuordnungen koennen dadurch betroffen sein.',
+      confirmLabel: 'Brunnenart loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     const res = await apiDelete(`/api/value-lists/well_types/items/${item.id}`);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -318,7 +341,14 @@ export default function AdminCosts() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Material wirklich loeschen?')) return;
+    const confirmed = await confirm({
+      title: 'Material loeschen',
+      message: 'Soll dieses Material wirklich geloescht werden?',
+      details: 'Bestehende Stuecklisten und Lagerbewegungen koennen davon betroffen sein.',
+      confirmLabel: 'Material loeschen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await apiDelete(`/api/costs/items/${id}`);
     loadItems();
   };
@@ -1104,6 +1134,7 @@ function buildWellTypeCostDefaults(wellType) {
 }
 
 function WellTypeCostsEditor({ wellTypes }) {
+  const { confirm } = useDialog();
   const [costs, setCosts] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -1206,8 +1237,15 @@ function WellTypeCostsEditor({ wellTypes }) {
     }
   };
 
-  const resetToDefaults = (wellType) => {
-    if (!window.confirm('Richtwerte fuer "' + (WELL_LABELS_DATA[wellType] || wellType) + '" auf Standard zuruecksetzen?')) return;
+  const resetToDefaults = async (wellType) => {
+    const confirmed = await confirm({
+      title: 'Standardwerte wiederherstellen',
+      message: `Sollen die Richtwerte fuer "${WELL_LABELS_DATA[wellType] || wellType}" auf die Standardwerte zurueckgesetzt werden?`,
+      details: 'Eigene Anpassungen fuer diese Brunnenart gehen dabei verloren.',
+      confirmLabel: 'Standardwerte wiederherstellen',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setCosts((prev) => ({
       ...prev,
       [wellType]: buildWellTypeCostDefaults(wellType),
