@@ -69,6 +69,25 @@ async function getAdminCredentialsAsync(tenantId) {
   };
 }
 
+async function findTenantAdminUser(tenantId) {
+  return dbGet(
+    `
+      SELECT id, role
+      FROM users
+      WHERE tenant_id = $1 AND is_active = 1
+      ORDER BY
+        CASE role
+          WHEN 'owner' THEN 0
+          WHEN 'admin' THEN 1
+          ELSE 2
+        END,
+        id
+      LIMIT 1
+    `,
+    [tenantId || 'default']
+  );
+}
+
 async function upsertCompanySetting(tenantId, key, value) {
   const updateResult = await dbRun(
     'UPDATE company_settings SET value = $1 WHERE key = $2 AND tenant_id = $3',
@@ -175,9 +194,12 @@ router.post('/login', async (req, res) => {
   }
 
   if (valid) {
+    const tenantId = req.tenantId || 'default';
+    const adminUser = await findTenantAdminUser(tenantId);
     req.session.isAdmin = true;
-    req.session.tenantId = req.tenantId || 'default';
-    req.session.userRole = 'owner';
+    req.session.tenantId = tenantId;
+    req.session.userId = adminUser?.id || null;
+    req.session.userRole = adminUser?.role || 'owner';
     res.json({ message: 'Erfolgreich angemeldet' });
   } else {
     res.status(401).json({ error: 'Ungültige Zugangsdaten' });

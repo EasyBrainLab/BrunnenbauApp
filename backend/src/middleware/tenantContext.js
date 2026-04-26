@@ -88,15 +88,46 @@ async function findTenantByDomainAsync(domain) {
   return null;
 }
 
+async function findFallbackTenantUser(tenantId) {
+  return dbGet(
+    `
+      SELECT id, role
+      FROM users
+      WHERE tenant_id = $1 AND is_active = 1
+      ORDER BY
+        CASE role
+          WHEN 'owner' THEN 0
+          WHEN 'admin' THEN 1
+          ELSE 2
+        END,
+        id
+      LIMIT 1
+    `,
+    [tenantId || 'default']
+  );
+}
+
 // Authentifizierung pruefen (Multi-Tenant)
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   // Support legacy single-admin session (backward compatible)
   if (req.session?.isAdmin && !req.session?.userId) {
-    // Legacy session from old single-tenant login
-    req.tenantId = req.session.tenantId || 'default';
-    req.userId = null;
-    req.userRole = 'owner';
-    return next();
+    try {
+      const tenantId = req.session.tenantId || req.tenantId || 'default';
+      const fallbackUser = await findFallbackTenantUser(tenantId);
+
+      req.tenantId = tenantId;
+      req.userId = fallbackUser?.id || null;
+      req.userRole = fallbackUser?.role || req.session.userRole || 'owner';
+
+      if (fallbackUser?.id) {
+        req.session.userId = fallbackUser.id;
+        req.session.userRole = fallbackUser.role;
+      }
+
+      return next();
+    } catch (err) {
+      return next(err);
+    }
   }
 
   if (!req.session?.userId || !req.session?.tenantId) {
