@@ -340,7 +340,7 @@ function A4LayoutEditor({ form, layout, activeBlockKey, onSelectBlock, onReorder
   );
 }
 
-export default function DocumentTemplateManager() {
+export default function DocumentTemplateManager({ standalone = false }) {
   const { confirm } = useDialog();
   const [templates, setTemplates] = useState([]);
   const [placeholders, setPlaceholders] = useState([]);
@@ -490,15 +490,15 @@ export default function DocumentTemplateManager() {
   };
 
   return (
-    <div className="card mt-6">
-      <div className="border-b border-earth-100 p-4">
+    <div className={standalone ? '' : 'card mt-6'}>
+      <div className={`${standalone ? 'mb-6' : 'border-b border-earth-100 p-4'}`}>
         <h2 className="text-lg font-semibold text-gray-800">Dokumentkonfigurator</h2>
         <p className="mt-1 text-sm text-gray-500">
           Dokumente sollen fuer den Anwender einfach bearbeitbar sein. Deshalb arbeitet dieser Bereich jetzt ueber sichtbare Inhaltsbloecke statt ueber technische Layoutschalter.
         </p>
       </div>
 
-      <div className="p-4">
+      <div className={standalone ? '' : 'p-4'}>
         <div className="mb-4 flex flex-wrap gap-2">
           {DOCUMENT_TYPES.map((type) => (
             <button

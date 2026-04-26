@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { apiGet, apiPut, apiDelete, fetchCsrfToken, withTenantContext } from '../api';
-import DocumentTemplateManager from '../components/DocumentTemplateManager';
 
 const SECTIONS = [
   {
@@ -74,19 +74,6 @@ const SECTIONS = [
       { key: 'payment_terms', label: 'Zahlungsbedingungen', type: 'textarea' },
       { key: 'email_signature', label: 'E-Mail-Signatur', type: 'textarea' },
       { key: 'pdf_footer_text', label: 'PDF-Fusszeile (zusaetzlich)', type: 'textarea' },
-    ],
-  },
-  {
-    title: 'Dokument-Layout',
-    fields: [
-      { key: 'quote_document_title', label: 'Dokumenttitel Angebot' },
-      { key: 'quote_intro_text', label: 'Einleitung Angebot', type: 'textarea', rows: 5 },
-      { key: 'quote_post_items_text_1', label: 'Textblock 1 nach Positionen', type: 'textarea', rows: 5 },
-      { key: 'quote_post_items_text_2', label: 'Textblock 2 nach Positionen', type: 'textarea', rows: 5 },
-      { key: 'invoice_document_title', label: 'Dokumenttitel Rechnung' },
-      { key: 'invoice_intro_text', label: 'Einleitung Rechnung', type: 'textarea', rows: 4 },
-      { key: 'invoice_post_items_text_1', label: 'Textblock 1 Rechnung', type: 'textarea', rows: 4 },
-      { key: 'invoice_post_items_text_2', label: 'Textblock 2 Rechnung', type: 'textarea', rows: 4 },
     ],
   },
   {
@@ -356,7 +343,22 @@ export default function AdminCompany() {
         </button>
       </div>
 
-      <DocumentTemplateManager />
+      <div className="card mt-6">
+        <div className="p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Dokumentlayout</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Der interaktive Layout-Editor wurde auf eine eigene Arbeitsseite verschoben, damit Angebote und Rechnungen mit mehr Platz und weniger Ablenkung bearbeitet werden koennen.
+            </p>
+          </div>
+          <Link
+            to={withTenantContext('/admin/dokumentlayout')}
+            className="btn-primary px-5 py-2 text-sm text-center"
+          >
+            Dokumentlayout oeffnen
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
