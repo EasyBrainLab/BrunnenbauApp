@@ -146,7 +146,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { role, displayName, isActive } = req.body;
+  const { role, displayName, isActive, email, username } = req.body;
 
   const user = await dbGet('SELECT * FROM users WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
@@ -158,6 +158,30 @@ router.put('/:id', async (req, res) => {
   const updates = [];
   const params = [];
 
+  if (email !== undefined) {
+    const normalizedEmail = String(email).trim();
+    if (!normalizedEmail) return res.status(400).json({ error: 'E-Mail darf nicht leer sein' });
+    const existingEmail = await dbGet(
+      'SELECT id FROM users WHERE tenant_id = $1 AND email = $2 AND id <> $3',
+      [req.tenantId, normalizedEmail, req.params.id]
+    );
+    if (existingEmail) return res.status(409).json({ error: 'E-Mail ist bereits vergeben' });
+    updates.push(`email = $${params.length + 1}`);
+    params.push(normalizedEmail);
+  }
+
+  if (username !== undefined) {
+    const normalizedUsername = String(username).trim();
+    if (!normalizedUsername) return res.status(400).json({ error: 'Benutzername darf nicht leer sein' });
+    const existingUsername = await dbGet(
+      'SELECT id FROM users WHERE tenant_id = $1 AND username = $2 AND id <> $3',
+      [req.tenantId, normalizedUsername, req.params.id]
+    );
+    if (existingUsername) return res.status(409).json({ error: 'Benutzername ist bereits vergeben' });
+    updates.push(`username = $${params.length + 1}`);
+    params.push(normalizedUsername);
+  }
+
   if (role !== undefined) {
     if (role === 'owner' && req.userRole !== 'owner') return res.status(403).json({ error: 'Nur Inhaber kann Owner-Rolle vergeben' });
     if (!(await isValidRole(req.tenantId, role))) return res.status(400).json({ error: 'Ungueltige oder inaktive Rolle' });
@@ -167,10 +191,13 @@ router.put('/:id', async (req, res) => {
 
   if (displayName !== undefined) {
     updates.push(`display_name = $${params.length + 1}`);
-    params.push(displayName);
+    params.push(String(displayName).trim());
   }
 
   if (isActive !== undefined) {
+    if (String(user.id) === String(req.userId) && !isActive) {
+      return res.status(403).json({ error: 'Der eigene Account kann nicht deaktiviert werden' });
+    }
     updates.push(`is_active = $${params.length + 1}`);
     params.push(isActive ? 1 : 0);
   }

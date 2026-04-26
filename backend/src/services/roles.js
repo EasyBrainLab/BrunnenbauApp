@@ -1,18 +1,18 @@
 const { dbGet, dbAll, dbRun } = require('../database');
 
 const PERMISSION_CATALOG = [
-  { key: 'dashboard_view', label: 'Dashboard & Anfragen lesen' },
-  { key: 'inquiries_edit', label: 'Anfragen bearbeiten' },
-  { key: 'calendar_manage', label: 'Einsatzplanung / Kalender' },
-  { key: 'offers_manage', label: 'Angebote vorbereiten & versenden' },
-  { key: 'costs_manage', label: 'Kosten, Material & BOM verwalten' },
-  { key: 'suppliers_manage', label: 'Lieferanten verwalten' },
-  { key: 'inventory_manage', label: 'Lager verwalten' },
-  { key: 'company_manage', label: 'Firmendaten & Dokumentlayout verwalten' },
-  { key: 'authority_links_manage', label: 'Behoerden-Links verwalten' },
-  { key: 'value_lists_manage', label: 'Wertelisten verwalten' },
-  { key: 'smtp_manage', label: 'SMTP / E-Mail verwalten' },
-  { key: 'users_manage', label: 'Benutzer & Rollen verwalten' },
+  { key: 'dashboard_view', label: 'Dashboard & Anfragen lesen', group: 'Anfragen', description: 'Dashboard und Detailansichten oeffnen und Daten einsehen.' },
+  { key: 'inquiries_edit', label: 'Anfragen bearbeiten', group: 'Anfragen', description: 'Anfragen, Notizen, Status und Kommunikation bearbeiten.' },
+  { key: 'calendar_manage', label: 'Einsatzplanung / Kalender', group: 'Planung', description: 'Bohrtermine planen und Kalenderdaten verwalten.' },
+  { key: 'offers_manage', label: 'Angebote vorbereiten & versenden', group: 'Vertrieb', description: 'Angebote erzeugen, bearbeiten und an Kunden senden.' },
+  { key: 'costs_manage', label: 'Kosten, Material & BOM verwalten', group: 'Stammdaten', description: 'Materialstamm, Brunnenarten, BOM und Kostenrichtwerte pflegen.' },
+  { key: 'suppliers_manage', label: 'Lieferanten verwalten', group: 'Einkauf', description: 'Lieferanten anlegen, bearbeiten und Dokumente pflegen.' },
+  { key: 'inventory_manage', label: 'Lager verwalten', group: 'Lager', description: 'Lagerorte, Bestaende, Bewegungen und Bestellvorschlaege pflegen.' },
+  { key: 'company_manage', label: 'Firmendaten & Dokumentlayout verwalten', group: 'Einstellungen', description: 'Firmendaten, Layouttexte und Dokumentinhalte pflegen.' },
+  { key: 'authority_links_manage', label: 'Behoerden-Links verwalten', group: 'Einstellungen', description: 'Behoerden- und Genehmigungslinks je Bundesland pflegen.' },
+  { key: 'value_lists_manage', label: 'Wertelisten verwalten', group: 'Einstellungen', description: 'Dropdown-Werte und interne Listen pflegen.' },
+  { key: 'smtp_manage', label: 'SMTP / E-Mail verwalten', group: 'Einstellungen', description: 'E-Mail-Konten und Versandkonfiguration verwalten.' },
+  { key: 'users_manage', label: 'Benutzer & Rollen verwalten', group: 'Administration', description: 'Benutzer anlegen, Rollen zuweisen und Rechte verwalten.' },
 ];
 
 const SYSTEM_ROLES = [
