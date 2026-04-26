@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiGet, apiPost, apiPut } from '../api';
+import { apiGet, apiPost, apiPut, setActiveTenantContext } from '../api';
 import { invalidateValueListCache } from '../hooks/useValueList';
 
 const AuthContext = createContext(null);
@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
 
   const checkAuth = useCallback(async () => {
     try {
+      let bootstrapTenant = null;
       const [bootstrapRes, authRes] = await Promise.all([
         apiGet('/api/admin/public/bootstrap'),
         apiGet('/api/auth/me'),
@@ -20,7 +21,8 @@ export function AuthProvider({ children }) {
 
       if (bootstrapRes.ok) {
         const bootstrapData = await bootstrapRes.json();
-        setPublicTenant(bootstrapData.tenant || null);
+        bootstrapTenant = bootstrapData.tenant || null;
+        setPublicTenant(bootstrapTenant);
         setCompany(bootstrapData.company || null);
       }
 
@@ -29,15 +31,18 @@ export function AuthProvider({ children }) {
         invalidateValueListCache();
         setUser(authData.user);
         setTenant(authData.tenant);
+        setActiveTenantContext(authData.tenant || bootstrapTenant);
       } else {
         invalidateValueListCache();
         setUser(null);
         setTenant(null);
+        setActiveTenantContext(bootstrapTenant);
       }
     } catch {
       invalidateValueListCache();
       setUser(null);
       setTenant(null);
+      setActiveTenantContext(null);
     } finally {
       setLoading(false);
     }
@@ -58,6 +63,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
+    setActiveTenantContext(data.tenant);
     return data;
   };
 
@@ -76,6 +82,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
+    setActiveTenantContext(data.tenant);
     return data;
   };
 
@@ -84,6 +91,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(null);
     setTenant(null);
+    setActiveTenantContext(publicTenant);
   };
 
   const changePassword = async (currentPassword, newPassword) => {

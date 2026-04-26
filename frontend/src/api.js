@@ -1,6 +1,17 @@
 // API-Hilfsfunktionen mit CSRF-Schutz
 
 let csrfToken = null;
+let activeTenantContext = {
+  tenantSlug: null,
+  tenantId: null,
+};
+
+export function setActiveTenantContext(tenant) {
+  activeTenantContext = {
+    tenantSlug: tenant?.slug || tenant?.tenantSlug || null,
+    tenantId: tenant?.tenantId || tenant?.tenant_id || null,
+  };
+}
 
 export function withTenantContext(url) {
   if (typeof window === 'undefined') return url;
@@ -9,8 +20,14 @@ export function withTenantContext(url) {
   const pageParams = new URLSearchParams(window.location.search);
   const tenant = pageParams.get('tenant') || pageParams.get('tenantSlug');
 
-  if (tenant && !currentUrl.searchParams.has('tenant') && !currentUrl.searchParams.has('tenantSlug')) {
+  if (tenant && !currentUrl.searchParams.has('tenant') && !currentUrl.searchParams.has('tenantSlug') && !currentUrl.searchParams.has('tenantId')) {
     currentUrl.searchParams.set('tenant', tenant);
+  } else if (!tenant && !currentUrl.searchParams.has('tenant') && !currentUrl.searchParams.has('tenantSlug') && !currentUrl.searchParams.has('tenantId')) {
+    if (activeTenantContext.tenantSlug) {
+      currentUrl.searchParams.set('tenantSlug', activeTenantContext.tenantSlug);
+    } else if (activeTenantContext.tenantId) {
+      currentUrl.searchParams.set('tenantId', activeTenantContext.tenantId);
+    }
   }
 
   if (url.startsWith('http://') || url.startsWith('https://')) {
