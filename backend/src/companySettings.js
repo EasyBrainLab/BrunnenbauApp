@@ -68,6 +68,11 @@ const DEFAULTS = {
 
   // Branding
   primary_color: '#1b59b7',
+  primary_dark_color: '#072370',
+  secondary_color: '#5ca8db',
+  heading_color: '#1e3a5f',
+  button_text_color: '#ffffff',
+  header_text_color: '#ffffff',
   logo_path: '',
 };
 

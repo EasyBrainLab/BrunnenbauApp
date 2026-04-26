@@ -919,10 +919,13 @@ function initDatabase() {
       'ALTER TABLE company_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
       'ALTER TABLE admin_settings ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
       'ALTER TABLE authority_links ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE value_lists ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
+      'ALTER TABLE value_list_items ADD COLUMN tenant_id TEXT DEFAULT \'default\'',
     ];
     for (const sql of tenantIdMigrations) {
       try { db.run(sql); } catch (e) { /* column exists */ }
     }
+    try { db.run('ALTER TABLE document_templates ADD COLUMN tenant_id TEXT DEFAULT \'default\''); } catch (e) {}
 
     // Default-Tenant anlegen falls nicht vorhanden
     try {
@@ -1006,8 +1009,8 @@ function getDb() {
         },
         run(...params) {
           db.run(sql, params);
-          saveDb();
           const changes = db.getRowsModified();
+          saveDb();
           return { changes };
         },
       };
@@ -1016,7 +1019,10 @@ function getDb() {
 }
 
 function toSqliteSql(sql) {
-  return sql.replace(/\$\d+/g, '?');
+  return sql
+    .replace(/\$\d+/g, '?')       // $1,$2,... → ?
+    .replace(/::\w+/g, '')          // ::int, ::text, etc. → entfernen
+    .replace(/\bRETURNING\b[\s\S]*$/i, ''); // RETURNING * → entfernen
 }
 
 async function dbAll(sql, params = []) {
@@ -1048,8 +1054,19 @@ async function dbRun(sql, params = []) {
     return { changes: result.rowCount || 0, rows: result.rows || [] };
   }
 
+  const hasReturning = /\bRETURNING\b/i.test(sql);
+  const isInsert = /^\s*INSERT/i.test(sql.trim());
   const sqliteSql = toSqliteSql(sql);
   const result = getDb().prepare(sqliteSql).run(...params);
+
+  if (hasReturning && isInsert) {
+    const tableMatch = sql.match(/\bINSERT\s+INTO\s+(\w+)/i);
+    if (tableMatch) {
+      const row = getDb().prepare(`SELECT * FROM ${tableMatch[1]} WHERE rowid = last_insert_rowid()`).get();
+      return { changes: result.changes || 0, rows: row ? [row] : [] };
+    }
+  }
+
   return { changes: result.changes || 0, rows: [] };
 }
 

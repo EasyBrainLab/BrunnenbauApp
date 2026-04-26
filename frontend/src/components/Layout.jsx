@@ -11,15 +11,15 @@ export default function Layout() {
   const headerTitle = 'Brunnen Konfigurator';
   const tagline = company?.tagline || 'Wasser aus dem eigenen Brunnen';
   const logoPath = company?.logo_path || '';
-  const primaryColor = company?.primary_color || '#1b59b7';
+
+  const headerStyle = {
+    background: 'linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header
-        className="text-white shadow-lg"
-        style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, #072370 100%)` }}
-      >
+      <header className="text-white shadow-lg" style={headerStyle}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             {logoPath ? (
@@ -32,18 +32,18 @@ export default function Layout() {
               </div>
             )}
             <div>
-              <h1 className="text-lg font-heading font-semibold leading-tight">{headerTitle}</h1>
-              <p className="text-[11px] leading-tight text-[#5ca8db]">{tagline}</p>
+              <h1 className="text-lg font-heading font-semibold leading-tight" style={{ color: 'var(--color-header-text)' }}>{headerTitle}</h1>
+              <p className="text-[11px] leading-tight" style={{ color: 'var(--color-secondary)' }}>{tagline}</p>
             </div>
           </Link>
           <nav className="flex items-center gap-4 text-[13px]">
             {!isAdmin && (
-              <Link to={withTenantContext('/admin')} className="text-[#5ca8db] hover:text-white transition-colors">
+              <Link to={withTenantContext('/admin')} className="hover:text-white transition-colors" style={{ color: 'var(--color-secondary)' }}>
                 Admin
               </Link>
             )}
             {isAdmin && (
-              <Link to={withTenantContext('/')} className="text-[#5ca8db] hover:text-white transition-colors">
+              <Link to={withTenantContext('/')} className="hover:text-white transition-colors" style={{ color: 'var(--color-secondary)' }}>
                 Zum Anfrageformular
               </Link>
             )}
@@ -58,10 +58,7 @@ export default function Layout() {
 
       {/* Footer */}
       {!isAdmin && (
-        <footer
-          className="text-xs"
-          style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, #072370 100%)` }}
-        >
+        <footer className="text-xs" style={headerStyle}>
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[#efefef]">
             <p>&copy; {new Date().getFullYear()} {companyName}. Alle Rechte vorbehalten.</p>
             <div className="flex gap-5">

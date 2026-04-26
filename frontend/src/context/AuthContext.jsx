@@ -52,6 +52,17 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const c = company || {};
+    root.style.setProperty('--color-primary', c.primary_color || '#1b59b7');
+    root.style.setProperty('--color-primary-dark', c.primary_dark_color || '#072370');
+    root.style.setProperty('--color-secondary', c.secondary_color || '#5ca8db');
+    root.style.setProperty('--color-heading', c.heading_color || '#1e3a5f');
+    root.style.setProperty('--color-button-text', c.button_text_color || '#ffffff');
+    root.style.setProperty('--color-header-text', c.header_text_color || '#ffffff');
+  }, [company]);
+
   const login = async (username, password) => {
     const payload = { username, password };
     if (publicTenant?.slug && publicTenant.slug !== 'default') {
