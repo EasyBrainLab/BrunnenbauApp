@@ -162,10 +162,15 @@ function initDatabase() {
         total_min REAL NOT NULL,
         total_max REAL NOT NULL,
         notes TEXT,
+        template_id INTEGER,
+        template_name TEXT,
         document_title TEXT,
         intro_text TEXT,
         post_items_text_1 TEXT,
         post_items_text_2 TEXT,
+        email_subject TEXT,
+        email_body TEXT,
+        layout_json TEXT,
         footer_text TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (inquiry_id) REFERENCES inquiries(inquiry_id)
@@ -234,6 +239,11 @@ function initDatabase() {
     try { db.run('ALTER TABLE quotes ADD COLUMN intro_text TEXT'); saveDb(); } catch (e) {}
     try { db.run('ALTER TABLE quotes ADD COLUMN post_items_text_1 TEXT'); saveDb(); } catch (e) {}
     try { db.run('ALTER TABLE quotes ADD COLUMN post_items_text_2 TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN template_id INTEGER'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN template_name TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN email_subject TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN email_body TEXT'); saveDb(); } catch (e) {}
+    try { db.run('ALTER TABLE quotes ADD COLUMN layout_json TEXT'); saveDb(); } catch (e) {}
 
     // Migration: Brunnenabdeckung
     try { db.run('ALTER TABLE inquiries ADD COLUMN well_cover_type TEXT'); saveDb(); } catch (e) {}
@@ -264,6 +274,28 @@ function initDatabase() {
       CREATE TABLE IF NOT EXISTS company_settings (
         key TEXT PRIMARY KEY,
         value TEXT
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS document_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT DEFAULT 'default',
+        document_type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        is_active INTEGER DEFAULT 1,
+        is_default INTEGER DEFAULT 0,
+        sort_order INTEGER DEFAULT 0,
+        document_title TEXT,
+        intro_text TEXT,
+        post_items_text_1 TEXT,
+        post_items_text_2 TEXT,
+        footer_text TEXT,
+        email_subject TEXT,
+        email_body TEXT,
+        layout_json TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
       )
     `);
 

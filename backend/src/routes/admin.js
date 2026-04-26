@@ -11,6 +11,13 @@ const { generateQuotePdf, generatePrivacyPolicyPdf } = require('../pdfGenerator'
 const { getCompanySettingsAsync, getSettingsKeys, getEmailSignature } = require('../companySettings');
 const { requireAuth: tenantRequireAuth, requirePermission } = require('../middleware/tenantContext');
 const { buildDefaultPrivacyPolicyText, getPrivacyPolicy, formatGermanDate, todayIso } = require('../privacyPolicy');
+const {
+  DEFAULT_LAYOUT,
+  TEMPLATE_PLACEHOLDERS,
+  getDocumentTemplatesAsync,
+  getDocumentTemplateByIdAsync,
+  normalizeTemplateLayout,
+} = require('../documentTemplates');
 
 // Multer fuer Logo-Upload
 const logoStorage = multer.diskStorage({
@@ -980,11 +987,14 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, requirePermission
     const transporter2 = createTransporter();
     const companySettings = await getCompanySettingsAsync(req.tenantId);
 
+    const subject = quote.email_subject || `Ihr Kostenvoranschlag - Anfrage ${inquiry.inquiry_id}`;
+    const body = quote.email_body || `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature(companySettings)}`;
+
     await transporter2.sendMail({
       from: companySettings.email_from,
       to: inquiry.email,
-      subject: `Ihr Kostenvoranschlag – Anfrage ${inquiry.inquiry_id}`,
-      text: `Sehr geehrte(r) ${inquiry.first_name} ${inquiry.last_name},\n\nanbei erhalten Sie Ihren Kostenvoranschlag zu Ihrer Brunnenanfrage ${inquiry.inquiry_id}.\n\nZur Auftragserteilung antworten Sie bitte auf diese E-Mail.\n\n${getEmailSignature(companySettings)}`,
+      subject,
+      text: body,
       attachments: [{
         filename: `Kostenvoranschlag_${inquiry.inquiry_id}.pdf`,
         content: pdfBuffer,
@@ -1051,6 +1061,163 @@ router.get('/public/bootstrap', async (req, res) => {
 });
 
 // GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
+router.get('/document-templates', requireAuth, async (req, res) => {
+  try {
+    const documentType = req.query.document_type || null;
+    const templates = await getDocumentTemplatesAsync(req.tenantId, documentType);
+    res.json({
+      templates,
+      placeholders: TEMPLATE_PLACEHOLDERS,
+      defaultLayout: DEFAULT_LAYOUT,
+    });
+  } catch (err) {
+    console.error('Dokumentvorlagen konnten nicht geladen werden:', err);
+    res.status(500).json({ error: 'Dokumentvorlagen konnten nicht geladen werden' });
+  }
+});
+
+router.post('/document-templates', requireAuth, requirePermission('company_manage'), async (req, res) => {
+  const {
+    document_type,
+    name,
+    description,
+    is_active,
+    is_default,
+    sort_order,
+    document_title,
+    intro_text,
+    post_items_text_1,
+    post_items_text_2,
+    footer_text,
+    email_subject,
+    email_body,
+    layout,
+  } = req.body || {};
+
+  if (!['quote', 'invoice'].includes(document_type)) {
+    return res.status(400).json({ error: 'Ungueltiger Dokumenttyp' });
+  }
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'Vorlagenname erforderlich' });
+  }
+
+  if (is_default) {
+    await dbRun(
+      'UPDATE document_templates SET is_default = 0 WHERE tenant_id = $1 AND document_type = $2',
+      [req.tenantId, document_type]
+    );
+  }
+
+  await dbRun(
+    `INSERT INTO document_templates (
+      tenant_id, document_type, name, description, is_active, is_default, sort_order,
+      document_title, intro_text, post_items_text_1, post_items_text_2, footer_text,
+      email_subject, email_body, layout_json
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+    [
+      req.tenantId,
+      document_type,
+      String(name).trim(),
+      description || null,
+      is_active === 0 ? 0 : 1,
+      is_default ? 1 : 0,
+      Number(sort_order) || 0,
+      document_title || null,
+      intro_text || null,
+      post_items_text_1 || null,
+      post_items_text_2 || null,
+      footer_text || null,
+      email_subject || null,
+      email_body || null,
+      JSON.stringify(normalizeTemplateLayout(layout)),
+    ]
+  );
+
+  res.status(201).json({ message: 'Dokumentvorlage erstellt' });
+});
+
+router.put('/document-templates/:id', requireAuth, requirePermission('company_manage'), async (req, res) => {
+  const existing = await getDocumentTemplateByIdAsync(req.params.id, req.tenantId);
+  if (!existing) {
+    return res.status(404).json({ error: 'Dokumentvorlage nicht gefunden' });
+  }
+
+  const {
+    document_type,
+    name,
+    description,
+    is_active,
+    is_default,
+    sort_order,
+    document_title,
+    intro_text,
+    post_items_text_1,
+    post_items_text_2,
+    footer_text,
+    email_subject,
+    email_body,
+    layout,
+  } = req.body || {};
+
+  if (!['quote', 'invoice'].includes(document_type)) {
+    return res.status(400).json({ error: 'Ungueltiger Dokumenttyp' });
+  }
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'Vorlagenname erforderlich' });
+  }
+
+  if (is_default) {
+    await dbRun(
+      'UPDATE document_templates SET is_default = 0 WHERE tenant_id = $1 AND document_type = $2 AND id != $3',
+      [req.tenantId, document_type, req.params.id]
+    );
+  }
+
+  await dbRun(
+    `UPDATE document_templates
+     SET document_type = $1,
+         name = $2,
+         description = $3,
+         is_active = $4,
+         is_default = $5,
+         sort_order = $6,
+         document_title = $7,
+         intro_text = $8,
+         post_items_text_1 = $9,
+         post_items_text_2 = $10,
+         footer_text = $11,
+         email_subject = $12,
+         email_body = $13,
+         layout_json = $14
+     WHERE id = $15 AND tenant_id = $16`,
+    [
+      document_type,
+      String(name).trim(),
+      description || null,
+      is_active === 0 ? 0 : 1,
+      is_default ? 1 : 0,
+      Number(sort_order) || 0,
+      document_title || null,
+      intro_text || null,
+      post_items_text_1 || null,
+      post_items_text_2 || null,
+      footer_text || null,
+      email_subject || null,
+      email_body || null,
+      JSON.stringify(normalizeTemplateLayout(layout)),
+      req.params.id,
+      req.tenantId,
+    ]
+  );
+
+  res.json({ message: 'Dokumentvorlage gespeichert' });
+});
+
+router.delete('/document-templates/:id', requireAuth, requirePermission('company_manage'), async (req, res) => {
+  await dbRun('DELETE FROM document_templates WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
+  res.json({ message: 'Dokumentvorlage geloescht' });
+});
+
 router.get('/company-settings', async (req, res) => {
   try {
     const settings = await getCompanySettingsAsync(req.tenantId);

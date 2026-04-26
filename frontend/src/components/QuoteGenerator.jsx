@@ -44,6 +44,8 @@ function SendQuoteButton({ inquiryId, quoteId }) {
 
 export default function QuoteGenerator({ inquiryId, wellType }) {
   const [quotes, setQuotes] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [generating, setGenerating] = useState(false);
   const [showQuotes, setShowQuotes] = useState(false);
 
@@ -55,6 +57,8 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
   const [editPostItemsText1, setEditPostItemsText1] = useState('');
   const [editPostItemsText2, setEditPostItemsText2] = useState('');
   const [editFooterText, setEditFooterText] = useState('');
+  const [editEmailSubject, setEditEmailSubject] = useState('');
+  const [editEmailBody, setEditEmailBody] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Catalog for adding items
@@ -65,11 +69,22 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
 
   useEffect(() => {
     loadQuotes();
+    loadTemplates();
   }, [inquiryId]);
 
   const loadQuotes = async () => {
     const res = await apiGet(`/api/costs/quotes/${inquiryId}`);
     if (res.ok) setQuotes(await res.json());
+  };
+
+  const loadTemplates = async () => {
+    const res = await apiGet('/api/admin/document-templates?document_type=quote');
+    if (!res.ok) return;
+    const data = await res.json();
+    const availableTemplates = (data.templates || []).filter((template) => template.is_active);
+    setTemplates(availableTemplates);
+    const defaultTemplate = availableTemplates.find((template) => template.is_default) || availableTemplates[0];
+    setSelectedTemplateId(defaultTemplate ? String(defaultTemplate.id) : '');
   };
 
   const generateQuote = async () => {
@@ -79,6 +94,7 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
       const res = await apiPost('/api/costs/quotes', {
         inquiry_id: inquiryId,
         well_type: wellType,
+        template_id: selectedTemplateId ? Number(selectedTemplateId) : null,
       });
       if (res.ok) {
         loadQuotes();
@@ -105,6 +121,8 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
     setEditPostItemsText1(q.post_items_text_1 || '');
     setEditPostItemsText2(q.post_items_text_2 || '');
     setEditFooterText(q.footer_text || '');
+    setEditEmailSubject(q.email_subject || '');
+    setEditEmailBody(q.email_body || '');
     setShowAddItem(false);
 
     // Load catalog
@@ -122,6 +140,8 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
     setEditPostItemsText1('');
     setEditPostItemsText2('');
     setEditFooterText('');
+    setEditEmailSubject('');
+    setEditEmailBody('');
     setShowAddItem(false);
   };
 
@@ -176,6 +196,8 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
         post_items_text_1: editPostItemsText1,
         post_items_text_2: editPostItemsText2,
         footer_text: editFooterText,
+        email_subject: editEmailSubject,
+        email_body: editEmailBody,
       });
       if (res.ok) {
         setEditingQuoteId(null);
@@ -193,9 +215,36 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
     <div className="card mb-6">
       <h2 className="text-lg font-semibold text-gray-800 mb-3">Angebot / Kalkulation</h2>
 
-      <button onClick={generateQuote} disabled={generating} className="btn-primary text-sm py-2 px-4 mb-4">
-        {generating ? 'Wird berechnet...' : 'Neues Angebot generieren'}
-      </button>
+      <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,260px)_auto] lg:items-end">
+        <div>
+          <label className="form-label text-xs">Angebotsvorlage</label>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            className="form-input text-sm w-full"
+          >
+            {templates.length === 0 ? (
+              <option value="">Rueckfall aus Firmendaten verwenden</option>
+            ) : (
+              <>
+                <option value="">Rueckfall aus Firmendaten verwenden</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                    {template.is_default ? ' (Standard)' : ''}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Die Vorlage bestimmt Dokumenttitel, Textblaecke, Mailbetreff und sichtbare PDF-Bereiche.
+          </p>
+        </div>
+        <button onClick={generateQuote} disabled={generating} className="btn-primary text-sm py-2 px-4 h-fit">
+          {generating ? 'Wird berechnet...' : 'Neues Angebot generieren'}
+        </button>
+      </div>
 
       {quotes.length > 0 && (
         <>
@@ -211,7 +260,10 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
               {quotes.map((q) => (
                 <div key={q.id} className="p-3 bg-gray-50 rounded-lg text-sm">
                   <div className="flex justify-between text-gray-500 text-xs mb-2">
-                    <span>Angebot #{q.id}</span>
+                    <span>
+                      Angebot #{q.id}
+                      {q.template_name ? ` - ${q.template_name}` : ''}
+                    </span>
                     <span>
                       {new Date(q.created_at).toLocaleDateString('de-DE', {
                         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -238,6 +290,24 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                             value={editIntroText}
                             onChange={(e) => setEditIntroText(e.target.value)}
                             rows={4}
+                            className="form-input text-xs w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label text-xs">E-Mail-Betreff</label>
+                          <input
+                            type="text"
+                            value={editEmailSubject}
+                            onChange={(e) => setEditEmailSubject(e.target.value)}
+                            className="form-input text-xs w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label text-xs">E-Mail-Text</label>
+                          <textarea
+                            value={editEmailBody}
+                            onChange={(e) => setEditEmailBody(e.target.value)}
+                            rows={5}
                             className="form-input text-xs w-full"
                           />
                         </div>
@@ -470,6 +540,7 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                         <div className="mb-3 rounded-lg border border-earth-100 bg-white p-3">
                           {q.document_title && <p className="text-sm font-semibold text-gray-800">{q.document_title}</p>}
                           {q.intro_text && <p className="mt-1 whitespace-pre-line text-xs text-gray-600">{q.intro_text}</p>}
+                          {q.email_subject && <p className="mt-2 text-[11px] text-gray-500">Mailbetreff: {q.email_subject}</p>}
                         </div>
                       )}
                       <table className="w-full text-xs mb-2">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiGet, apiPut, apiDelete, fetchCsrfToken, withTenantContext } from '../api';
+import DocumentTemplateManager from '../components/DocumentTemplateManager';
 
 const SECTIONS = [
   {
@@ -354,6 +355,8 @@ export default function AdminCompany() {
           {saving ? 'Speichern...' : 'Alle speichern'}
         </button>
       </div>
+
+      <DocumentTemplateManager />
     </div>
   );
 }

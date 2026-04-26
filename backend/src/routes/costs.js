@@ -5,6 +5,11 @@ const fs = require('fs');
 const { dbGet, dbAll, dbRun } = require('../database');
 const { requireAuth, requirePermission } = require('../middleware/tenantContext');
 const { getCompanySettingsAsync } = require('../companySettings');
+const {
+  buildDocumentTemplateContext,
+  getPreferredDocumentTemplateAsync,
+  resolveDocumentTemplate,
+} = require('../documentTemplates');
 
 const router = express.Router();
 
@@ -85,27 +90,6 @@ async function nextMaterialNumber(category, tenantId) {
   );
   const next = (row && row.max_num ? Number(row.max_num) : 0) + 1;
   return `${prefix}-${String(next).padStart(4, '0')}`;
-}
-
-function renderTemplateText(template, context) {
-  if (!template) return '';
-  return String(template).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => context[key] ?? '');
-}
-
-function buildQuoteTemplateContext({ inquiry, wellType, companySettings }) {
-  const now = new Date();
-  const validityDays = parseInt(companySettings.quote_validity_days || '0', 10) || 0;
-  const validUntil = new Date(now);
-  validUntil.setDate(validUntil.getDate() + validityDays);
-
-  return {
-    company_name: companySettings.company_name || '',
-    inquiry_id: inquiry?.inquiry_id || '',
-    customer_name: `${inquiry?.first_name || ''} ${inquiry?.last_name || ''}`.trim() || 'Kunde',
-    well_type,
-    well_type_label: wellType,
-    valid_until: validityDays > 0 ? validUntil.toLocaleDateString('de-DE') : '',
-  };
 }
 
 router.get('/items', requireAuth, async (req, res) => {
@@ -344,7 +328,7 @@ router.delete('/bom/:id', requireAuth, async (req, res) => {
 });
 
 router.post('/quotes', requireAuth, async (req, res) => {
-  const { inquiry_id, well_type, notes, footer_text } = req.body;
+  const { inquiry_id, well_type, notes, footer_text, template_id } = req.body;
 
   const bom = await dbAll(`
     SELECT b.*, c.name, c.unit, c.unit_price
@@ -369,28 +353,42 @@ router.post('/quotes', requireAuth, async (req, res) => {
   const total_max = items.reduce((s, i) => s + i.total_max, 0);
   const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [inquiry_id, req.tenantId]);
   const companySettings = await getCompanySettingsAsync(req.tenantId);
-  const templateContext = buildQuoteTemplateContext({ inquiry, wellType: well_type, companySettings });
-  const documentTitle = renderTemplateText(companySettings.quote_document_title, templateContext) || 'Kostenvoranschlag Brunnenbau';
-  const introText = renderTemplateText(companySettings.quote_intro_text, templateContext);
-  const postItemsText1 = renderTemplateText(companySettings.quote_post_items_text_1, templateContext);
-  const postItemsText2 = renderTemplateText(companySettings.quote_post_items_text_2, templateContext);
+  const templateContext = buildDocumentTemplateContext({
+    inquiry,
+    wellType: well_type,
+    companySettings,
+    quoteTotals: { net: total_min, vat: total_min * 0.19, gross: total_min * 1.19 },
+  });
+  const template = await getPreferredDocumentTemplateAsync({
+    tenantId: req.tenantId,
+    documentType: 'quote',
+    templateId: template_id,
+    companySettings,
+  });
+  const resolvedTemplate = resolveDocumentTemplate(template, templateContext);
 
   await dbRun(
     `INSERT INTO quotes (
       inquiry_id, items_json, total_min, total_max, notes, footer_text,
-      document_title, intro_text, post_items_text_1, post_items_text_2, tenant_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      template_id, template_name, document_title, intro_text, post_items_text_1, post_items_text_2,
+      email_subject, email_body, layout_json, tenant_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
     [
       inquiry_id,
       JSON.stringify(items),
       total_min,
       total_max,
       notes || null,
-      footer_text || null,
-      documentTitle,
-      introText || null,
-      postItemsText1 || null,
-      postItemsText2 || null,
+      footer_text || resolvedTemplate.footerText || null,
+      resolvedTemplate.templateId,
+      resolvedTemplate.templateName || null,
+      resolvedTemplate.documentTitle || null,
+      resolvedTemplate.introText || null,
+      resolvedTemplate.postItemsText1 || null,
+      resolvedTemplate.postItemsText2 || null,
+      resolvedTemplate.emailSubject || null,
+      resolvedTemplate.emailBody || null,
+      JSON.stringify(resolvedTemplate.layout),
       req.tenantId,
     ]
   );
@@ -399,7 +397,17 @@ router.post('/quotes', requireAuth, async (req, res) => {
 });
 
 router.put('/quotes/:id', requireAuth, async (req, res) => {
-  const { items, footer_text, document_title, intro_text, post_items_text_1, post_items_text_2 } = req.body;
+  const {
+    items,
+    footer_text,
+    document_title,
+    intro_text,
+    post_items_text_1,
+    post_items_text_2,
+    email_subject,
+    email_body,
+    layout,
+  } = req.body;
   if (!items || !Array.isArray(items)) {
     return res.status(400).json({ error: 'Items-Array erforderlich' });
   }
@@ -414,8 +422,11 @@ router.put('/quotes/:id', requireAuth, async (req, res) => {
          document_title = $5,
          intro_text = $6,
          post_items_text_1 = $7,
-         post_items_text_2 = $8
-     WHERE id = $9 AND tenant_id = $10`,
+         post_items_text_2 = $8,
+         email_subject = $9,
+         email_body = $10,
+         layout_json = $11
+     WHERE id = $12 AND tenant_id = $13`,
     [
       JSON.stringify(items),
       total,
@@ -425,6 +436,9 @@ router.put('/quotes/:id', requireAuth, async (req, res) => {
       intro_text || null,
       post_items_text_1 || null,
       post_items_text_2 || null,
+      email_subject || null,
+      email_body || null,
+      layout ? JSON.stringify(layout) : null,
       req.params.id,
       req.tenantId,
     ]
@@ -442,6 +456,7 @@ router.get('/quotes/:inquiryId', requireAuth, async (req, res) => {
   res.json(quotes.map((q) => ({
     ...q,
     items: JSON.parse(q.items_json),
+    layout: q.layout_json ? JSON.parse(q.layout_json) : null,
   })));
 });
 

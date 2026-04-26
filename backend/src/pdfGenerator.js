@@ -17,6 +17,23 @@ function writeParagraphBlock(doc, text, x, y, options = {}) {
 
 async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
   const cs = await getCompanySettingsAsync(tenantId || inquiry?.tenant_id);
+  const layout = {
+    showIntro: true,
+    showPostItemsText1: true,
+    showPostItemsText2: true,
+    showFooterText: true,
+    showPaymentTerms: true,
+    showPdfFooter: true,
+    showBankDetails: true,
+    showLegalFooter: true,
+    ...(() => {
+      try {
+        return quote.layout_json ? JSON.parse(quote.layout_json) : {};
+      } catch {
+        return {};
+      }
+    })(),
+  };
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -83,7 +100,11 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
       const introText = quote.intro_text || `Sehr geehrte(r) ${kundenName || 'Kunde'},\n\nvielen Dank fuer Ihre Anfrage. Nachfolgend unser Kostenvoranschlag:`;
       let introY = 215;
       doc.fontSize(9).font('Helvetica').fillColor('#000000');
-      doc.text(introText, 50, introY, { width: 495 });
+      if (layout.showIntro && introText) {
+        doc.text(introText, 50, introY, { width: 495 });
+      } else {
+        doc.text('', 50, introY, { width: 495 });
+      }
 
       // Tabelle
       const tableTop = Math.max(doc.y + 18, 260);
@@ -147,29 +168,41 @@ async function generateQuotePdf({ inquiry, quote, quoteItems, tenantId }) {
       y += 35;
 
       // Zahlungsbedingungen
-      y = writeParagraphBlock(doc, quote.post_items_text_1, 50, y, { fontSize: 8, gapAfter: 8 });
-      y = writeParagraphBlock(doc, quote.post_items_text_2, 50, y, { fontSize: 8, gapAfter: 8 });
-      y = writeParagraphBlock(doc, cs.payment_terms, 50, y, { fontSize: 8, gapAfter: 8, color: '#000000' });
-      y = writeParagraphBlock(doc, quote.footer_text, 50, y, { fontSize: 8, gapAfter: 8 });
-      y = writeParagraphBlock(doc, cs.pdf_footer_text, 50, y, { fontSize: 7, gapAfter: 10, color: '#666666' });
+      if (layout.showPostItemsText1) {
+        y = writeParagraphBlock(doc, quote.post_items_text_1, 50, y, { fontSize: 8, gapAfter: 8 });
+      }
+      if (layout.showPostItemsText2) {
+        y = writeParagraphBlock(doc, quote.post_items_text_2, 50, y, { fontSize: 8, gapAfter: 8 });
+      }
+      if (layout.showPaymentTerms) {
+        y = writeParagraphBlock(doc, cs.payment_terms, 50, y, { fontSize: 8, gapAfter: 8, color: '#000000' });
+      }
+      if (layout.showFooterText) {
+        y = writeParagraphBlock(doc, quote.footer_text, 50, y, { fontSize: 8, gapAfter: 8 });
+      }
+      if (layout.showPdfFooter) {
+        y = writeParagraphBlock(doc, cs.pdf_footer_text, 50, y, { fontSize: 7, gapAfter: 10, color: '#666666' });
+      }
 
       // Bankverbindung
-      if (cs.bank_iban) {
+      if (layout.showBankDetails && cs.bank_iban) {
         doc.fontSize(7).fillColor('#666666');
         const bankLine = [cs.bank_name, `IBAN: ${cs.bank_iban}`, cs.bank_bic ? `BIC: ${cs.bank_bic}` : ''].filter(Boolean).join(' | ');
         doc.text(bankLine, 50, 760, { align: 'center', width: 495 });
       }
 
       // Rechtliche Angaben
-      const legalParts = [];
-      if (cs.managing_director) legalParts.push(`GF: ${cs.managing_director}`);
-      if (cs.trade_register_court && cs.trade_register_number) legalParts.push(`${cs.trade_register_court} ${cs.trade_register_number}`);
-      if (cs.court_of_jurisdiction) legalParts.push(`Gerichtsstand: ${cs.court_of_jurisdiction}`);
-      if (cs.tax_number) legalParts.push(`St-Nr.: ${cs.tax_number}`);
-      if (cs.vat_id) legalParts.push(`USt-IdNr.: ${cs.vat_id}`);
-      if (legalParts.length > 0) {
-        doc.fontSize(6).fillColor('#999999');
-        doc.text(legalParts.join(' | '), 50, 770, { align: 'center', width: 495 });
+      if (layout.showLegalFooter) {
+        const legalParts = [];
+        if (cs.managing_director) legalParts.push(`GF: ${cs.managing_director}`);
+        if (cs.trade_register_court && cs.trade_register_number) legalParts.push(`${cs.trade_register_court} ${cs.trade_register_number}`);
+        if (cs.court_of_jurisdiction) legalParts.push(`Gerichtsstand: ${cs.court_of_jurisdiction}`);
+        if (cs.tax_number) legalParts.push(`St-Nr.: ${cs.tax_number}`);
+        if (cs.vat_id) legalParts.push(`USt-IdNr.: ${cs.vat_id}`);
+        if (legalParts.length > 0) {
+          doc.fontSize(6).fillColor('#999999');
+          doc.text(legalParts.join(' | '), 50, 770, { align: 'center', width: 495 });
+        }
       }
 
       // Footer
