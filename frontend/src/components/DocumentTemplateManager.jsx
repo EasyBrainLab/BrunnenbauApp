@@ -20,24 +20,62 @@ const FALLBACK_LAYOUT = {
 };
 
 const CONTENT_BLOCKS = [
-  { key: 'intro', label: 'Einleitung', description: 'Begruessung und kurzer Einleitungstext vor den Positionen.', toggleKey: 'showIntro', height: 'h-20' },
-  { key: 'items', label: 'Positionsliste', description: 'Leistungstabelle mit Mengen, Preisen und Summen.', toggleKey: null, height: 'h-32' },
-  { key: 'post_items_text_1', label: 'Textblock 1', description: 'Freier Text direkt nach der Positionsliste.', toggleKey: 'showPostItemsText1', height: 'h-16' },
-  { key: 'post_items_text_2', label: 'Textblock 2', description: 'Weiterer Hinweis- oder Leistungstext.', toggleKey: 'showPostItemsText2', height: 'h-16' },
-  { key: 'payment_terms', label: 'Zahlungsbedingungen', description: 'Kommt aus den Firmendaten.', toggleKey: 'showPaymentTerms', height: 'h-14' },
-  { key: 'footer_text', label: 'Zusatzhinweis', description: 'Freier Hinweisblock fuer individuelle Details.', toggleKey: 'showFooterText', height: 'h-16' },
-  { key: 'pdf_footer_text', label: 'PDF-Fusszeile', description: 'Zusätzlicher freier Fusszeilentext aus den Firmendaten.', toggleKey: 'showPdfFooter', height: 'h-12' },
-];
-
-const LAYOUT_FIELDS = [
-  { key: 'showIntro', label: 'Einleitung vor Positionen anzeigen' },
-  { key: 'showPostItemsText1', label: 'Textblock 1 nach Positionen anzeigen' },
-  { key: 'showPostItemsText2', label: 'Textblock 2 nach Positionen anzeigen' },
-  { key: 'showFooterText', label: 'Zusatzhinweisblock anzeigen' },
-  { key: 'showPaymentTerms', label: 'Zahlungsbedingungen aus Firmendaten anzeigen' },
-  { key: 'showPdfFooter', label: 'Zusätzliche PDF-Fusszeile anzeigen' },
-  { key: 'showBankDetails', label: 'Bankverbindung anzeigen' },
-  { key: 'showLegalFooter', label: 'Rechtliche Pflichtangaben anzeigen' },
+  {
+    key: 'intro',
+    label: 'Einleitung',
+    description: 'Begruessung und Einleitung vor der Positionsliste.',
+    toggleKey: 'showIntro',
+    sourceField: 'intro_text',
+    sampleTitle: 'Einleitung',
+  },
+  {
+    key: 'items',
+    label: 'Positionsliste',
+    description: 'Leistungen, Mengen, Preise und Summen.',
+    toggleKey: null,
+    sourceField: null,
+    sampleTitle: 'Positionsliste',
+  },
+  {
+    key: 'post_items_text_1',
+    label: 'Textblock 1',
+    description: 'Freier Text direkt nach den Positionen.',
+    toggleKey: 'showPostItemsText1',
+    sourceField: 'post_items_text_1',
+    sampleTitle: 'Textblock 1',
+  },
+  {
+    key: 'post_items_text_2',
+    label: 'Textblock 2',
+    description: 'Zweiter Hinweis- oder Leistungstext.',
+    toggleKey: 'showPostItemsText2',
+    sourceField: 'post_items_text_2',
+    sampleTitle: 'Textblock 2',
+  },
+  {
+    key: 'payment_terms',
+    label: 'Zahlungsbedingungen',
+    description: 'Kommt automatisch aus den Firmendaten.',
+    toggleKey: 'showPaymentTerms',
+    sourceField: null,
+    sampleTitle: 'Zahlungsbedingungen',
+  },
+  {
+    key: 'footer_text',
+    label: 'Zusatzhinweis',
+    description: 'Freier Hinweisblock fuer individuelle Zusatzinfos.',
+    toggleKey: 'showFooterText',
+    sourceField: 'footer_text',
+    sampleTitle: 'Zusatzhinweis',
+  },
+  {
+    key: 'pdf_footer_text',
+    label: 'PDF-Fusszeile',
+    description: 'Freier PDF-Hinweis aus den Firmendaten.',
+    toggleKey: 'showPdfFooter',
+    sourceField: null,
+    sampleTitle: 'PDF-Fusszeile',
+  },
 ];
 
 function buildEmptyTemplate(documentType, defaultLayout) {
@@ -62,115 +100,240 @@ function buildEmptyTemplate(documentType, defaultLayout) {
 
 function normalizeLayout(layout, defaultLayout) {
   const merged = { ...defaultLayout, ...(layout || {}) };
-  const order = Array.isArray(merged.blockOrder) ? merged.blockOrder : [];
   const validKeys = CONTENT_BLOCKS.map((block) => block.key);
-  const nextOrder = [];
+  const order = Array.isArray(merged.blockOrder) ? merged.blockOrder : [];
+  const deduped = [];
   for (const key of order) {
-    if (validKeys.includes(key) && !nextOrder.includes(key)) nextOrder.push(key);
+    if (validKeys.includes(key) && !deduped.includes(key)) deduped.push(key);
   }
   for (const key of validKeys) {
-    if (!nextOrder.includes(key)) nextOrder.push(key);
+    if (!deduped.includes(key)) deduped.push(key);
   }
-  merged.blockOrder = nextOrder;
+  merged.blockOrder = deduped;
   return merged;
 }
 
-function A4LayoutPreview({ layout, onReorder, onToggle }) {
-  const [draggedBlock, setDraggedBlock] = useState(null);
+function extractPreviewText(form, blockKey) {
+  const fallbackSamples = {
+    intro: 'Sehr geehrte Damen und Herren,\n\nvielen Dank fuer Ihre Anfrage. Nachfolgend erhalten Sie unser Angebot.',
+    post_items_text_1: 'Leistungsumfang und Voraussetzungen werden hier beschrieben.',
+    post_items_text_2: 'Naechste Schritte oder Ausfuehrungshinweise stehen in diesem Block.',
+    payment_terms: 'Zahlbar innerhalb von 14 Tagen nach Rechnungseingang ohne Abzug.',
+    footer_text: 'Zusatzhinweise, Fristen oder Hinweise zum Ablauf.',
+    pdf_footer_text: 'Weitere wichtige Angaben fuer die Fusszeile.',
+  };
 
+  if (blockKey === 'items') return '';
+
+  const fieldName = CONTENT_BLOCKS.find((block) => block.key === blockKey)?.sourceField;
+  const currentValue = fieldName ? form[fieldName] : '';
+  return currentValue?.trim() || fallbackSamples[blockKey] || '';
+}
+
+function BlockPreview({ block, active, visible, text, onSelect, onToggle, draggableProps }) {
+  const previewBody = (() => {
+    if (block.key === 'items') {
+      return (
+        <div className="mt-3 rounded-lg border border-earth-200 bg-white">
+          <div className="grid grid-cols-[1.8fr_0.6fr_0.8fr_0.8fr] gap-2 rounded-t-lg bg-primary-500 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
+            <span>Position</span>
+            <span className="text-right">Menge</span>
+            <span className="text-right">Preis</span>
+            <span className="text-right">Gesamt</span>
+          </div>
+          {[
+            ['Bohrung und Ausbau', '1', '3.900 EUR', '3.900 EUR'],
+            ['Pumpe und Einbau', '1', '1.250 EUR', '1.250 EUR'],
+            ['Inbetriebnahme', '1', '290 EUR', '290 EUR'],
+          ].map((row, index) => (
+            <div
+              key={row[0]}
+              className={`grid grid-cols-[1.8fr_0.6fr_0.8fr_0.8fr] gap-2 px-3 py-2 text-[12px] ${index % 2 === 0 ? 'bg-earth-50' : 'bg-white'}`}
+            >
+              <span>{row[0]}</span>
+              <span className="text-right">{row[1]}</span>
+              <span className="text-right">{row[2]}</span>
+              <span className="text-right font-medium">{row[3]}</span>
+            </div>
+          ))}
+          <div className="border-t border-earth-200 bg-primary-50 px-3 py-2 text-right text-[12px] font-semibold text-primary-700">
+            Gesamt brutto: 6.485 EUR
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`mt-3 rounded-lg border border-dashed px-3 py-3 text-[12px] leading-5 ${visible ? 'border-earth-200 bg-earth-50 text-gray-700' : 'border-gray-200 bg-gray-100 text-gray-400'}`}>
+        {visible ? (
+          <p className="whitespace-pre-line">{text}</p>
+        ) : (
+          <p>Dieser Block ist momentan ausgeblendet.</p>
+        )}
+      </div>
+    );
+  })();
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-primary-400 bg-primary-50 shadow-sm' : 'border-earth-200 bg-white hover:border-primary-200 hover:bg-earth-50'} ${!visible ? 'opacity-75' : ''}`}
+      {...draggableProps}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">{block.label}</p>
+          <p className="mt-1 text-xs text-gray-500">{block.description}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {block.toggleKey ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggle(block.toggleKey, !visible);
+              }}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+            >
+              {visible ? 'Sichtbar' : 'Aus'}
+            </button>
+          ) : (
+            <span className="rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-medium text-primary-700">Pflicht</span>
+          )}
+          <span className="rounded-lg bg-earth-100 px-2 py-1 text-[11px] text-gray-500">Ziehen</span>
+        </div>
+      </div>
+      {previewBody}
+    </button>
+  );
+}
+
+function A4LayoutEditor({ form, layout, activeBlockKey, onSelectBlock, onReorder, onToggle, onMoveUp, onMoveDown }) {
+  const [draggedBlockKey, setDraggedBlockKey] = useState(null);
   const orderedBlocks = (layout.blockOrder || [])
     .map((key) => CONTENT_BLOCKS.find((block) => block.key === key))
     .filter(Boolean);
 
-  const moveBlock = (targetKey) => {
-    if (!draggedBlock || draggedBlock === targetKey) return;
-    const currentOrder = [...(layout.blockOrder || [])];
-    const fromIndex = currentOrder.indexOf(draggedBlock);
+  const moveDraggedBlock = (targetKey) => {
+    if (!draggedBlockKey || draggedBlockKey === targetKey) return;
+    const currentOrder = [...layout.blockOrder];
+    const fromIndex = currentOrder.indexOf(draggedBlockKey);
     const targetIndex = currentOrder.indexOf(targetKey);
     if (fromIndex === -1 || targetIndex === -1) return;
     currentOrder.splice(fromIndex, 1);
-    currentOrder.splice(targetIndex, 0, draggedBlock);
+    currentOrder.splice(targetIndex, 0, draggedBlockKey);
     onReorder(currentOrder);
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-      <div className="rounded-2xl border border-earth-200 bg-earth-50 p-4">
-        <div className="mx-auto w-full max-w-[620px] rounded-[24px] bg-white p-6 shadow-sm ring-1 ring-earth-200">
-          <div className="mb-4 rounded-xl border border-dashed border-earth-200 bg-earth-50 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">DIN A4 Vorschau</p>
-                <p className="text-xs text-gray-500">Ziehen Sie die Inhaltsbloecke in die gewuenschte Reihenfolge.</p>
-              </div>
-              <div className="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-medium text-primary-700">A4</div>
-            </div>
-          </div>
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="rounded-2xl border border-earth-100 bg-white p-4">
+        <h4 className="text-sm font-semibold text-gray-700">Block-Navigation</h4>
+        <p className="mt-1 text-xs text-gray-500">
+          Waehlbar, verschiebbar und ein-/ausblendbar. Die Vorschau rechts zeigt sofort das Ergebnis.
+        </p>
 
-          <div className="mb-4 rounded-xl border border-earth-200 bg-white p-4">
-            <div className="flex items-start justify-between gap-4 border-b border-earth-100 pb-3">
-              <div>
-                <div className="h-6 w-36 rounded bg-earth-200" />
-                <div className="mt-2 h-3 w-48 rounded bg-earth-100" />
-              </div>
-              <div className="space-y-2 text-right">
-                <div className="ml-auto h-3 w-24 rounded bg-earth-100" />
-                <div className="ml-auto h-3 w-20 rounded bg-earth-100" />
-                <div className="ml-auto h-3 w-16 rounded bg-earth-100" />
-              </div>
-            </div>
-            <div className="mt-3 h-12 w-44 rounded bg-earth-100" />
-            <div className="mt-3 h-4 w-52 rounded bg-primary-100" />
-          </div>
-
-          <div className="space-y-3">
-            {orderedBlocks.map((block) => {
-              const visible = block.toggleKey ? !!layout[block.toggleKey] : true;
-              return (
-                <div
-                  key={block.key}
-                  draggable
-                  onDragStart={() => setDraggedBlock(block.key)}
-                  onDragEnd={() => setDraggedBlock(null)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => moveBlock(block.key)}
-                  className={`rounded-xl border p-3 transition ${draggedBlock === block.key ? 'border-primary-400 bg-primary-50 shadow-sm' : visible ? 'border-earth-200 bg-white' : 'border-earth-100 bg-gray-50 opacity-60'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{block.label}</p>
-                      <p className="mt-1 text-xs text-gray-500">{block.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {block.toggleKey ? (
-                        <button
-                          type="button"
-                          onClick={() => onToggle(block.toggleKey, !visible)}
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
-                        >
-                          {visible ? 'Sichtbar' : 'Aus'}
-                        </button>
-                      ) : (
-                        <span className="rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-medium text-primary-700">Pflichtblock</span>
-                      )}
-                      <span className="cursor-grab rounded-lg bg-earth-100 px-2 py-1 text-[11px] text-gray-500">Ziehen</span>
-                    </div>
+        <div className="mt-4 space-y-2">
+          {orderedBlocks.map((block, index) => {
+            const visible = block.toggleKey ? !!layout[block.toggleKey] : true;
+            const active = activeBlockKey === block.key;
+            return (
+              <div
+                key={block.key}
+                className={`rounded-xl border px-3 py-3 ${active ? 'border-primary-300 bg-primary-50' : 'border-earth-100 bg-earth-50'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelectBlock(block.key)}
+                    className="text-left"
+                  >
+                    <p className="text-sm font-semibold text-gray-800">{block.label}</p>
+                    <p className="mt-1 text-xs text-gray-500">{visible ? 'Im Dokument sichtbar' : 'Aktuell ausgeblendet'}</p>
+                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onMoveUp(block.key)}
+                      disabled={index === 0}
+                      className="rounded-lg bg-white px-2 py-1 text-xs text-gray-600 ring-1 ring-earth-200 disabled:opacity-40"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMoveDown(block.key)}
+                      disabled={index === orderedBlocks.length - 1}
+                      className="rounded-lg bg-white px-2 py-1 text-xs text-gray-600 ring-1 ring-earth-200 disabled:opacity-40"
+                    >
+                      ↓
+                    </button>
                   </div>
-                  <div className={`mt-3 rounded-lg border border-dashed ${visible ? 'border-earth-200 bg-earth-50' : 'border-gray-200 bg-gray-100'} ${block.height}`} />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="rounded-xl border border-earth-100 bg-white p-4">
-        <h4 className="text-sm font-semibold text-gray-700">Bedienhinweise</h4>
-        <div className="mt-3 space-y-3 text-sm text-gray-600">
-          <p>1. Ziehen Sie die Blöcke links in die gewünschte Reihenfolge.</p>
-          <p>2. Schalten Sie optionale Bereiche direkt an oder aus.</p>
-          <p>3. Speichern Sie danach die Vorlage.</p>
-          <p>Die Positionstabelle bleibt als Pflichtblock erhalten. So bleibt das PDF fachlich stabil und trotzdem deutlich flexibler.</p>
+      <div className="rounded-2xl border border-earth-200 bg-earth-50 p-4">
+        <div className="mx-auto max-w-[720px] rounded-[26px] bg-white p-6 shadow-sm ring-1 ring-earth-200">
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-dashed border-earth-200 bg-earth-50 p-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">DIN A4 Arbeitsflaeche</p>
+              <p className="text-xs text-gray-500">Ziehen Sie die Blöcke oder nutzen Sie links die Pfeile fuer eine einfachere Bedienung.</p>
+            </div>
+            <span className="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-medium text-primary-700">A4</span>
+          </div>
+
+          <div className="rounded-2xl border border-earth-200 bg-white p-5">
+            <div className="border-b border-earth-100 pb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="h-6 w-40 rounded bg-earth-200" />
+                  <div className="mt-2 h-3 w-52 rounded bg-earth-100" />
+                </div>
+                <div className="space-y-2">
+                  <div className="ml-auto h-3 w-24 rounded bg-earth-100" />
+                  <div className="ml-auto h-3 w-20 rounded bg-earth-100" />
+                  <div className="ml-auto h-3 w-16 rounded bg-earth-100" />
+                </div>
+              </div>
+              <div className="mt-4 h-12 w-48 rounded bg-earth-100" />
+              <div className="mt-4 h-5 w-64 rounded bg-primary-100" />
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {orderedBlocks.map((block) => {
+                const visible = block.toggleKey ? !!layout[block.toggleKey] : true;
+                return (
+                  <div
+                    key={block.key}
+                    draggable
+                    onDragStart={() => setDraggedBlockKey(block.key)}
+                    onDragEnd={() => setDraggedBlockKey(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => moveDraggedBlock(block.key)}
+                  >
+                    <BlockPreview
+                      block={block}
+                      active={activeBlockKey === block.key}
+                      visible={visible}
+                      text={extractPreviewText(form, block.key)}
+                      onSelect={() => onSelectBlock(block.key)}
+                      onToggle={onToggle}
+                      draggableProps={{}}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 rounded-xl border border-earth-100 bg-earth-50 px-4 py-3 text-[11px] text-gray-500">
+              Bankdaten, rechtliche Pflichtangaben und die unterste Firmenfusszeile bleiben technisch stabil eingebettet. Dadurch sieht das PDF im Alltag konsistent aus und bleibt trotzdem individuell.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -183,6 +346,7 @@ export default function DocumentTemplateManager() {
   const [placeholders, setPlaceholders] = useState([]);
   const [defaultLayout, setDefaultLayout] = useState(FALLBACK_LAYOUT);
   const [activeType, setActiveType] = useState('quote');
+  const [activeBlockKey, setActiveBlockKey] = useState('intro');
   const [form, setForm] = useState(buildEmptyTemplate('quote', FALLBACK_LAYOUT));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -222,6 +386,7 @@ export default function DocumentTemplateManager() {
 
   const resetForm = (documentType = activeType) => {
     setForm(buildEmptyTemplate(documentType, normalizeLayout(defaultLayout, FALLBACK_LAYOUT)));
+    setActiveBlockKey('intro');
   };
 
   const startEdit = (template) => {
@@ -231,6 +396,7 @@ export default function DocumentTemplateManager() {
       ...template,
       layout: normalizeLayout(template.layout, defaultLayout),
     });
+    setActiveBlockKey('intro');
     setMessage('');
   };
 
@@ -238,7 +404,7 @@ export default function DocumentTemplateManager() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleLayoutChange = (key, checked) => {
+  const handleLayoutToggle = (key, checked) => {
     setForm((prev) => ({
       ...prev,
       layout: normalizeLayout({
@@ -257,6 +423,18 @@ export default function DocumentTemplateManager() {
       }, defaultLayout),
     }));
   };
+
+  const moveBlockByStep = (blockKey, step) => {
+    const currentOrder = [...(form.layout?.blockOrder || [])];
+    const index = currentOrder.indexOf(blockKey);
+    const targetIndex = index + step;
+    if (index === -1 || targetIndex < 0 || targetIndex >= currentOrder.length) return;
+    currentOrder.splice(index, 1);
+    currentOrder.splice(targetIndex, 0, blockKey);
+    handleBlockReorder(currentOrder);
+  };
+
+  const activeBlock = CONTENT_BLOCKS.find((block) => block.key === activeBlockKey);
 
   const handleSave = async () => {
     if (!form.name.trim()) {
@@ -313,15 +491,15 @@ export default function DocumentTemplateManager() {
 
   return (
     <div className="card mt-6">
-      <div className="p-4 border-b border-earth-100">
+      <div className="border-b border-earth-100 p-4">
         <h2 className="text-lg font-semibold text-gray-800">Dokumentkonfigurator</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Hier legen Sie Vorlagen fuer Angebote und Rechnungen fest. Jede Vorlage kann Texte, Mailinhalt und sichtbare Dokumentbereiche steuern.
+          Dokumente sollen fuer den Anwender einfach bearbeitbar sein. Deshalb arbeitet dieser Bereich jetzt ueber sichtbare Inhaltsbloecke statt ueber technische Layoutschalter.
         </p>
       </div>
 
       <div className="p-4">
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="mb-4 flex flex-wrap gap-2">
           {DOCUMENT_TYPES.map((type) => (
             <button
               key={type.value}
@@ -348,7 +526,7 @@ export default function DocumentTemplateManager() {
         )}
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="rounded-xl border border-earth-100 bg-earth-50 p-3">
               <h3 className="text-sm font-semibold text-gray-700">Vorlagenliste</h3>
               <p className="mt-1 text-xs text-gray-500">
@@ -357,9 +535,7 @@ export default function DocumentTemplateManager() {
             </div>
 
             {loading ? (
-              <div className="rounded-xl border border-earth-100 bg-white p-4 text-sm text-gray-500">
-                Lade Vorlagen...
-              </div>
+              <div className="rounded-xl border border-earth-100 bg-white p-4 text-sm text-gray-500">Lade Vorlagen...</div>
             ) : filteredTemplates.length === 0 ? (
               <div className="rounded-xl border border-dashed border-earth-200 bg-white p-4 text-sm text-gray-500">
                 Fuer diesen Dokumenttyp gibt es noch keine eigene Vorlage. Die Anwendung nutzt dann die Werte aus den Firmendaten als Rueckfall.
@@ -380,7 +556,6 @@ export default function DocumentTemplateManager() {
                       {!template.is_active ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">Inaktiv</span> : null}
                     </div>
                   </div>
-
                   <div className="mt-3 flex gap-2">
                     <button
                       type="button"
@@ -401,22 +576,9 @@ export default function DocumentTemplateManager() {
               ))
             )}
 
-            <div className="rounded-xl border border-earth-100 bg-white p-3">
-              <h3 className="text-sm font-semibold text-gray-700">Verfuegbare Platzhalter</h3>
-              <div className="mt-3 space-y-2">
-                {placeholders.map((entry) => (
-                  <div key={entry.key} className="flex items-start justify-between gap-3 text-xs">
-                    <code className="rounded bg-earth-50 px-2 py-1 text-primary-700">{`{{${entry.key}}}`}</code>
-                    <span className="text-right text-gray-500">{entry.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
             <div className="rounded-xl border border-earth-100 bg-white p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <h3 className="text-sm font-semibold text-gray-700">Grunddaten</h3>
+              <div className="mt-4 grid grid-cols-1 gap-4">
                 <div>
                   <label className="form-label">Dokumenttyp</label>
                   <select
@@ -428,15 +590,6 @@ export default function DocumentTemplateManager() {
                       <option key={type.value} value={type.value}>{type.label}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="form-label">Sortierung</label>
-                  <input
-                    type="number"
-                    value={form.sort_order}
-                    onChange={(e) => handleChange('sort_order', e.target.value)}
-                    className="form-input w-full"
-                  />
                 </div>
                 <div>
                   <label className="form-label">Vorlagenname</label>
@@ -458,9 +611,18 @@ export default function DocumentTemplateManager() {
                     placeholder="Wann wird diese Vorlage verwendet?"
                   />
                 </div>
+                <div>
+                  <label className="form-label">Sortierung</label>
+                  <input
+                    type="number"
+                    value={form.sort_order}
+                    onChange={(e) => handleChange('sort_order', e.target.value)}
+                    className="form-input w-full"
+                  />
+                </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3">
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
@@ -483,7 +645,44 @@ export default function DocumentTemplateManager() {
             </div>
 
             <div className="rounded-xl border border-earth-100 bg-white p-4">
-              <h3 className="text-sm font-semibold text-gray-700">PDF-Inhalt</h3>
+              <h3 className="text-sm font-semibold text-gray-700">Platzhalter</h3>
+              <div className="mt-3 space-y-2">
+                {placeholders.map((entry) => (
+                  <div key={entry.key} className="flex items-start justify-between gap-3 text-xs">
+                    <code className="rounded bg-earth-50 px-2 py-1 text-primary-700">{`{{${entry.key}}}`}</code>
+                    <span className="text-right text-gray-500">{entry.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-earth-100 bg-white p-4">
+              <h3 className="text-sm font-semibold text-gray-700">Interaktives Dokumentlayout</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Wählen Sie einen Block aus, ordnen Sie ihn an und bearbeiten Sie rechts darunter den passenden Inhalt.
+              </p>
+              <div className="mt-4">
+                <A4LayoutEditor
+                  form={form}
+                  layout={normalizeLayout(form.layout, defaultLayout)}
+                  activeBlockKey={activeBlockKey}
+                  onSelectBlock={setActiveBlockKey}
+                  onReorder={handleBlockReorder}
+                  onToggle={handleLayoutToggle}
+                  onMoveUp={(key) => moveBlockByStep(key, -1)}
+                  onMoveDown={(key) => moveBlockByStep(key, 1)}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-earth-100 bg-white p-4">
+              <h3 className="text-sm font-semibold text-gray-700">Inhalt des gewaehlten Blocks</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {activeBlock ? `${activeBlock.label}: ${activeBlock.description}` : 'Bitte links einen Block waehlen.'}
+              </p>
+
               <div className="mt-4 grid grid-cols-1 gap-4">
                 <div>
                   <label className="form-label">Dokumenttitel</label>
@@ -494,42 +693,25 @@ export default function DocumentTemplateManager() {
                     className="form-input w-full"
                   />
                 </div>
-                <div>
-                  <label className="form-label">Einleitung vor den Positionen</label>
-                  <textarea
-                    rows={5}
-                    value={form.intro_text}
-                    onChange={(e) => handleChange('intro_text', e.target.value)}
-                    className="form-input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Textblock 1 nach der Positionsliste</label>
-                  <textarea
-                    rows={4}
-                    value={form.post_items_text_1}
-                    onChange={(e) => handleChange('post_items_text_1', e.target.value)}
-                    className="form-input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Textblock 2 nach der Positionsliste</label>
-                  <textarea
-                    rows={4}
-                    value={form.post_items_text_2}
-                    onChange={(e) => handleChange('post_items_text_2', e.target.value)}
-                    className="form-input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Zusätzlicher Hinweisblock</label>
-                  <textarea
-                    rows={4}
-                    value={form.footer_text}
-                    onChange={(e) => handleChange('footer_text', e.target.value)}
-                    className="form-input w-full"
-                  />
-                </div>
+
+                {activeBlock?.sourceField ? (
+                  <div>
+                    <label className="form-label">{activeBlock.sampleTitle}</label>
+                    <textarea
+                      rows={activeBlock.key === 'intro' ? 6 : 5}
+                      value={form[activeBlock.sourceField] || ''}
+                      onChange={(e) => handleChange(activeBlock.sourceField, e.target.value)}
+                      className="form-input w-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-earth-100 bg-earth-50 p-4 text-sm text-gray-600">
+                    Dieser Block wird nicht hier frei textlich gepflegt.
+                    {activeBlock?.key === 'items' ? ' Die Positionsliste entsteht automatisch aus dem Angebot.' : null}
+                    {activeBlock?.key === 'payment_terms' ? ' Die Zahlungsbedingungen kommen aus den Firmendaten.' : null}
+                    {activeBlock?.key === 'pdf_footer_text' ? ' Der Text kommt aus dem Feld "PDF-Fusszeile" in den Firmendaten.' : null}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -556,20 +738,6 @@ export default function DocumentTemplateManager() {
                     placeholder="Text fuer die Angebotsmail"
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-earth-100 bg-white p-4">
-              <h3 className="text-sm font-semibold text-gray-700">Interaktives Dokumentlayout</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Ordnen Sie die Inhaltsbloecke in einer A4-Vorschau an. Das ist fuer Anwender deutlich einfacher als einzelne technische Schalter.
-              </p>
-              <div className="mt-4">
-                <A4LayoutPreview
-                  layout={normalizeLayout(form.layout, defaultLayout)}
-                  onReorder={handleBlockReorder}
-                  onToggle={handleLayoutChange}
-                />
               </div>
             </div>
 
