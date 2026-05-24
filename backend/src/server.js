@@ -9,6 +9,7 @@ const path = require('path');
 const { initDatabase, dbAll } = require('./database');
 const { attachTenantContext } = require('./middleware/tenantContext');
 const inquiryRoutes = require('./routes/inquiries');
+const diagnosticRoutes = require('./routes/diagnostics');
 const adminRoutes = require('./routes/admin');
 const costRoutes = require('./routes/costs');
 const supplierRoutes = require('./routes/suppliers');
@@ -141,6 +142,7 @@ app.use('/api/settings/smtp', csrfProtection, tenantSmtpRoutes);
 
 // API-Routen
 app.use('/api/inquiries', csrfProtection, inquiryRoutes);
+app.use('/api/diagnostics', csrfProtection, diagnosticRoutes);
 app.use('/api/admin', csrfProtection, adminRoutes);
 app.use('/api/costs', csrfProtection, costRoutes);
 app.use('/api/suppliers', csrfProtection, supplierRoutes);

@@ -2,6 +2,9 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import WizardPage from './pages/WizardPage';
+import DoctorWizardPage from './pages/DoctorWizardPage';
+import AdminDiagnostics from './pages/AdminDiagnostics';
+import AdminDiagnosticDetail from './pages/AdminDiagnosticDetail';
 import ConfirmationPage from './pages/ConfirmationPage';
 import AdminLogin from './pages/AdminLogin';
 import RegisterPage from './pages/RegisterPage';
@@ -31,6 +34,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<WizardPage />} />
+            <Route path="/doktor" element={<DoctorWizardPage />} />
             <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
             <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -40,6 +44,8 @@ export default function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/anfrage/:id" element={<AdminDetail />} />
+              <Route path="/admin/doktor" element={<AdminDiagnostics />} />
+              <Route path="/admin/doktor/:id" element={<AdminDiagnosticDetail />} />
               <Route path="/admin/kosten" element={<AdminCosts />} />
               <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
               <Route path="/admin/lager" element={<AdminInventory />} />

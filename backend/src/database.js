@@ -962,6 +962,104 @@ function initDatabase() {
       }
     } catch (e) { /* ignore */ }
 
+    // =====================================================
+    // Brunnen-Doktor (Diagnose-Konfigurator)
+    // =====================================================
+
+    // Diagnose-Faelle (paralleler Erhebungsbogen fuer bestehende Brunnen)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS well_diagnostics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        diagnosis_id TEXT UNIQUE NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        status TEXT DEFAULT 'neu',
+
+        -- Kontakt
+        salutation TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        email TEXT,
+        phone TEXT,
+        street TEXT,
+        house_number TEXT,
+        zip_code TEXT,
+        city TEXT,
+        bundesland TEXT,
+        landkreis TEXT,
+        telegram_handle TEXT,
+        preferred_contact TEXT DEFAULT 'email',
+        privacy_accepted INTEGER DEFAULT 0,
+
+        -- Brunnen-Steckbrief
+        well_kind TEXT,
+        well_age TEXT,
+        well_depth REAL,
+        pump_type TEXT,
+        usage_purposes TEXT,
+        problem_since TEXT,
+        problem_onset TEXT,
+
+        -- Symptome, Antworten & Ergebnis
+        lead_symptoms TEXT,
+        answers_json TEXT,
+        selftest_json TEXT,
+        computed_diagnosis_json TEXT,
+
+        -- Experten-Review durch den Brunnenbauer
+        expert_diagnosis TEXT,
+        expert_notes TEXT,
+        admin_notes TEXT,
+
+        tenant_id TEXT DEFAULT 'default'
+      )
+    `);
+
+    // Datei-Uploads zu Diagnose-Faellen (Wasserprobe-Fotos, Pumpe, Typenschild)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS diagnostic_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        diagnosis_id TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        stored_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        tenant_id TEXT DEFAULT 'default',
+        FOREIGN KEY (diagnosis_id) REFERENCES well_diagnostics(diagnosis_id)
+      )
+    `);
+
+    // Werteliste fuer Diagnose-Status (Admin-Workflow, analog inquiry_statuses)
+    try {
+      const diagStatusExists = db.prepare("SELECT id FROM value_lists WHERE list_key = 'diagnosis_statuses'");
+      const hasDiagStatus = diagStatusExists.step();
+      diagStatusExists.free();
+      if (!hasDiagStatus) {
+        db.run(
+          "INSERT INTO value_lists (list_key, display_name, description, is_system) VALUES ('diagnosis_statuses', 'Diagnose-Status', 'Status eines Brunnen-Doktor-Falls', 1)"
+        );
+        const dsId = db.prepare("SELECT id FROM value_lists WHERE list_key = 'diagnosis_statuses'");
+        dsId.step();
+        const diagStatusListId = dsId.getAsObject().id;
+        dsId.free();
+        const diagStatuses = [
+          ['neu', 'Neu', 1, 'bg-blue-100 text-blue-700'],
+          ['in_pruefung', 'In Pruefung', 2, 'bg-yellow-100 text-yellow-700'],
+          ['diagnose_bestaetigt', 'Diagnose bestaetigt', 3, 'bg-purple-100 text-purple-700'],
+          ['beantwortet', 'Kunde informiert', 4, 'bg-cyan-100 text-cyan-700'],
+          ['abgeschlossen', 'Abgeschlossen', 5, 'bg-green-100 text-green-700'],
+          ['abgesagt', 'Abgesagt', 6, 'bg-red-100 text-red-700'],
+        ];
+        for (const [value, label, sortOrder, color] of diagStatuses) {
+          db.run(
+            'INSERT INTO value_list_items (list_id, value, label, sort_order, is_active, color) VALUES (?, ?, ?, ?, 1, ?)',
+            [diagStatusListId, value, label, sortOrder, color]
+          );
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     saveDb();
     return db;
   })();

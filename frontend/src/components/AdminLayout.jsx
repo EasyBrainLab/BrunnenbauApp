@@ -13,6 +13,14 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/admin/doktor',
+    label: 'Brunnen-Doktor',
+    permission: 'dashboard_view',
+    icon: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h.01M15 12h.01M9.5 16a3.5 3.5 0 005 0M12 3a9 9 0 00-9 9c0 3.6 2.4 6.6 5.6 8.2L12 22l3.4-1.8C18.6 18.6 21 15.6 21 12a9 9 0 00-9-9z" />
+    ),
+  },
+  {
     to: '/admin/kalender',
     label: 'Kalender',
     permission: 'calendar_manage',

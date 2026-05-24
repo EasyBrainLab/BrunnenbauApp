@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
 import Step1Contact from '../components/steps/Step1Contact';
 import Step2Usage from '../components/steps/Step2Usage';
@@ -9,7 +9,7 @@ import Step5Location from '../components/steps/Step4Location';
 import Step6Soil from '../components/steps/Step5Soil';
 import Step7Supply from '../components/steps/Step6Supply';
 import Step8Final from '../components/steps/Step7Final';
-import { apiPost, fetchCsrfToken } from '../api';
+import { apiPost, fetchCsrfToken, withTenantContext } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 
@@ -225,6 +225,21 @@ export default function WizardPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-12">
+      {step === 1 && !showSummary && (
+        <Link
+          to={withTenantContext('/doktor')}
+          className="flex items-center gap-3 p-3 mt-4 mb-2 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+        >
+          <svg className="w-7 h-7 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h.01M15 12h.01M9.5 16a3.5 3.5 0 005 0M12 2a9 9 0 00-9 9c0 3.6 2.4 6.6 5.6 8.2L12 22l3.4-2.8C18.6 17.6 21 14.6 21 11a9 9 0 00-9-9z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">Sie haben bereits einen Brunnen mit Problemen?</p>
+            <p className="text-xs text-amber-700">Der Brunnen-Doktor hilft Ihnen, die Ursache zu finden &rarr;</p>
+          </div>
+        </Link>
+      )}
+
       <ProgressBar currentStep={step} />
 
       <div className="card">
