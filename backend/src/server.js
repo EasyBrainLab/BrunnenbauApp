@@ -175,7 +175,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // Server starten nach DB-Initialisierung
-initDatabase().then(() => {
+initDatabase().then(async () => {
+  // Default-Tenant mit Template-Daten (Material/Stücklisten/Kosten) befüllen,
+  // falls noch nicht vorhanden (idempotent).
+  try {
+    const { seedTenantData } = require('./services/templateSeed');
+    await seedTenantData('default');
+  } catch (err) {
+    console.error('Default-Template-Seeding fehlgeschlagen:', err.message);
+  }
+
   app.listen(PORT, () => {
     console.log(`Brunnenbau-Backend läuft auf Port ${PORT}`);
   });

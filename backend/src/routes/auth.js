@@ -4,6 +4,7 @@ const router = express.Router();
 const { dbGet, dbRun } = require('../database');
 const { hashPassword, verifyPassword } = require('../services/encryption');
 const { getPermissionsForRole } = require('../services/roles');
+const { seedTenantData } = require('../services/templateSeed');
 
 // POST /api/auth/register — Neuen Tenant + Owner-User anlegen
 router.post('/register', async (req, res) => {
@@ -63,6 +64,10 @@ router.post('/register', async (req, res) => {
         // Alte SQLite-Schemata koennen company_settings noch global ueber "key" unique halten.
       }
     }
+
+    // Template-Daten (Wertelisten, Materialstammdaten, Stücklisten, Kosten)
+    // für den neuen Tenant provisionieren – eigene Kopie, nicht geteilt.
+    await seedTenantData(tenantId);
 
     // Session setzen
     const createdUser = await dbGet('SELECT id FROM users WHERE tenant_id = $1 AND email = $2', [tenantId, email]);
