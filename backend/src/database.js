@@ -1073,6 +1073,21 @@ function initDatabase() {
       )
     `);
 
+    // === Firmen-Vorlagendokumente (Briefpapier/Layout für Angebote) ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS company_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL DEFAULT 'default',
+        doc_type TEXT NOT NULL DEFAULT 'template',
+        original_name TEXT,
+        stored_name TEXT NOT NULL,
+        mime_type TEXT,
+        size INTEGER,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
     // === Eigene Grafiken zu Brunnentypen/-arten/Pumpentypen ===
     db.run(`
       CREATE TABLE IF NOT EXISTS well_type_graphics (

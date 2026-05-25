@@ -17,6 +17,7 @@ import AdminValueLists from './pages/AdminValueLists';
 import AdminFieldConfig from './pages/AdminFieldConfig';
 import AdminGraphics from './pages/AdminGraphics';
 import AdminHelp from './pages/AdminHelp';
+import AdminOfferAssistant from './pages/AdminOfferAssistant';
 import AdminCompany from './pages/AdminCompany';
 import AdminDocumentLayout from './pages/AdminDocumentLayout';
 import AdminDocumentLayoutEditor from './pages/AdminDocumentLayoutEditor';
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/admin/felder" element={<AdminFieldConfig />} />
               <Route path="/admin/grafiken" element={<AdminGraphics />} />
               <Route path="/admin/hilfe" element={<AdminHelp />} />
+              <Route path="/admin/ki-angebote" element={<AdminOfferAssistant />} />
               <Route path="/admin/firma" element={<AdminCompany />} />
               <Route path="/admin/dokumentlayout" element={<AdminDocumentLayout />} />
               <Route path="/admin/dokumentlayout/editor" element={<AdminDocumentLayoutEditor />} />

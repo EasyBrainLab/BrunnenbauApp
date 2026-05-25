@@ -17,6 +17,7 @@ const inventoryRoutes = require('./routes/inventory');
 const valueListRoutes = require('./routes/valueLists');
 const fieldConfigRoutes = require('./routes/fieldConfigs');
 const graphicsRoutes = require('./routes/graphics');
+const assistantRoutes = require('./routes/assistant');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const tenantSmtpRoutes = require('./routes/tenantSmtp');
@@ -165,6 +166,8 @@ app.use('/api/graphics', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
   next();
 }, graphicsRoutes);
+// KI-Assistent (Chat, Angebotsentwürfe, Vorlagendokumente) – nur Admin, CSRF für Schreibzugriff
+app.use('/api/assistant', csrfProtection, assistantRoutes);
 
 // Oeffentliche Behoerden-Links (kein CSRF noetig, nur GET)
 app.get('/api/authority-links', async (req, res) => {
