@@ -1,15 +1,17 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { withTenantContext } from '../api';
+import { isDemoMode } from '../config/branding';
 
 export default function Layout() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const { company } = useAuth();
+  const demo = isDemoMode();
 
   const companyName = company?.company_name || 'Brunnenbau';
   const headerTitle = 'Brunnen Konfigurator';
-  const tagline = company?.tagline || 'Wasser aus dem eigenen Brunnen';
+  const tagline = demo ? 'Demo-Version – Ihr Branding wird hier eingesetzt' : (company?.tagline || 'Wasser aus dem eigenen Brunnen');
   const logoPath = company?.logo_path || '';
 
   const headerStyle = {
@@ -22,7 +24,16 @@ export default function Layout() {
       <header className="text-white shadow-lg" style={headerStyle}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            {logoPath ? (
+            {demo ? (
+              <div
+                className="h-10 px-3 flex flex-col items-center justify-center rounded-md border-2 border-dashed"
+                style={{ borderColor: 'var(--color-secondary)' }}
+                title="Platzhalter – hier wird Ihr Logo eingesetzt"
+              >
+                <span className="text-[11px] font-semibold leading-none" style={{ color: 'var(--color-header-text)' }}>Ihr Logo</span>
+                <span className="text-[8px] leading-none mt-0.5" style={{ color: 'var(--color-secondary)' }}>bitte einsetzen</span>
+              </div>
+            ) : logoPath ? (
               <img src={logoPath} alt={companyName} className="h-9 w-auto object-contain" />
             ) : (
               <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
@@ -60,7 +71,7 @@ export default function Layout() {
       {!isAdmin && (
         <footer className="text-xs" style={headerStyle}>
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[#efefef]">
-            <p>&copy; {new Date().getFullYear()} {companyName}. Alle Rechte vorbehalten.</p>
+            <p>&copy; {new Date().getFullYear()} {demo ? '[Ihr Firmenname]' : companyName}. Alle Rechte vorbehalten.</p>
             <div className="flex gap-5">
               <a href="/datenschutz" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                 Datenschutz

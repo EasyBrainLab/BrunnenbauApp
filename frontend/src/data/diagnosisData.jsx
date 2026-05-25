@@ -15,9 +15,9 @@
 // --- Steckbrief-Optionen ---------------------------------------------------
 
 export const WELL_KINDS = [
-  { value: 'bohrbrunnen', label: 'Bohrbrunnen (gebohrt, schmales Rohr tief im Boden)' },
-  { value: 'rammbrunnen', label: 'Ramm-/Schlagbrunnen (Rohr in den Boden gerammt)' },
-  { value: 'schachtbrunnen', label: 'Schachtbrunnen (gemauerter/betonierter weiter Schacht)' },
+  { value: 'bohrbrunnen', label: 'Bohrbrunnen' },
+  { value: 'rammbrunnen', label: 'Ramm-/Schlagbrunnen' },
+  { value: 'schachtbrunnen', label: 'Schachtbrunnen' },
   { value: 'quellfassung', label: 'Quellfassung' },
   { value: 'unbekannt', label: 'Ich weiß es nicht' },
 ];
@@ -30,11 +30,11 @@ export const WELL_AGE_OPTIONS = [
 ];
 
 export const DIAG_PUMP_TYPES = [
-  { value: 'tauchpumpe', label: 'Tauchpumpe (hängt im Wasser)' },
-  { value: 'saugpumpe', label: 'Saugpumpe (steht oben, saugt durch Schlauch)' },
+  { value: 'tauchpumpe', label: 'Tauchpumpe' },
+  { value: 'saugpumpe', label: 'Saugpumpe' },
   { value: 'gartenpumpe', label: 'Gartenpumpe' },
-  { value: 'hauswasserwerk', label: 'Hauswasserwerk (Pumpe mit Druckkessel)' },
-  { value: 'tiefbrunnenpumpe', label: 'Tiefbrunnenpumpe (schmale Pumpe tief im Brunnen)' },
+  { value: 'hauswasserwerk', label: 'Hauswasserwerk' },
+  { value: 'tiefbrunnenpumpe', label: 'Tiefbrunnenpumpe' },
   { value: 'schwengelpumpe', label: 'Schwengelpumpe (Handpumpe)' },
   { value: 'keine', label: 'Keine / weiß ich nicht' },
 ];
