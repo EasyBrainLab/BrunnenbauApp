@@ -26,6 +26,9 @@ services:
     env_file:
       - .env
     environment:
+      # Im Container immer 3001 (nginx proxyt fest auf backend:3001, Mapping 3001:3001) –
+      # unabhaengig von einem evtl. abweichenden PORT in der .env (z. B. fuer lokale Entwicklung).
+      PORT: 3001
       DB_CLIENT: ${DB_CLIENT:-postgres}
       DATABASE_URL: ${DATABASE_URL:-postgresql://brunnenbau:brunnenbau@postgres:5432/brunnenbau}
       POSTGRES_DB: ${POSTGRES_DB:-brunnenbau}

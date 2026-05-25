@@ -573,7 +573,12 @@ export function calculateDiagnosis(input) {
 
     if (score <= 0 || max === 0) continue;
 
-    const confidence = Math.max(5, Math.min(99, Math.round((score / max) * 100)));
+    // Passgenauigkeit (getroffene vs. mögliche Indikatoren)
+    const baseConfidence = (score / max) * 100;
+    // Dämpfung bei wenig absoluter Evidenz: verhindert, dass eine Diagnose mit
+    // einem einzigen schwachen Treffer rechnerisch 99 % erreicht.
+    const evidenceFactor = Math.min(1, score / 4);
+    const confidence = Math.max(5, Math.min(99, Math.round(baseConfidence * evidenceFactor)));
     results.push({
       id: diag.id,
       title: diag.title,
@@ -590,7 +595,9 @@ export function calculateDiagnosis(input) {
     });
   }
 
-  results.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+  // Nach angezeigter Konfidenz sortieren (monoton für die Anzeige),
+  // bei Gleichstand entscheidet die absolute Evidenz.
+  results.sort((a, b) => b.confidence - a.confidence || b.score - a.score);
   return results.slice(0, 4);
 }
 
