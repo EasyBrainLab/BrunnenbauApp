@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { WELL_KINDS, WELL_AGE_OPTIONS, DIAG_PUMP_TYPES, DIAG_USAGE_OPTIONS, ONSET_OPTIONS } from '../../data/diagnosisData.jsx';
 import { WELL_KIND_INFO, PUMP_TYPE_INFO } from '../../data/wellSchematics.jsx';
 import SchematicViewer from '../SchematicViewer';
+import { useGraphics } from '../../hooks/useGraphics';
 
 // Auswahlkarte mit aufklappbarer Erklärung + Verfahrensschema
-function ChoiceCard({ name, value, label, info, selected, onSelect }) {
+function ChoiceCard({ name, value, label, info, imageUrl, selected, onSelect }) {
   const [open, setOpen] = useState(false);
   const Schema = info?.Schema;
-  const hasDetails = info && (info.description || Schema);
+  const hasDetails = (info && (info.description || Schema)) || !!imageUrl;
 
   return (
     <div className={`border rounded-lg transition-all ${selected ? 'border-primary-500 bg-primary-50' : 'border-earth-200'}`}>
@@ -40,12 +41,12 @@ function ChoiceCard({ name, value, label, info, selected, onSelect }) {
 
       {open && hasDetails && (
         <div className="px-3 pb-3 pt-2 border-t border-earth-100 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
-          {Schema && (
+          {(Schema || imageUrl) && (
             <div className="max-w-[180px] mx-auto sm:mx-0 w-full">
-              <SchematicViewer Schema={Schema} title={label} description={info.description} />
+              <SchematicViewer Schema={Schema} imageUrl={imageUrl} title={label} description={info?.description} />
             </div>
           )}
-          <p className="text-sm text-gray-600 leading-relaxed">{info.description}</p>
+          <p className="text-sm text-gray-600 leading-relaxed">{info?.description}</p>
         </div>
       )}
     </div>
@@ -53,6 +54,7 @@ function ChoiceCard({ name, value, label, info, selected, onSelect }) {
 }
 
 export default function StepProfile({ data, onChange }) {
+  const { graphics } = useGraphics();
   const selectedUsages = data.usage_purposes ? data.usage_purposes.split(',') : [];
 
   const toggleUsage = (purpose) => {
@@ -82,6 +84,7 @@ export default function StepProfile({ data, onChange }) {
               value={opt.value}
               label={opt.label}
               info={WELL_KIND_INFO[opt.value]}
+              imageUrl={graphics[`wellkind:${opt.value}`]}
               selected={data.well_kind === opt.value}
               onSelect={(v) => onChange('well_kind', v)}
             />
@@ -119,6 +122,7 @@ export default function StepProfile({ data, onChange }) {
               value={opt.value}
               label={opt.label}
               info={PUMP_TYPE_INFO[opt.value]}
+              imageUrl={graphics[`pump:${opt.value}`]}
               selected={data.pump_type === opt.value}
               onSelect={(v) => onChange('pump_type', v)}
             />

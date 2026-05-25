@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 
-// Zeigt ein SVG-Schema als klickbares Thumbnail und öffnet bei Klick eine
-// Lightbox mit großer, gut lesbarer Darstellung + Beschreibung.
-export default function SchematicViewer({ Schema, title, description }) {
+// Zeigt ein SVG-Schema (oder eine hochgeladene Grafik) als klickbares Thumbnail
+// und öffnet bei Klick eine Lightbox mit großer Darstellung + Beschreibung.
+// imageUrl hat Vorrang vor dem eingebauten Schema (eigene Grafik des Kunden).
+export default function SchematicViewer({ Schema, imageUrl, title, description }) {
   const [open, setOpen] = useState(false);
 
   // ESC schließt die Lightbox + Body-Scroll sperren, solange offen
@@ -18,7 +19,12 @@ export default function SchematicViewer({ Schema, title, description }) {
     };
   }, [open]);
 
-  if (!Schema) return null;
+  if (!Schema && !imageUrl) return null;
+  const Graphic = ({ large }) => (
+    imageUrl
+      ? <img src={imageUrl} alt={title || 'Grafik'} className={`w-full h-auto ${large ? 'rounded-lg' : ''}`} />
+      : <Schema />
+  );
 
   return (
     <>
@@ -30,7 +36,7 @@ export default function SchematicViewer({ Schema, title, description }) {
         title="Grafik vergrößern"
         aria-label={`${title || 'Schemazeichnung'} vergrößern`}
       >
-        <Schema />
+        <Graphic large={false} />
         <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-primary-500/90 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-90 group-hover:opacity-100 transition-opacity">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zm-7-3v6m-3-3h6" />
@@ -66,7 +72,7 @@ export default function SchematicViewer({ Schema, title, description }) {
             </div>
             <div className="p-5">
               <div className="max-w-md mx-auto">
-                <Schema />
+                <Graphic large={true} />
               </div>
               {description && (
                 <p className="text-sm text-gray-600 leading-relaxed mt-4">{description}</p>

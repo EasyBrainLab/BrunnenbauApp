@@ -1073,6 +1073,21 @@ function initDatabase() {
       )
     `);
 
+    // === Eigene Grafiken zu Brunnentypen/-arten/Pumpentypen ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS well_type_graphics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL DEFAULT 'default',
+        target_key TEXT NOT NULL,
+        original_name TEXT,
+        stored_name TEXT NOT NULL,
+        mime_type TEXT,
+        size INTEGER,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(tenant_id, target_key)
+      )
+    `);
+
     saveDb();
     return db;
   })();

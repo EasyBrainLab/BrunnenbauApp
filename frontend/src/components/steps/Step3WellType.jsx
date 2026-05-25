@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { WELL_TYPES, getWellTypeCategory, WELL_ADVISOR_QUESTIONS, calculateWellRecommendation } from '../../data/wellTypeData.jsx';
 import { WELL_TYPE_SCHEMA } from '../../data/wellSchematics.jsx';
 import { runPlausibilityChecks } from '../../data/plausibilityRules';
+import { useGraphics } from '../../hooks/useGraphics';
 import CostComparison from '../CostComparison';
 import SchematicViewer from '../SchematicViewer';
 import HauswasserwerkPanel from './HauswasserwerkPanel';
@@ -159,6 +160,7 @@ function CategoryBadge({ category }) {
 }
 
 export default function Step3WellType({ data, errors, onChange }) {
+  const { graphics } = useGraphics();
   const [expandedType, setExpandedType] = useState(null);
   const [showCostComparison, setShowCostComparison] = useState(false);
   const [wellAdvisorOpen, setWellAdvisorOpen] = useState(false);
@@ -264,13 +266,14 @@ export default function Step3WellType({ data, errors, onChange }) {
               )}
 
               {/* Vor-/Nachteile + Schemazeichnung ausklappbar bei Auswahl */}
-              {isSelected && isExpanded && (type.pros.length > 0 || WELL_TYPE_SCHEMA[type.value]) && (
+              {isSelected && isExpanded && (type.pros.length > 0 || WELL_TYPE_SCHEMA[type.value] || graphics[`welltype:${type.value}`]) && (
                 <div className="ml-12 mt-2 p-4 bg-white border border-earth-200 rounded-lg">
-                  {WELL_TYPE_SCHEMA[type.value] && (
+                  {(WELL_TYPE_SCHEMA[type.value] || graphics[`welltype:${type.value}`]) && (
                     <div className="mb-4 max-w-[200px]">
                       <p className="text-sm font-semibold text-gray-700 mb-1">So funktioniert dieser Brunnen:</p>
                       <SchematicViewer
                         Schema={WELL_TYPE_SCHEMA[type.value]}
+                        imageUrl={graphics[`welltype:${type.value}`]}
                         title={type.title}
                         description={type.laypersonDescription}
                       />

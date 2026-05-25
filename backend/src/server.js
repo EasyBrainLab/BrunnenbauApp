@@ -16,6 +16,7 @@ const supplierRoutes = require('./routes/suppliers');
 const inventoryRoutes = require('./routes/inventory');
 const valueListRoutes = require('./routes/valueLists');
 const fieldConfigRoutes = require('./routes/fieldConfigs');
+const graphicsRoutes = require('./routes/graphics');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const tenantSmtpRoutes = require('./routes/tenantSmtp');
@@ -98,6 +99,7 @@ app.use('/api/', apiLimiter);
 // Statische Dateien (Uploads) — oeffentliche Uploads (Logos etc.)
 app.use('/api/uploads/suppliers', express.static(path.join(__dirname, '..', 'uploads', 'suppliers')));
 app.use('/api/uploads/materials', express.static(path.join(__dirname, '..', 'uploads', 'materials')));
+app.use('/api/uploads/graphics', express.static(path.join(__dirname, '..', 'uploads', 'graphics')));
 
 // Geschuetzte Uploads (Kundendateien) — nur fuer eingeloggte Admins
 app.use('/api/uploads', (req, res, next) => {
@@ -158,6 +160,11 @@ app.use('/api/field-configs', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
   next();
 }, fieldConfigRoutes);
+// Brunnentyp-Grafiken: GET öffentlich (Konfigurator/Doktor), Upload/Delete mit CSRF
+app.use('/api/graphics', (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
+  next();
+}, graphicsRoutes);
 
 // Oeffentliche Behoerden-Links (kein CSRF noetig, nur GET)
 app.get('/api/authority-links', async (req, res) => {
