@@ -343,6 +343,17 @@ export const WELL_KIND_INFO = {
   },
 };
 
+// Zuordnung der Bau-Konfigurator-Brunnentypen zu passenden Verfahrensschemata
+export const WELL_TYPE_SCHEMA = {
+  gespuelt: BohrbrunnenSchema,
+  handpumpe: SchwengelSchema,
+  tauchpumpe: TauchSchema,
+  hauswasserwerk: HauswasserwerkSchema,
+  tiefbrunnen: TiefbrunnenSchema,
+  industrie: TiefbrunnenSchema,
+  // beratung: bewusst kein Schema
+};
+
 export const PUMP_TYPE_INFO = {
   saugpumpe: {
     Schema: SaugSchema,

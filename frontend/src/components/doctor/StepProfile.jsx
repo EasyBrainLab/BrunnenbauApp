@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { WELL_KINDS, WELL_AGE_OPTIONS, DIAG_PUMP_TYPES, DIAG_USAGE_OPTIONS, ONSET_OPTIONS } from '../../data/diagnosisData.jsx';
 import { WELL_KIND_INFO, PUMP_TYPE_INFO } from '../../data/wellSchematics.jsx';
+import SchematicViewer from '../SchematicViewer';
 
 // Auswahlkarte mit aufklappbarer Erklärung + Verfahrensschema
 function ChoiceCard({ name, value, label, info, selected, onSelect }) {
@@ -38,10 +39,10 @@ function ChoiceCard({ name, value, label, info, selected, onSelect }) {
       </div>
 
       {open && hasDetails && (
-        <div className="px-3 pb-3 pt-2 border-t border-earth-100 grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-4 items-start">
+        <div className="px-3 pb-3 pt-2 border-t border-earth-100 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-start">
           {Schema && (
-            <div className="bg-white rounded-lg border border-earth-100 p-2 max-w-[180px] mx-auto sm:mx-0 w-full">
-              <Schema />
+            <div className="max-w-[180px] mx-auto sm:mx-0 w-full">
+              <SchematicViewer Schema={Schema} title={label} description={info.description} />
             </div>
           )}
           <p className="text-sm text-gray-600 leading-relaxed">{info.description}</p>
