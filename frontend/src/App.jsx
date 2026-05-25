@@ -14,6 +14,7 @@ import AdminCosts from './pages/AdminCosts';
 import AdminSuppliers from './pages/AdminSuppliers';
 import AdminInventory from './pages/AdminInventory';
 import AdminValueLists from './pages/AdminValueLists';
+import AdminFieldConfig from './pages/AdminFieldConfig';
 import AdminCompany from './pages/AdminCompany';
 import AdminDocumentLayout from './pages/AdminDocumentLayout';
 import AdminDocumentLayoutEditor from './pages/AdminDocumentLayoutEditor';
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
               <Route path="/admin/lager" element={<AdminInventory />} />
               <Route path="/admin/wertelisten" element={<AdminValueLists />} />
+              <Route path="/admin/felder" element={<AdminFieldConfig />} />
               <Route path="/admin/firma" element={<AdminCompany />} />
               <Route path="/admin/dokumentlayout" element={<AdminDocumentLayout />} />
               <Route path="/admin/dokumentlayout/editor" element={<AdminDocumentLayoutEditor />} />

@@ -79,6 +79,14 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/admin/felder',
+    label: 'Felder & Wertelisten',
+    permission: 'value_lists_manage',
+    icon: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h7a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2z" />
+    ),
+  },
+  {
     to: '/admin/behoerden-links',
     label: 'Behoerden-Links',
     permission: 'authority_links_manage',

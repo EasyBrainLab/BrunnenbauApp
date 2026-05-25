@@ -1060,6 +1060,19 @@ function initDatabase() {
       }
     } catch (e) { /* ignore */ }
 
+    // === Feld-Konfiguration (dynamische Popup-Felder) ===
+    db.run(`
+      CREATE TABLE IF NOT EXISTS field_configs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL DEFAULT 'default',
+        field_key TEXT NOT NULL,
+        field_type TEXT NOT NULL DEFAULT 'text',
+        value_list_key TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(tenant_id, field_key)
+      )
+    `);
+
     saveDb();
     return db;
   })();

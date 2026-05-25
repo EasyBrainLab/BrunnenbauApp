@@ -15,6 +15,7 @@ const costRoutes = require('./routes/costs');
 const supplierRoutes = require('./routes/suppliers');
 const inventoryRoutes = require('./routes/inventory');
 const valueListRoutes = require('./routes/valueLists');
+const fieldConfigRoutes = require('./routes/fieldConfigs');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const tenantSmtpRoutes = require('./routes/tenantSmtp');
@@ -152,6 +153,11 @@ app.use('/api/value-lists', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
   next();
 }, valueListRoutes);
+// Feld-Konfiguration: GET öffentlich (Formulare), Schreibzugriff mit CSRF
+app.use('/api/field-configs', (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) return csrfProtection(req, res, next);
+  next();
+}, fieldConfigRoutes);
 
 // Oeffentliche Behoerden-Links (kein CSRF noetig, nur GET)
 app.get('/api/authority-links', async (req, res) => {

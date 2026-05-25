@@ -4,6 +4,7 @@ import { apiGet, apiPost, apiPut, apiDelete, withTenantContext } from '../api';
 import { invalidateValueListCache, useValueList } from '../hooks/useValueList';
 import { COST_INFO, WELL_TYPE_LABELS as WELL_LABELS_DATA } from '../data/wellTypeData.jsx';
 import { useDialog } from '../context/DialogContext';
+import SmartField from '../components/SmartField';
 
 const EMPTY_FORM = {
   name: '', category: 'material', unit: '', unit_price: '', description: '', supplier: '',
@@ -512,7 +513,7 @@ export default function AdminCosts() {
             </div>
             <div>
               <label className="form-label">Hersteller</label>
-              <input type="text" value={form.manufacturer} onChange={(e) => F('manufacturer', e.target.value)} className="form-input" />
+              <SmartField fieldKey="material.manufacturer" value={form.manufacturer} onChange={(v) => F('manufacturer', v)} />
             </div>
             <div>
               <label className="form-label">Hersteller-ArtNr.</label>
@@ -543,11 +544,11 @@ export default function AdminCosts() {
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div>
               <label className="form-label">Gefahrklasse</label>
-              <input type="text" value={form.hazard_class} onChange={(e) => F('hazard_class', e.target.value)} className="form-input" />
+              <SmartField fieldKey="material.hazard_class" value={form.hazard_class} onChange={(v) => F('hazard_class', v)} />
             </div>
             <div>
               <label className="form-label">Lagerhinweise</label>
-              <input type="text" value={form.storage_instructions} onChange={(e) => F('storage_instructions', e.target.value)} className="form-input" />
+              <SmartField fieldKey="material.storage_instructions" value={form.storage_instructions} onChange={(v) => F('storage_instructions', v)} />
             </div>
           </div>
         </Section>
