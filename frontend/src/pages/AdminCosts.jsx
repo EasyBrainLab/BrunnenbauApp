@@ -13,6 +13,39 @@ const EMPTY_FORM = {
   is_active: 1, hazard_class: '', storage_instructions: '',
 };
 
+// Auf Modulebene definiert (NICHT innerhalb der Komponente), damit diese
+// Komponenten bei jedem Render stabil bleiben und Formularfelder nicht
+// remountet werden (sonst springt der Cursor nach jedem Tastendruck).
+function UnitSelect({ value, onChange, units, className }) {
+  return (
+    <select value={value} onChange={onChange} className={className || 'form-input'}>
+      <option value="">-- Einheit --</option>
+      {units.map((u) => (
+        <option key={u.id} value={u.abbreviation}>{u.abbreviation} ({u.name})</option>
+      ))}
+    </select>
+  );
+}
+
+function Section({ id, title, openSections, onToggle, sectionRefs, children }) {
+  const open = !!openSections[id];
+  return (
+    <div ref={(el) => { sectionRefs.current[id] = el; }} className="border border-earth-200 rounded-lg mb-2">
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        className="w-full flex justify-between items-center px-4 py-2 bg-earth-50 hover:bg-earth-100 rounded-t-lg text-sm font-medium text-gray-700"
+      >
+        {title}
+        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="px-4 py-3">{children}</div>}
+    </div>
+  );
+}
+
 export default function AdminCosts() {
   const navigate = useNavigate();
   const { confirm, alert } = useDialog();
@@ -132,17 +165,6 @@ export default function AdminCosts() {
   };
 
   // === Unit helpers ===
-  function UnitSelect({ value, onChange, className }) {
-    return (
-      <select value={value} onChange={onChange} className={className || 'form-input'}>
-        <option value="">-- Einheit --</option>
-        {units.map((u) => (
-          <option key={u.id} value={u.abbreviation}>{u.abbreviation} ({u.name})</option>
-        ))}
-      </select>
-    );
-  }
-
   const handleAddUnit = async () => {
     if (!newUnit.name.trim() || !newUnit.abbreviation.trim()) return;
     const res = await apiPost('/api/costs/units', newUnit);
@@ -445,7 +467,7 @@ export default function AdminCosts() {
   function renderEditFormContent() {
     return (
       <>
-        <Section id="stammdaten" title="Stammdaten">
+        <Section id="stammdaten" title="Stammdaten" openSections={openSections} onToggle={toggleSection} sectionRefs={sectionRefs}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="form-label">Name *</label>
@@ -459,7 +481,7 @@ export default function AdminCosts() {
             </div>
             <div>
               <label className="form-label">Einheit *</label>
-              <UnitSelect value={form.unit} onChange={(e) => F('unit', e.target.value)} />
+              <UnitSelect value={form.unit} onChange={(e) => F('unit', e.target.value)} units={units} />
             </div>
             <div>
               <label className="form-label">VK-Preis (EUR) *</label>
@@ -482,7 +504,7 @@ export default function AdminCosts() {
           </div>
         </Section>
 
-        <Section id="identifikation" title="Identifikation">
+        <Section id="identifikation" title="Identifikation" openSections={openSections} onToggle={toggleSection} sectionRefs={sectionRefs}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="form-label">Materialnr.</label>
@@ -499,7 +521,7 @@ export default function AdminCosts() {
           </div>
         </Section>
 
-        <Section id="physisch" title="Physische Eigenschaften">
+        <Section id="physisch" title="Physische Eigenschaften" openSections={openSections} onToggle={toggleSection} sectionRefs={sectionRefs}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className="form-label">Gewicht (kg)</label>
@@ -530,7 +552,7 @@ export default function AdminCosts() {
           </div>
         </Section>
 
-        <Section id="bestellung" title="Bestellung">
+        <Section id="bestellung" title="Bestellung" openSections={openSections} onToggle={toggleSection} sectionRefs={sectionRefs}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="form-label">Min-Bestellmenge</label>
@@ -547,7 +569,7 @@ export default function AdminCosts() {
           </div>
         </Section>
 
-        <Section id="bild" title="Bild">
+        <Section id="bild" title="Bild" openSections={openSections} onToggle={toggleSection} sectionRefs={sectionRefs}>
           <div className="flex items-start gap-4">
             {imagePreview && (
               <div className="relative">
@@ -588,24 +610,6 @@ export default function AdminCosts() {
     );
   }
 
-  // Accordion Section component with scroll-into-view
-  function Section({ id, title, children }) {
-    return (
-      <div ref={(el) => { sectionRefs.current[id] = el; }} className="border border-earth-200 rounded-lg mb-2">
-        <button
-          type="button"
-          onClick={() => toggleSection(id)}
-          className="w-full flex justify-between items-center px-4 py-2 bg-earth-50 hover:bg-earth-100 rounded-t-lg text-sm font-medium text-gray-700"
-        >
-          {title}
-          <svg className={`w-4 h-4 transition-transform ${openSections[id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {openSections[id] && <div className="px-4 py-3">{children}</div>}
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
