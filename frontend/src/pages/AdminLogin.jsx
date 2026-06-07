@@ -29,14 +29,21 @@ export default function AdminLogin() {
 
     try {
       // Versuche neuen Auth-Endpoint, Fallback auf Legacy
+      let loginError = null;
       try {
         await login(username, password);
-      } catch {
+      } catch (err) {
+        loginError = err;
         await loginLegacy(username, password);
       }
       navigate(withTenantContext('/admin/dashboard'));
-    } catch {
-      setError('Ungueltige Zugangsdaten');
+    } catch (err) {
+      const msg = err?.message || '';
+      if (msg.includes('CSRF') || msg.includes('403')) {
+        setError('Sitzungsfehler – bitte Seite neu laden und erneut versuchen.');
+      } else {
+        setError(msg || 'Ungueltige Zugangsdaten');
+      }
     }
   };
 

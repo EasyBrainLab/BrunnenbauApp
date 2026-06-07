@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiGet, apiPost, apiPut, setActiveTenantContext } from '../api';
+import { apiGet, apiPost, apiPut, setActiveTenantContext, fetchCsrfToken } from '../api';
 import { invalidateValueListCache } from '../hooks/useValueList';
 
 const AuthContext = createContext(null);
@@ -13,6 +13,10 @@ export function AuthProvider({ children }) {
 
   const checkAuth = useCallback(async () => {
     try {
+      // CSRF-Token und Session proaktiv etablieren, damit beim Login
+      // bereits ein gueltiger Session-Cookie im Browser vorhanden ist.
+      await fetchCsrfToken();
+
       let bootstrapTenant = null;
       const [bootstrapRes, authRes] = await Promise.all([
         apiGet('/api/admin/public/bootstrap'),
