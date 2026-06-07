@@ -559,7 +559,7 @@ export default function QuoteGenerator({ inquiryId, wellType }) {
                             const qtyDisplay = item.quantity != null ? `${qty}` : `${item.quantity_min}–${item.quantity_max}`;
                             const totalDisplay = item.total != null
                               ? `${Number(item.total).toFixed(2)} EUR`
-                              : `${item.total_min.toFixed(0)}–${item.total_max.toFixed(0)} EUR`;
+                              : `${Number(item.total_min).toFixed(0)}–${Number(item.total_max).toFixed(0)} EUR`;
                             return (
                               <tr key={i} className="border-b border-earth-50">
                                 <td className="py-1">{item.name}</td>

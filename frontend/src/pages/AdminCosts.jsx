@@ -725,7 +725,7 @@ export default function AdminCosts() {
                               </span>
                             </td>
                             <td className="py-2">{item.unit}</td>
-                            <td className="py-2 text-right">{item.unit_price != null ? item.unit_price.toFixed(2) : '-'} EUR</td>
+                            <td className="py-2 text-right">{item.unit_price != null ? Number(item.unit_price).toFixed(2) : '-'} EUR</td>
                             <td className="py-2 text-gray-500 text-xs">{item.manufacturer || '-'}</td>
                             <td className="py-2 text-center">
                               {item.is_active === 0 ? (
@@ -783,7 +783,7 @@ export default function AdminCosts() {
                                         <tr key={is.id} className="border-b border-earth-100">
                                           <td className="py-1">{is.supplier_name}</td>
                                           <td className="py-1">{is.supplier_article_number || '-'}</td>
-                                          <td className="py-1 text-right">{is.supplier_price != null ? `${is.supplier_price.toFixed(2)} EUR` : '-'}</td>
+                                          <td className="py-1 text-right">{is.supplier_price != null ? `${Number(is.supplier_price).toFixed(2)} EUR` : '-'}</td>
                                           <td className="py-1 text-right">
                                             <button onClick={() => handleDeleteItemSupplier(is.id, item.id)} className="text-red-400 hover:text-red-600">Entfernen</button>
                                           </td>
@@ -970,7 +970,7 @@ export default function AdminCosts() {
                         </td>
                         <td className="py-1 font-medium">{b.name}</td>
                         <td className="py-1">{b.unit}</td>
-                        <td className="py-1 text-right">{b.unit_price.toFixed(2)} EUR</td>
+                        <td className="py-1 text-right">{Number(b.unit_price).toFixed(2)} EUR</td>
                         <td className="py-1 text-right">
                           <div className="flex gap-1 justify-end">
                             <input type="number" step="0.01" value={bomEditForm.quantity_min} onChange={(e) => BF('quantity_min', e.target.value)} className="form-input text-sm py-1 w-20 text-right" />
@@ -979,7 +979,7 @@ export default function AdminCosts() {
                           </div>
                         </td>
                         <td className="py-1 text-right text-gray-400">
-                          {(b.unit_price * (parseFloat(bomEditForm.quantity_min) || 0)).toFixed(0)} - {(b.unit_price * (parseFloat(bomEditForm.quantity_max) || 0)).toFixed(0)} EUR
+                          {(Number(b.unit_price) * (parseFloat(bomEditForm.quantity_min) || 0)).toFixed(0)} - {(Number(b.unit_price) * (parseFloat(bomEditForm.quantity_max) || 0)).toFixed(0)} EUR
                         </td>
                         <td className="py-1">
                           <input type="text" value={bomEditForm.notes} onChange={(e) => BF('notes', e.target.value)} className="form-input text-sm py-1 w-full" placeholder="Notizen..." />
@@ -994,10 +994,10 @@ export default function AdminCosts() {
                         <td className="py-2 text-center text-gray-400 font-mono text-xs">{b.sort_order || (idx + 1) * 10}</td>
                         <td className="py-2 font-medium">{b.name}</td>
                         <td className="py-2">{b.unit}</td>
-                        <td className="py-2 text-right">{b.unit_price.toFixed(2)} EUR</td>
+                        <td className="py-2 text-right">{Number(b.unit_price).toFixed(2)} EUR</td>
                         <td className="py-2 text-right">{b.quantity_min} - {b.quantity_max}</td>
                         <td className="py-2 text-right">
-                          {(b.unit_price * b.quantity_min).toFixed(0)} - {(b.unit_price * b.quantity_max).toFixed(0)} EUR
+                          {(Number(b.unit_price) * Number(b.quantity_min)).toFixed(0)} - {(Number(b.unit_price) * Number(b.quantity_max)).toFixed(0)} EUR
                         </td>
                         <td className="py-2 text-gray-400 text-xs">{b.notes || ''}</td>
                         <td className="py-2 text-right whitespace-nowrap">
@@ -1012,8 +1012,8 @@ export default function AdminCosts() {
                   <tr className="font-bold">
                     <td className="pt-2" colSpan={5}>Gesamt</td>
                     <td className="pt-2 text-right">
-                      {bom.reduce((s, b) => s + b.unit_price * b.quantity_min, 0).toFixed(0)} -{' '}
-                      {bom.reduce((s, b) => s + b.unit_price * b.quantity_max, 0).toFixed(0)} EUR
+                      {bom.reduce((s, b) => s + Number(b.unit_price) * Number(b.quantity_min), 0).toFixed(0)} -{' '}
+                      {bom.reduce((s, b) => s + Number(b.unit_price) * Number(b.quantity_max), 0).toFixed(0)} EUR
                     </td>
                     <td colSpan={2} />
                   </tr>
@@ -1031,7 +1031,7 @@ export default function AdminCosts() {
                     .filter((i) => !bom.some((b) => b.cost_item_id === i.id))
                     .map((i) => (
                       <option key={i.id} value={i.id}>
-                        {i.material_number ? `${i.material_number} - ` : ''}{i.name} ({i.unit_price.toFixed(2)} EUR/{i.unit})
+                        {i.material_number ? `${i.material_number} - ` : ''}{i.name} ({Number(i.unit_price).toFixed(2)} EUR/{i.unit})
                       </option>
                     ))}
                 </select>

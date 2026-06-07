@@ -1,7 +1,12 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// PostgreSQL NUMERIC (OID 1700) als JavaScript-Number zurueckgeben statt als String.
+// Ohne diesen Parser liefert pg NUMERIC-Spalten (z.B. unit_price NUMERIC(12,2))
+// als Strings ("70.00"), was im Frontend bei .toFixed() etc. crasht.
+types.setTypeParser(1700, (val) => val === null ? null : parseFloat(val));
 
 const DB_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DB_DIR, 'brunnenbau.db');
