@@ -12,12 +12,13 @@ export default function Layout() {
   const companyName = company?.company_name || 'Brunnenbau';
   const headerTitle = 'Brunnen Konfigurator';
   const logoPath = company?.logo_path || '';
-  // White-Label-Zustand: solange kein eigenes Logo hochgeladen wurde (oder Demo),
-  // wird statt Firmenname/-logo ein neutraler Platzhalter angezeigt.
-  const showPlaceholder = demo || !logoPath;
-  const tagline = demo
+  // White-Label-Zustand: solange kein eigenes Logo hochgeladen wurde, wird ein
+  // neutraler Platzhalter angezeigt. Ein hochgeladenes Logo gewinnt immer —
+  // auch im Demo-Modus (der nur den Hinweis-Untertitel steuert, solange kein Logo da ist).
+  const showPlaceholder = !logoPath;
+  const tagline = showPlaceholder && demo
     ? 'Demo-Version – Ihr Branding wird hier eingesetzt'
-    : (logoPath ? (company?.tagline || 'Wasser aus dem eigenen Brunnen') : 'Wasser aus dem eigenen Brunnen');
+    : (company?.tagline || 'Wasser aus dem eigenen Brunnen');
 
   const headerStyle = {
     background: 'linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { apiGet, apiPut, apiDelete, fetchCsrfToken, withTenantContext } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const SECTIONS = [
   {
@@ -102,6 +103,7 @@ const SECTIONS = [
 ];
 
 export default function AdminCompany() {
+  const { refreshAuth } = useAuth();
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -136,6 +138,7 @@ export default function AdminCompany() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Unbekannter Fehler');
       }
+      await refreshAuth(); // Kopfzeile (Firmenname/Farben) sofort aktualisieren
       setMessage('Firmendaten gespeichert.');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -171,6 +174,7 @@ export default function AdminCompany() {
 
       const data = await res.json();
       setSettings((prev) => ({ ...prev, logo_path: data.logo_path }));
+      await refreshAuth(); // Kopfzeile (Logo/Branding) sofort aktualisieren
       setMessage('Logo hochgeladen.');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -186,6 +190,7 @@ export default function AdminCompany() {
     try {
       await apiDelete('/api/admin/company-logo');
       setSettings((prev) => ({ ...prev, logo_path: '' }));
+      await refreshAuth(); // Kopfzeile (Logo/Branding) sofort aktualisieren
       setMessage('Logo entfernt.');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {

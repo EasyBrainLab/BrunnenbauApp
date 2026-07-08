@@ -104,8 +104,8 @@ app.use('/api/uploads/graphics', express.static(path.join(__dirname, '..', 'uplo
 
 // Geschuetzte Uploads (Kundendateien) — nur fuer eingeloggte Admins
 app.use('/api/uploads', (req, res, next) => {
-  // Logo-Dateien sind oeffentlich
-  if (req.path.match(/^\/logo\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+  // Logo-Dateien sind oeffentlich (auch mandantenspezifische wie logo-default.png)
+  if (req.path.match(/^\/logo[\w-]*\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
     return next();
   }
   // Alles andere erfordert Admin-Auth
