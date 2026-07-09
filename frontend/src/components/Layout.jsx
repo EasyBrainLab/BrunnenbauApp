@@ -47,6 +47,11 @@ export default function Layout() {
             </div>
           </Link>
           <nav className="flex items-center gap-4 text-[13px]">
+            {!isAdmin && demo && (
+              <Link to="/willkommen" className="hover:text-white transition-colors" style={{ color: 'var(--color-secondary)' }}>
+                Über BrunnenbauApp
+              </Link>
+            )}
             {!isAdmin && (
               <Link to={withTenantContext('/admin')} className="hover:text-white transition-colors" style={{ color: 'var(--color-secondary)' }}>
                 Admin

@@ -34,18 +34,19 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminSmtp = lazy(() => import('./pages/AdminSmtp'));
 
 export default function App() {
-  // Auf dem Demo-/Vertriebs-Host (bbtemp bzw. ?demo=1) ist "/" die Marketing-Landingpage;
-  // der Konfigurator ist dann unter /konfigurator erreichbar. Auf echten Kunden-Instanzen
-  // bleibt "/" direkt der Konfigurator (Endkunden sollen kein Vertriebs-Layout sehen).
+  // "/" ist ueberall direkt der Konfigurator (Ersteindruck = das Produkt).
+  // Auf dem Demo-/Vertriebs-Host (bbtemp bzw. ?demo=1) ist zusaetzlich die
+  // Marketing-Landingpage unter /willkommen erreichbar und wird aus dem
+  // Konfigurator-Header verlinkt. /konfigurator bleibt als Alias bestehen.
   const demo = isDemoMode();
 
   return (
     <AuthProvider>
       <DialogProvider>
         <Routes>
-          {demo && <Route path="/" element={<LandingPage />} />}
+          {demo && <Route path="/willkommen" element={<LandingPage />} />}
           <Route element={<Layout />}>
-            {!demo && <Route path="/" element={<WizardPage />} />}
+            <Route path="/" element={<WizardPage />} />
             <Route path="/konfigurator" element={<WizardPage />} />
             <Route path="/doktor" element={<DoctorWizardPage />} />
             <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
