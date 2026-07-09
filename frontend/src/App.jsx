@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { isDemoMode } from './config/branding';
+import LandingPage from './pages/LandingPage';
 import WizardPage from './pages/WizardPage';
 import DoctorWizardPage from './pages/DoctorWizardPage';
 import AdminDiagnostics from './pages/AdminDiagnostics';
@@ -32,12 +34,19 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminSmtp = lazy(() => import('./pages/AdminSmtp'));
 
 export default function App() {
+  // Auf dem Demo-/Vertriebs-Host (bbtemp bzw. ?demo=1) ist "/" die Marketing-Landingpage;
+  // der Konfigurator ist dann unter /konfigurator erreichbar. Auf echten Kunden-Instanzen
+  // bleibt "/" direkt der Konfigurator (Endkunden sollen kein Vertriebs-Layout sehen).
+  const demo = isDemoMode();
+
   return (
     <AuthProvider>
       <DialogProvider>
         <Routes>
+          {demo && <Route path="/" element={<LandingPage />} />}
           <Route element={<Layout />}>
-            <Route path="/" element={<WizardPage />} />
+            {!demo && <Route path="/" element={<WizardPage />} />}
+            <Route path="/konfigurator" element={<WizardPage />} />
             <Route path="/doktor" element={<DoctorWizardPage />} />
             <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
             <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />

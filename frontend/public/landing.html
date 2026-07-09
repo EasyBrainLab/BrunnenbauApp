@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="BrunnenbauApp – Anfrage- und Angebotsverwaltung fuer Brunnenbaubetriebe. Konfigurator fuer Ihre Website, Interessentenliste, Angebote als PDF. 3 Tage kostenlos testen.">
+<title>BrunnenbauApp – 3 Tage kostenlos testen</title>
+<style>
+/* ============================================================
+   BrunnenbauApp · Landingpage Test-Account-Kampagne (Entwurf)
+   Farbsteuerung ausschließlich über die Brand-Tokens auf :root.
+   ============================================================ */
+
+:root{
+  /* Marken-Tokens — Umfärben der Seite nur hier */
+  --brand-primary:#1b59b7;
+  --brand-deep:#072370;
+  --brand-surface:#e8f0fb;
+  --brand-ink:#101a2e;
+  --brand-accent:#2fa3a0;
+  --brand-on-dark:#ffffff;
+
+  /* Abgeleitete, semantische Tokens (Light) */
+  --bg:#ffffff;
+  --bg-tint:color-mix(in srgb, var(--brand-surface) 52%, var(--bg));
+  --surface:var(--brand-surface);
+  --card:#ffffff;
+  --ink:var(--brand-ink);
+  --ink-soft:color-mix(in srgb, var(--brand-ink) 68%, var(--brand-surface));
+  --line:color-mix(in srgb, var(--brand-primary) 16%, transparent);
+  --line-strong:color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  --link:var(--brand-primary);
+  --accent:var(--brand-accent);
+  --accent-ink:color-mix(in srgb, var(--brand-accent) 62%, var(--brand-ink));
+  --btn-bg:var(--brand-primary);
+  --btn-bg-hover:color-mix(in srgb, var(--brand-primary) 82%, var(--brand-ink));
+  --btn-ink:var(--brand-on-dark);
+
+  /* Dunkle Flächen (Hero, Zitate, Footer) — in beiden Themes dunkel */
+  --deep:var(--brand-deep);
+  --hero-grad:linear-gradient(158deg, var(--brand-deep) 4%, color-mix(in srgb, var(--brand-deep) 55%, var(--brand-primary)) 58%, var(--brand-primary) 130%);
+  --on-dark:var(--brand-on-dark);
+  --on-dark-soft:color-mix(in srgb, var(--brand-on-dark) 76%, var(--brand-deep));
+  --on-dark-line:color-mix(in srgb, var(--brand-on-dark) 16%, transparent);
+  --footer-bg:color-mix(in srgb, var(--brand-ink) 94%, black);
+
+  --focus:var(--brand-accent);
+  --error-on-dark:#ffb9ad;
+  --error:#b3261e;
+  --shadow:0 18px 44px color-mix(in srgb, var(--brand-deep) 20%, transparent);
+
+  --radius:10px;
+  --wrap:1120px;
+  --font:'Avenir Next','Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:color-mix(in srgb, var(--brand-ink) 88%, black);
+    --bg-tint:color-mix(in srgb, var(--brand-ink) 90%, var(--brand-primary));
+    --surface:color-mix(in srgb, var(--brand-ink) 82%, var(--brand-primary));
+    --card:color-mix(in srgb, var(--brand-ink) 88%, var(--brand-on-dark));
+    --ink:color-mix(in srgb, var(--brand-surface) 94%, var(--brand-on-dark));
+    --ink-soft:color-mix(in srgb, var(--brand-surface) 62%, var(--brand-ink));
+    --line:color-mix(in srgb, var(--brand-surface) 15%, transparent);
+    --line-strong:color-mix(in srgb, var(--brand-surface) 30%, transparent);
+    --link:color-mix(in srgb, var(--brand-primary) 52%, var(--brand-on-dark));
+    --accent-ink:color-mix(in srgb, var(--brand-accent) 72%, var(--brand-on-dark));
+    --btn-bg-hover:color-mix(in srgb, var(--brand-primary) 78%, var(--brand-on-dark));
+    --error:#ffb9ad;
+    --shadow:0 18px 44px color-mix(in srgb, black 46%, transparent);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:color-mix(in srgb, var(--brand-ink) 88%, black);
+  --bg-tint:color-mix(in srgb, var(--brand-ink) 90%, var(--brand-primary));
+  --surface:color-mix(in srgb, var(--brand-ink) 82%, var(--brand-primary));
+  --card:color-mix(in srgb, var(--brand-ink) 88%, var(--brand-on-dark));
+  --ink:color-mix(in srgb, var(--brand-surface) 94%, var(--brand-on-dark));
+  --ink-soft:color-mix(in srgb, var(--brand-surface) 62%, var(--brand-ink));
+  --line:color-mix(in srgb, var(--brand-surface) 15%, transparent);
+  --line-strong:color-mix(in srgb, var(--brand-surface) 30%, transparent);
+  --link:color-mix(in srgb, var(--brand-primary) 52%, var(--brand-on-dark));
+  --accent-ink:color-mix(in srgb, var(--brand-accent) 72%, var(--brand-on-dark));
+  --btn-bg-hover:color-mix(in srgb, var(--brand-primary) 78%, var(--brand-on-dark));
+  --error:#ffb9ad;
+  --shadow:0 18px 44px color-mix(in srgb, black 46%, transparent);
+}
+:root[data-theme="light"]{
+  --bg:#ffffff;
+  --bg-tint:color-mix(in srgb, var(--brand-surface) 52%, var(--bg));
+  --surface:var(--brand-surface);
+  --card:#ffffff;
+  --ink:var(--brand-ink);
+  --ink-soft:color-mix(in srgb, var(--brand-ink) 68%, var(--brand-surface));
+  --line:color-mix(in srgb, var(--brand-primary) 16%, transparent);
+  --line-strong:color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  --link:var(--brand-primary);
+  --accent-ink:color-mix(in srgb, var(--brand-accent) 62%, var(--brand-ink));
+  --btn-bg-hover:color-mix(in srgb, var(--brand-primary) 82%, var(--brand-ink));
+  --error:#b3261e;
+  --shadow:0 18px 44px color-mix(in srgb, var(--brand-deep) 20%, transparent);
+}
+
+/* ---------- Basis ---------- */
+*,*::before,*::after{box-sizing:border-box}
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+}
+body{
+  margin:0;
+  font-family:var(--font);
+  font-size:1.0625rem;
+  line-height:1.65;
+  color:var(--ink);
+  background:var(--bg);
+  overflow-x:clip;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{
+  font-weight:700;
+  letter-spacing:-0.015em;
+  line-height:1.15;
+  text-wrap:balance;
+  margin:0 0 .6em;
+}
+p{margin:0 0 1em}
+a{color:var(--link)}
+img,svg{max-width:100%;height:auto}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:4px}
+::selection{background:color-mix(in srgb, var(--brand-primary) 24%, transparent)}
+
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-inline:clamp(20px,5vw,48px)}
+section[id],div[id]{scroll-margin-top:92px}
+
+.eyebrow{
+  display:block;
+  font-size:.78rem;
+  font-weight:600;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--accent-ink);
+  margin-bottom:1rem;
+}
+.caption{
+  font-size:.75rem;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+  font-weight:600;
+  color:var(--ink-soft);
+}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+.skip-link{
+  position:absolute;left:8px;top:-60px;z-index:100;
+  background:var(--brand-accent);color:var(--brand-ink);
+  font-weight:700;padding:.6rem 1rem;border-radius:6px;
+  transition:top .15s;
+}
+.skip-link:focus{top:8px}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-family:inherit;font-weight:700;font-size:1rem;line-height:1.2;
+  padding:.85rem 1.5rem;border-radius:8px;border:1px solid transparent;
+  cursor:pointer;text-decoration:none;white-space:nowrap;
+  transition:background-color .15s ease,color .15s ease,transform .15s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn-solid{background:var(--btn-bg);color:var(--btn-ink)}
+.btn-solid:hover{background:var(--btn-bg-hover)}
+.btn-light{background:var(--brand-on-dark);color:var(--brand-primary)}
+.btn-light:hover{background:color-mix(in srgb, var(--brand-on-dark) 88%, var(--brand-primary))}
+.btn-ghost{
+  background:transparent;color:var(--on-dark);
+  border-color:color-mix(in srgb, var(--brand-on-dark) 42%, transparent);
+  font-size:.92rem;padding:.55rem 1.1rem;
+}
+.btn-ghost:hover{background:color-mix(in srgb, var(--brand-on-dark) 12%, transparent)}
+.btn-outline{
+  background:transparent;color:var(--on-dark);
+  border:1.5px solid color-mix(in srgb, var(--brand-accent) 72%, var(--brand-on-dark));
+}
+.btn-outline:hover{background:color-mix(in srgb, var(--brand-on-dark) 12%, transparent);border-color:var(--brand-accent)}
+.btn-lg{padding:.95rem 1.7rem;font-size:1.05rem}
+
+/* ---------- Kopfleiste ---------- */
+.site-head{
+  position:sticky;top:0;z-index:50;
+  background:var(--deep);
+  border-bottom:1px solid var(--on-dark-line);
+}
+.head-in{
+  display:flex;align-items:center;justify-content:space-between;gap:1.5rem;
+  min-height:64px;position:relative;
+}
+.brand{
+  display:inline-flex;align-items:center;gap:.6rem;
+  color:var(--on-dark);text-decoration:none;
+  font-weight:700;font-size:1.08rem;letter-spacing:-0.01em;
+}
+.brand svg{flex:none}
+.site-nav{display:flex;align-items:center;gap:1.7rem}
+.site-nav a:not(.btn){
+  color:var(--on-dark-soft);text-decoration:none;
+  font-size:.95rem;font-weight:600;
+  padding:.3rem 0;border-bottom:2px solid transparent;
+}
+.site-nav a:not(.btn):hover{color:var(--on-dark);border-bottom-color:var(--brand-accent)}
+.menu-btn{
+  display:none;background:transparent;border:1px solid var(--on-dark-line);
+  border-radius:8px;padding:.5rem .6rem;cursor:pointer;color:var(--on-dark);
+}
+@media (max-width: 780px){
+  .menu-btn{display:inline-flex;align-items:center}
+  .site-nav{
+    display:none;
+    position:absolute;top:100%;left:calc(-1 * clamp(20px,5vw,48px));right:calc(-1 * clamp(20px,5vw,48px));
+    flex-direction:column;align-items:stretch;gap:.15rem;
+    background:var(--deep);
+    padding:.8rem clamp(20px,5vw,48px) 1.4rem;
+    border-bottom:1px solid var(--on-dark-line);
+    box-shadow:var(--shadow);
+  }
+  .site-head.nav-open .site-nav{display:flex}
+  .site-nav a:not(.btn){padding:.65rem 0;border-bottom:1px solid var(--on-dark-line)}
+  .site-nav .btn{margin-top:.9rem;justify-content:center}
+}
+
+/* ---------- Hero ---------- */
+.hero{
+  position:relative;overflow:hidden;
+  background:var(--hero-grad);
+  color:var(--on-dark);
+  padding-block:clamp(34px,4vw,52px) clamp(44px,5vw,68px);
+}
+.hero-rings{position:absolute;top:-140px;right:-160px;pointer-events:none}
+.hero-grid{
+  position:relative;
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+  column-gap:clamp(2.5rem,5vw,4.5rem);row-gap:0;align-items:start;
+}
+.hero .eyebrow{
+  grid-column:1 / -1;margin-bottom:.45rem;
+  color:color-mix(in srgb, var(--brand-accent) 68%, var(--brand-on-dark));
+}
+.hero .hero-title{
+  grid-column:1 / -1;
+  font-size:clamp(1.85rem,3vw,2.5rem);line-height:1.14;
+  text-wrap:balance;max-width:22em;
+  margin-bottom:clamp(1.1rem,2.4vw,1.7rem);
+}
+.hero-sub{
+  font-size:clamp(1.02rem,1.4vw,1.16rem);
+  color:var(--on-dark-soft);
+  max-width:32em;margin-bottom:1.3em;
+}
+.hero-cta{max-width:36em}
+.hero-actions{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:.9rem 1.4rem;margin-top:1.1rem;
+}
+.hero-actions .hero-note{margin-top:0}
+.lead-form{display:flex;flex-wrap:wrap;gap:.65rem;max-width:36em}
+.lead-form[hidden],.form-success[hidden]{display:none}
+.lead-form input[type="email"]{
+  flex:1 1 240px;min-width:0;
+  font:inherit;color:var(--brand-ink);
+  background:var(--brand-on-dark);
+  border:1px solid transparent;border-radius:8px;
+  padding:.85rem 1.05rem;
+}
+.lead-form input[type="email"]::placeholder{color:color-mix(in srgb, var(--brand-ink) 52%, var(--brand-on-dark))}
+.lead-form input[type="email"]:focus-visible{outline-offset:1px}
+.form-error{
+  display:none;width:100%;margin:.2rem 0 0;
+  color:var(--error-on-dark);font-size:.92rem;font-weight:600;
+}
+.form-error.show{display:block}
+.form-success{
+  display:flex;align-items:flex-start;gap:.9rem;
+  max-width:36em;
+  background:color-mix(in srgb, var(--brand-accent) 16%, transparent);
+  border:1px solid color-mix(in srgb, var(--brand-accent) 55%, transparent);
+  border-radius:var(--radius);padding:1.1rem 1.2rem;
+}
+.form-success:focus-visible{outline-offset:4px}
+.form-success svg{flex:none;margin-top:.15rem}
+.form-success strong{display:block;font-size:1.05rem;margin-bottom:.2rem}
+.form-success p{margin:0;color:var(--on-dark-soft);font-size:.95rem}
+.hero-note{
+  margin-top:1.1rem;
+  font-size:.88rem;letter-spacing:.06em;
+  color:var(--on-dark-soft);
+}
+.hero-note b{color:var(--on-dark);font-weight:600}
+.hero-note .sep{color:var(--brand-accent);padding-inline:.45em}
+.hero-alt{margin-top:1.6rem;font-size:.95rem;color:var(--on-dark-soft)}
+.hero-alt a{
+  color:var(--on-dark);font-weight:600;
+  text-decoration:underline;text-decoration-color:var(--brand-accent);
+  text-underline-offset:4px;text-decoration-thickness:2px;
+}
+.hero-alt a:hover{color:color-mix(in srgb, var(--brand-accent) 60%, var(--brand-on-dark))}
+.hero-demo{min-width:0;display:flex;flex-direction:column;gap:.7rem}
+.demo-caption{color:var(--on-dark-soft);text-align:center}
+
+/* Interaktiver Konfigurator im Hero */
+.demo-window{
+  background:var(--brand-on-dark);color:var(--brand-ink);
+  border-radius:14px;overflow:hidden;
+  box-shadow:0 26px 54px color-mix(in srgb, var(--brand-deep) 48%, transparent);
+}
+.demo-bar{
+  display:flex;align-items:center;gap:.45rem;
+  padding:.7rem .85rem;
+  background:color-mix(in srgb, var(--brand-surface) 55%, var(--brand-on-dark));
+  border-bottom:1px solid color-mix(in srgb, var(--brand-ink) 10%, transparent);
+}
+.demo-dot{width:9px;height:9px;border-radius:50%;background:color-mix(in srgb, var(--brand-ink) 20%, transparent);flex:none}
+.demo-url{
+  margin-left:.35rem;flex:1;min-width:0;
+  font-size:.78rem;color:color-mix(in srgb, var(--brand-ink) 58%, var(--brand-on-dark));
+  background:var(--brand-on-dark);border-radius:6px;padding:.28rem .6rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.demo-badge{
+  flex:none;font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--brand-deep);background:var(--brand-accent);
+  padding:.26rem .55rem;border-radius:999px;
+}
+.demo-body{padding:clamp(1.1rem,2.2vw,1.5rem)}
+.demo-progress{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.1rem}
+.demo-step-count{font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb, var(--brand-primary) 80%, var(--brand-ink))}
+.demo-track{height:6px;border-radius:999px;background:color-mix(in srgb, var(--brand-ink) 10%, transparent);overflow:hidden}
+.demo-fill{height:100%;width:33%;background:var(--brand-accent);border-radius:999px;transition:width .3s ease}
+.cfg-step{display:none}
+.cfg-step.is-active{display:block}
+.cfg-q{font-size:1.08rem;font-weight:700;line-height:1.3;margin-bottom:.85rem;color:var(--brand-ink)}
+.cfg-options{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.cfg-opt{
+  display:flex;align-items:center;gap:.55rem;text-align:left;
+  padding:.7rem .75rem;border-radius:10px;cursor:pointer;
+  background:var(--brand-on-dark);color:var(--brand-ink);
+  border:1.5px solid color-mix(in srgb, var(--brand-ink) 16%, transparent);
+  font:inherit;font-size:.88rem;font-weight:600;line-height:1.25;
+  transition:border-color .15s ease,background-color .15s ease,transform .1s ease;
+}
+.cfg-opt:hover{border-color:var(--brand-primary);background:color-mix(in srgb, var(--brand-surface) 45%, var(--brand-on-dark))}
+.cfg-opt:active{transform:translateY(1px)}
+.cfg-opt:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px}
+.cfg-opt[aria-pressed="true"]{border-color:var(--brand-accent);background:color-mix(in srgb, var(--brand-accent) 12%, var(--brand-on-dark))}
+.cfg-mark{
+  width:17px;height:17px;flex:none;border-radius:50%;
+  border:2px solid color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease;
+}
+.cfg-opt[aria-pressed="true"] .cfg-mark{
+  border-color:var(--brand-accent);background:var(--brand-accent);
+  box-shadow:inset 0 0 0 3px var(--brand-on-dark);
+}
+.cfg-foot{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1.05rem;min-height:1.5rem}
+.cfg-back{background:transparent;border:0;color:var(--brand-primary);font:inherit;font-weight:700;font-size:.86rem;cursor:pointer;padding:.2rem 0}
+.cfg-back:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px;border-radius:4px}
+.cfg-hint{font-size:.8rem;color:color-mix(in srgb, var(--brand-ink) 52%, var(--brand-on-dark))}
+.cfg-result-head{display:flex;align-items:center;gap:.55rem;margin-bottom:.75rem}
+.cfg-result-head strong{font-size:1.1rem;color:var(--brand-ink)}
+.cfg-summary{list-style:none;margin:0 0 .85rem;padding:.85rem 1rem;border-radius:10px;background:color-mix(in srgb, var(--brand-surface) 52%, var(--brand-on-dark));display:grid;gap:.42rem;font-size:.9rem;color:var(--brand-ink)}
+.cfg-summary b{font-weight:700}
+.cfg-note{font-size:.88rem;line-height:1.5;color:color-mix(in srgb, var(--brand-ink) 66%, var(--brand-on-dark));margin-bottom:1.05rem}
+.cfg-result-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1rem}
+.cfg-restart{background:transparent;border:0;color:var(--brand-primary);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.cfg-restart:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px;border-radius:4px}
+
+/* Folge-Band: so kommt es bei Ihnen an */
+.followup-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(2rem,4vw,3.5rem);align-items:center}
+.followup-copy p{color:var(--ink-soft);max-width:34em}
+.followup-list{list-style:none;margin:1.4rem 0 0;padding:0;display:grid;gap:.7rem}
+.followup-list li{display:flex;gap:.6rem;align-items:flex-start;font-size:1rem}
+.followup-list svg{flex:none;margin-top:.15em}
+.followup-mock{margin:0}
+.followup-mock figcaption{margin-top:.9rem;color:var(--ink-soft)}
+
+.mockup{display:block;width:100%;height:auto;filter:drop-shadow(0 24px 40px color-mix(in srgb, var(--brand-ink) 42%, transparent))}
+@media (max-width: 900px){
+  .hero-grid{grid-template-columns:1fr}
+  .hero-demo{max-width:560px}
+  .followup-grid{grid-template-columns:1fr}
+  .followup-mock{max-width:560px}
+}
+@media (max-width: 460px){
+  .cfg-options{grid-template-columns:1fr}
+}
+
+/* Einblendung beim Laden */
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: no-preference){
+  .hero .rise{animation:rise .65s cubic-bezier(.2,.7,.2,1) both}
+  .hero .rise:nth-child(2){animation-delay:.08s}
+  .hero .rise:nth-child(3){animation-delay:.16s}
+  .hero .rise:nth-child(4){animation-delay:.24s}
+  .hero .rise:nth-child(5){animation-delay:.32s}
+  .hero .rise:nth-child(6){animation-delay:.4s}
+  .hero-demo{animation:rise .75s .25s cubic-bezier(.2,.7,.2,1) both}
+}
+
+/* ---------- Dashboard-Attrappe (SVG) ---------- */
+.mk-win{fill:var(--card)}
+.mk-frame{fill:none;stroke:var(--line);stroke-width:1}
+.mk-bar{fill:color-mix(in srgb, var(--brand-primary) 10%, var(--card))}
+.mk-dot{fill:var(--line-strong)}
+.mk-url{fill:color-mix(in srgb, var(--brand-primary) 7%, var(--card))}
+.mk-urltxt{fill:var(--ink-soft);font-size:10.5px;letter-spacing:.04em}
+.mk-h{fill:var(--ink);font-size:16px;font-weight:700}
+.mk-chip{fill:color-mix(in srgb, var(--brand-accent) 18%, var(--card))}
+.mk-chiptxt{fill:var(--accent-ink);font-size:10px;font-weight:700}
+.mk-col{fill:var(--ink-soft);font-size:9.5px;font-weight:700;letter-spacing:.12em}
+.mk-line{stroke:var(--line);stroke-width:1}
+.mk-cell{fill:var(--ink);font-size:11.5px}
+.mk-cellb{fill:var(--ink);font-size:11.5px;font-weight:700}
+.mk-mut{fill:var(--ink-soft);font-size:10.5px}
+.mk-pilltxt{font-size:10px;font-weight:700}
+.mk-pill-new{fill:color-mix(in srgb, var(--brand-primary) 14%, var(--card))}
+.mk-pill-new-t{fill:var(--link)}
+.mk-pill-prog{fill:none;stroke:var(--line-strong);stroke-width:1}
+.mk-pill-prog-t{fill:var(--ink-soft)}
+.mk-pill-quote{fill:color-mix(in srgb, var(--brand-accent) 20%, var(--card))}
+.mk-pill-quote-t{fill:var(--accent-ink)}
+.mk-pill-done{fill:var(--brand-accent)}
+.mk-pill-done-t{fill:var(--brand-on-dark)}
+.mk-card{fill:var(--card);stroke:var(--line);stroke-width:1}
+.mk-pdf{fill:var(--brand-primary)}
+.mk-pdftxt{fill:var(--brand-on-dark);font-size:10px;font-weight:700;letter-spacing:.08em}
+.mk-total{fill:var(--ink);font-size:13px;font-weight:700}
+
+/* ---------- Sektionen allgemein ---------- */
+.section{padding-block:clamp(64px,9vw,110px)}
+.section-head{max-width:44em;margin-bottom:clamp(2.2rem,4vw,3.4rem)}
+.section-head h2{font-size:clamp(1.65rem,3vw,2.25rem)}
+.section-head p{color:var(--ink-soft);font-size:1.08rem;max-width:36em}
+
+/* ---------- Problem / Lösung ---------- */
+.compare{border-top:1px solid var(--line-strong)}
+.compare-labels{
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.5rem,4vw,3rem);
+  padding-block:1.1rem .4rem;
+}
+.pair{
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.5rem,4vw,3rem);
+  padding-block:clamp(1.6rem,3vw,2.4rem);
+  border-bottom:1px solid var(--line);
+}
+.pain,.fix{min-width:0}
+.pain h3,.fix h3{display:flex;align-items:flex-start;gap:.6rem;font-size:1.1rem;margin-bottom:.45em}
+.pain h3 svg,.fix h3 svg{flex:none;margin-top:.18em}
+.pain p,.fix p{margin:0;color:var(--ink-soft);font-size:.99rem}
+.fix{
+  background:var(--bg-tint);
+  border-radius:var(--radius);
+  padding:1.2rem 1.4rem;
+}
+.fix p{color:var(--ink)}
+.pair-label{display:none}
+@media (max-width: 820px){
+  .compare-labels{display:none}
+  .pair{grid-template-columns:1fr;gap:1rem}
+  .pair-label{display:block;margin-bottom:.5rem}
+}
+
+/* ---------- Funktionen ---------- */
+.features-bg{background:var(--bg-tint)}
+.feature-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1px;background:var(--line);
+  border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;
+}
+.feature{
+  background:var(--card);
+  padding:clamp(1.5rem,2.5vw,2.1rem);
+  min-width:0;
+}
+.feature svg{display:block;margin-bottom:1.1rem;color:var(--link)}
+.feature h3{font-size:1.08rem;margin-bottom:.4em}
+.feature p{margin:0;color:var(--ink-soft);font-size:.96rem}
+@media (max-width: 1000px){.feature-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width: 620px){.feature-grid{grid-template-columns:1fr}}
+
+/* ---------- Testablauf ---------- */
+.steps{
+  list-style:none;margin:0;padding:0;
+  counter-reset:step;
+  max-width:46em;
+}
+.steps li{
+  counter-increment:step;
+  position:relative;
+  padding:0 0 clamp(1.8rem,3.5vw,2.6rem) 72px;
+}
+.steps li::before{
+  content:counter(step);
+  position:absolute;left:0;top:-.15rem;
+  width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:var(--bg);
+  border:2px solid var(--link);
+  color:var(--link);
+  font-weight:700;font-size:1.05rem;
+}
+.steps li:last-child::before{
+  background:var(--brand-accent);
+  border-color:var(--brand-accent);
+  color:var(--brand-on-dark);
+}
+.steps li::after{
+  content:"";
+  position:absolute;left:21px;top:48px;bottom:2px;width:2px;
+  background:linear-gradient(to bottom, var(--line-strong), color-mix(in srgb, var(--brand-deep) 55%, var(--bg)));
+}
+.steps li:last-child::after{display:none}
+.steps h3{font-size:1.12rem;margin-bottom:.35em}
+.steps p{margin:0;color:var(--ink-soft);font-size:.99rem}
+.steps .note{
+  display:inline-block;margin-top:.6rem;
+  font-size:.92rem;font-weight:600;
+  color:var(--accent-ink);
+}
+
+/* ---------- Kundenstimmen ---------- */
+.quotes-band{background:var(--deep);color:var(--on-dark)}
+.quotes-band .eyebrow{color:color-mix(in srgb, var(--brand-accent) 68%, var(--brand-on-dark))}
+.quotes-band h2{color:var(--on-dark);font-size:clamp(1.55rem,2.6vw,2rem)}
+.quote-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:clamp(2rem,5vw,4rem);
+  margin-top:clamp(2rem,4vw,3rem);
+}
+.quote-grid figure{margin:0;min-width:0}
+.quote-grid blockquote{
+  margin:0 0 1.3rem;
+  font-size:clamp(1.08rem,1.6vw,1.22rem);
+  line-height:1.6;
+}
+.quote-grid blockquote p{margin:0;color:var(--on-dark)}
+.quote-grid blockquote::before{
+  content:"\201E";
+  display:block;
+  font-size:3.2rem;line-height:.5;
+  margin-bottom:1.1rem;
+  color:var(--brand-accent);
+  font-weight:700;
+}
+.quote-grid figcaption{font-size:.9rem;letter-spacing:.04em}
+.quote-grid figcaption b{display:block;font-size:.98rem;letter-spacing:0}
+.quote-grid figcaption span{color:var(--on-dark-soft)}
+@media (max-width: 780px){.quote-grid{grid-template-columns:1fr}}
+
+/* ---------- Preis ---------- */
+.price-head{max-width:680px;margin:0 auto clamp(2.2rem,4vw,3.2rem);text-align:center}
+.price-head p{color:var(--ink-soft);max-width:42em;margin:.6rem auto 0}
+.price-cards{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(1.2rem,2.5vw,1.8rem);align-items:stretch;
+  max-width:880px;margin:0 auto;
+}
+.price-card{
+  position:relative;display:flex;flex-direction:column;
+  background:var(--deep);color:var(--on-dark);
+  border:1px solid var(--on-dark-line);
+  border-radius:14px;padding:clamp(1.8rem,3vw,2.3rem);
+  box-shadow:var(--shadow);
+}
+.price-card--feature{
+  border:2px solid var(--brand-accent);
+}
+.price-badge{
+  position:absolute;top:-.85rem;left:clamp(1.8rem,3vw,2.3rem);
+  background:var(--brand-accent);color:var(--brand-deep);
+  font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:.32rem .72rem;border-radius:6px;
+}
+.price-card .plan{font-size:.8rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb, var(--brand-accent) 70%, var(--brand-on-dark))}
+.price-amount{
+  display:flex;align-items:baseline;gap:.5rem;
+  margin:.9rem 0 .2rem;
+  font-variant-numeric:tabular-nums;
+}
+.price-amount b{font-size:2.7rem;font-weight:700;letter-spacing:-0.02em;line-height:1}
+.price-amount span{color:var(--on-dark-soft);font-size:.95rem}
+.price-sub{color:var(--on-dark-soft);font-size:.92rem;margin-bottom:1.3rem}
+.price-list{list-style:none;margin:0 0 1.6rem;padding:1.2rem 0 0;border-top:1px solid var(--on-dark-line);display:grid;gap:.7rem}
+.price-list li{display:flex;gap:.65rem;align-items:flex-start;font-size:.95rem}
+.price-list li.is-muted{color:var(--on-dark-soft)}
+.price-list svg{flex:none;margin-top:.2em}
+.price-card .btn{width:100%;white-space:normal;text-align:center;margin-top:auto}
+.price-note{margin:1rem 0 0;font-size:.88rem;color:var(--on-dark-soft)}
+.price-note b{color:var(--on-dark)}
+.price-points{list-style:none;margin:clamp(2rem,4vw,3rem) auto 0;padding:0;max-width:880px;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:.8rem 1.8rem}
+.price-points li{display:flex;gap:.6rem;align-items:flex-start;font-size:.95rem;color:var(--ink-soft)}
+.price-points svg{flex:none;margin-top:.2em}
+@media (max-width: 760px){
+  .price-cards{grid-template-columns:1fr;max-width:460px}
+  .price-points{flex-direction:column;align-items:flex-start;max-width:460px}
+}
+
+/* ---------- FAQ ---------- */
+.faq-bg{background:var(--bg-tint)}
+.faq-list{max-width:780px;border-top:1px solid var(--line-strong)}
+.faq-list details{border-bottom:1px solid var(--line)}
+.faq-list summary{
+  list-style:none;cursor:pointer;
+  display:flex;align-items:baseline;justify-content:space-between;gap:1.5rem;
+  padding:1.15rem 0;
+  font-weight:700;font-size:1.05rem;
+}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary::after{
+  content:"+";
+  flex:none;
+  font-size:1.5rem;font-weight:400;line-height:1;
+  color:var(--link);
+  transition:transform .18s ease;
+}
+.faq-list details[open] summary::after{transform:rotate(45deg)}
+.faq-list summary:hover{color:var(--link)}
+.faq-body{padding:0 2.5rem 1.3rem 0;color:var(--ink-soft);font-size:.99rem}
+.faq-body p{margin:0}
+
+/* ---------- Abschluss-CTA ---------- */
+.cta-band{
+  background:var(--hero-grad);
+  color:var(--on-dark);
+  padding-block:clamp(56px,7vw,84px);
+}
+.cta-in{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:1.8rem;
+}
+.cta-in h2{font-size:clamp(1.5rem,2.8vw,2.1rem);margin:0;max-width:18em}
+.cta-side{display:flex;flex-direction:column;gap:.7rem;align-items:flex-start}
+.cta-side .hero-note{margin-top:0}
+.cta-side .hero-alt{margin-top:.1rem;font-size:.92rem}
+.cta-side .btn{white-space:normal;text-align:center}
+
+/* ---------- Footer ---------- */
+.site-foot{
+  background:var(--footer-bg);
+  color:var(--on-dark-soft);
+  padding-block:clamp(40px,5vw,60px);
+  font-size:.94rem;
+}
+.foot-grid{
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:2rem;
+  padding-bottom:2rem;border-bottom:1px solid var(--on-dark-line);
+}
+.foot-brand{max-width:26em}
+.foot-brand .brand{margin-bottom:.7rem}
+.foot-brand p{margin:0}
+.foot-nav{display:flex;flex-direction:column;gap:.55rem}
+.foot-nav a{color:var(--on-dark-soft);text-decoration:none}
+.foot-nav a:hover{color:var(--on-dark);text-decoration:underline;text-underline-offset:3px}
+.foot-nav .caption{color:inherit;letter-spacing:.06em}
+.foot-legal{
+  display:flex;flex-wrap:wrap;gap:.4rem 1.5rem;justify-content:space-between;
+  padding-top:1.4rem;font-size:.85rem;
+}
+.foot-legal p{margin:0}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Zum Inhalt springen</a>
+
+<header class="site-head" id="top">
+  <div class="wrap head-in">
+    <a class="brand" href="#top" aria-label="BrunnenbauApp – zum Seitenanfang">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false">
+        <circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".85"/>
+        <circle cx="13" cy="13" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".6"/>
+        <circle cx="13" cy="13" r="2.6" fill="var(--brand-accent)"/>
+      </svg>
+      BrunnenbauApp
+    </a>
+    <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="site-nav" aria-label="Menü öffnen">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" focusable="false">
+        <line x1="3" y1="6" x2="19" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="3" y1="11" x2="19" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="3" y1="16" x2="19" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <nav class="site-nav" id="site-nav" aria-label="Bereiche dieser Seite">
+      <a href="#konfigurator">Konfigurator</a>
+      <a href="#funktionen">Funktionen</a>
+      <a href="#preis">Preis</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn btn-ghost" href="/register" target="_parent">Kostenlos testen</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" aria-labelledby="hero-title">
+    <svg class="hero-rings" width="560" height="560" viewBox="0 0 560 560" aria-hidden="true" focusable="false">
+      <circle cx="280" cy="280" r="120" fill="none" stroke="var(--brand-on-dark)" stroke-width="1.5" opacity=".08"/>
+      <circle cx="280" cy="280" r="190" fill="none" stroke="var(--brand-on-dark)" stroke-width="1.5" opacity=".06"/>
+      <circle cx="280" cy="280" r="262" fill="none" stroke="var(--brand-on-dark)" stroke-width="1.5" opacity=".045"/>
+    </svg>
+    <div class="wrap hero-grid">
+      <span class="eyebrow rise hero-eyebrow">Der Brunnen-Konfigurator für Ihre Website</span>
+      <h1 id="hero-title" class="rise hero-title">So einfach stellen Ihre Kunden eine Anfrage — probieren Sie es gleich aus.</h1>
+      <div class="hero-copy">
+        <p class="hero-sub rise">Der Konfigurator sammelt alle bohr-relevanten Angaben automatisch ein und legt sie fertig sortiert in Ihrem Dashboard ab. Klicken Sie sich durch — genau das sehen später Ihre Kunden.</p>
+
+        <div class="rise hero-cta" id="testzugang">
+          <form class="lead-form" id="trial-form" novalidate>
+            <label class="sr-only" for="email-input">Geschäftliche E-Mail-Adresse</label>
+            <input type="email" id="email-input" name="email" placeholder="name@ihr-betrieb.de" autocomplete="email" required>
+            <button type="submit" class="btn btn-light btn-lg">Kostenlosen Testzugang anfordern</button>
+            <p class="form-error" id="form-error" aria-live="polite"></p>
+          </form>
+          <div class="form-success" id="form-success" role="status" tabindex="-1" hidden>
+            <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="11" fill="var(--brand-accent)"/>
+              <path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="var(--brand-on-dark)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <strong>Prüfen Sie Ihr Postfach — der Zugangslink ist unterwegs.</strong>
+              <p>Nichts angekommen? Schauen Sie im Spam-Ordner nach oder schreiben Sie an support@easybrainlab.com.</p>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn-outline btn-lg" href="#konfigurator">Konfigurator ausprobieren</a>
+            <p class="hero-note"><b>3&nbsp;Tage</b><span class="sep" aria-hidden="true">·</span><b>voller Funktionsumfang</b><span class="sep" aria-hidden="true">·</span><b>keine Zahlungsdaten</b></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-demo rise" id="konfigurator">
+        <div class="demo-window" role="group" aria-label="Interaktiver Brunnen-Konfigurator zum Ausprobieren">
+          <div class="demo-bar">
+            <span class="demo-dot" aria-hidden="true"></span>
+            <span class="demo-dot" aria-hidden="true"></span>
+            <span class="demo-dot" aria-hidden="true"></span>
+            <span class="demo-url">ihr-betrieb.de/brunnen-anfrage</span>
+            <span class="demo-badge">Live ausprobieren</span>
+          </div>
+          <div class="demo-body">
+            <div class="demo-progress" id="cfg-progress">
+              <span class="demo-step-count" id="cfg-count">Schritt 1 von 3</span>
+              <div class="demo-track" aria-hidden="true"><div class="demo-fill" id="cfg-fill"></div></div>
+            </div>
+
+            <div class="cfg-step is-active" data-step="1">
+              <h3 class="cfg-q">Was möchten Sie bohren lassen?</h3>
+              <div class="cfg-options">
+                <button type="button" class="cfg-opt" data-key="art" data-val="Gartenbrunnen mit Tauchpumpe" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Gartenbrunnen mit Tauchpumpe</span></button>
+                <button type="button" class="cfg-opt" data-key="art" data-val="Hauswasserwerk fürs Haus" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Hauswasserwerk fürs Haus</span></button>
+                <button type="button" class="cfg-opt" data-key="art" data-val="Tiefbrunnen für Gewerbe/Landwirtschaft" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Tiefbrunnen für Gewerbe</span></button>
+                <button type="button" class="cfg-opt" data-key="art" data-val="Erst beraten lassen" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Erst beraten lassen</span></button>
+              </div>
+            </div>
+
+            <div class="cfg-step" data-step="2">
+              <h3 class="cfg-q">Wofür nutzen Sie das Wasser?</h3>
+              <div class="cfg-options">
+                <button type="button" class="cfg-opt" data-key="nutzung" data-val="Gartenbewässerung" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Gartenbewässerung</span></button>
+                <button type="button" class="cfg-opt" data-key="nutzung" data-val="Trink- und Brauchwasser" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Trink- &amp; Brauchwasser</span></button>
+                <button type="button" class="cfg-opt" data-key="nutzung" data-val="Pool und Teich" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Pool &amp; Teich</span></button>
+                <button type="button" class="cfg-opt" data-key="nutzung" data-val="Landwirtschaft und Gewerbe" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Landwirtschaft</span></button>
+              </div>
+            </div>
+
+            <div class="cfg-step" data-step="3">
+              <h3 class="cfg-q">Wie tief liegt das Grundwasser?</h3>
+              <div class="cfg-options">
+                <button type="button" class="cfg-opt" data-key="tiefe" data-val="Unter 7 m" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Unter 7 m</span></button>
+                <button type="button" class="cfg-opt" data-key="tiefe" data-val="7 bis 15 m" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>7 bis 15 m</span></button>
+                <button type="button" class="cfg-opt" data-key="tiefe" data-val="Über 15 m" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Über 15 m</span></button>
+                <button type="button" class="cfg-opt" data-key="tiefe" data-val="Weiß ich nicht" aria-pressed="false"><span class="cfg-mark" aria-hidden="true"></span><span>Weiß ich nicht</span></button>
+              </div>
+            </div>
+
+            <div class="cfg-result" id="cfg-result" role="status" tabindex="-1" hidden>
+              <div class="cfg-result-head">
+                <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="11" fill="var(--brand-accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="var(--brand-on-dark)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <strong>Ihre Anfrage ist vorbereitet</strong>
+              </div>
+              <ul class="cfg-summary" id="cfg-summary"></ul>
+              <p class="cfg-note">Genau so landet die Anfrage strukturiert im Betrieb — mit Bohrverfahren, Nutzung und Standort. Kein Abtippen, keine drei Rückfragen.</p>
+              <div class="cfg-result-actions">
+                <a class="btn btn-solid" href="/konfigurator" target="_parent">Vollständigen Konfigurator öffnen</a>
+                <button type="button" class="cfg-restart" id="cfg-restart">Nochmal ausprobieren</button>
+              </div>
+            </div>
+
+            <div class="cfg-foot">
+              <button type="button" class="cfg-back" id="cfg-back" hidden>&larr; Zurück</button>
+              <span class="cfg-hint" id="cfg-hint">Tippen Sie eine Option an &rarr;</span>
+            </div>
+          </div>
+        </div>
+        <p class="demo-caption caption">Interaktive Vorschau · so füllt Ihr Kunde die Anfrage aus</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SO KOMMT ES BEI IHNEN AN ============ -->
+  <section class="section followup" aria-labelledby="followup-title">
+    <div class="wrap followup-grid">
+      <div class="followup-copy">
+        <span class="eyebrow">Und bei Ihnen im Betrieb</span>
+        <h2 id="followup-title">Die Anfrage landet fertig sortiert auf Ihrem Bildschirm.</h2>
+        <p>Was Ihr Kunde im Konfigurator anklickt, steht Sekunden später in Ihrem Dashboard — mit Bohrverfahren, Nutzung, Standort und Zufahrt. Aus der Anfrage wird mit Ihren hinterlegten Materialpreisen ein Angebots-PDF auf Ihrem Briefpapier.</p>
+        <ul class="followup-list">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Jede Anfrage mit allen Angaben — ganz ohne Rückruf</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Status-Workflow von „Neu“ bis „Auftrag erteilt“</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Angebot als PDF auf Ihrem Briefpapier</span></li>
+        </ul>
+      </div>
+      <figure class="followup-mock">
+          <svg class="mockup" viewBox="0 0 640 460" role="img" aria-label="Stilisierte Ansicht des Anfragen-Dashboards: eine Tabelle mit vier Anfragen und Status-Kennzeichnungen, davor ein Angebots-PDF mit einer Summe von 4.210 Euro netto.">
+            <defs>
+              <filter id="mk-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.22"/>
+              </filter>
+            </defs>
+
+            <!-- Browserfenster -->
+            <g filter="url(#mk-shadow)">
+              <rect x="6" y="6" width="560" height="396" rx="12" class="mk-win"/>
+            </g>
+            <rect x="6" y="6" width="560" height="396" rx="12" class="mk-frame"/>
+            <path d="M6 18a12 12 0 0 1 12-12h536a12 12 0 0 1 12 12v28H6z" class="mk-bar"/>
+            <circle cx="26" cy="26" r="5" class="mk-dot"/>
+            <circle cx="44" cy="26" r="5" class="mk-dot"/>
+            <circle cx="62" cy="26" r="5" class="mk-dot"/>
+            <rect x="84" y="16" width="230" height="20" rx="10" class="mk-url"/>
+            <text x="98" y="30" class="mk-urltxt">ihr-betrieb.brunnenbauapp.de</text>
+
+            <!-- Kopf der Liste -->
+            <text x="30" y="82" class="mk-h">Anfragen</text>
+            <rect x="112" y="67" width="62" height="20" rx="10" class="mk-chip"/>
+            <text x="143" y="81" text-anchor="middle" class="mk-chiptxt">12 offen</text>
+
+            <!-- Spalten -->
+            <text x="30" y="112" class="mk-col">NR.</text>
+            <text x="95" y="112" class="mk-col">KUNDE</text>
+            <text x="270" y="112" class="mk-col">BRUNNENTYP</text>
+            <text x="430" y="112" class="mk-col">STATUS</text>
+            <line x1="30" y1="122" x2="542" y2="122" class="mk-line"/>
+
+            <!-- Zeile 1 -->
+            <text x="30" y="148" class="mk-cellb">0142</text>
+            <text x="95" y="148" class="mk-cell">Fam. Petzold, Werder</text>
+            <text x="270" y="148" class="mk-cell">Spülbohrung · 18 m</text>
+            <rect x="430" y="133" width="46" height="22" rx="11" class="mk-pill-new"/>
+            <text x="453" y="148" text-anchor="middle" class="mk-pilltxt mk-pill-new-t">Neu</text>
+            <line x1="30" y1="164" x2="542" y2="164" class="mk-line"/>
+
+            <!-- Zeile 2 -->
+            <text x="30" y="190" class="mk-cell">0141</text>
+            <text x="95" y="190" class="mk-cell">Gärtnerei Lademann</text>
+            <text x="270" y="190" class="mk-cell">Rammbrunnen · 7 m</text>
+            <rect x="430" y="175" width="102" height="22" rx="11" class="mk-pill-prog"/>
+            <text x="481" y="190" text-anchor="middle" class="mk-pilltxt mk-pill-prog-t">In Bearbeitung</text>
+            <line x1="30" y1="206" x2="542" y2="206" class="mk-line"/>
+
+            <!-- Zeile 3 -->
+            <text x="30" y="232" class="mk-cell">0139</text>
+            <text x="95" y="232" class="mk-cell">K. Behrend, Nauen</text>
+            <text x="270" y="232" class="mk-cell">Trockenbohrung · 12 m</text>
+            <rect x="430" y="217" width="110" height="22" rx="11" class="mk-pill-quote"/>
+            <text x="485" y="232" text-anchor="middle" class="mk-pilltxt mk-pill-quote-t">Angebot erstellt</text>
+            <line x1="30" y1="248" x2="542" y2="248" class="mk-line"/>
+
+            <!-- Zeile 4 -->
+            <text x="30" y="274" class="mk-cell">0138</text>
+            <text x="95" y="274" class="mk-cell">Fam. Yildiz, Ketzin</text>
+            <text x="270" y="274" class="mk-cell">Spülbohrung · 22 m</text>
+            <rect x="430" y="259" width="102" height="22" rx="11" class="mk-pill-done"/>
+            <text x="481" y="274" text-anchor="middle" class="mk-pilltxt mk-pill-done-t">Auftrag erteilt</text>
+            <line x1="30" y1="290" x2="542" y2="290" class="mk-line"/>
+
+            <text x="30" y="316" class="mk-mut">4 von 12 Anfragen · sortiert nach Eingang</text>
+
+            <!-- Angebots-Karte -->
+            <g filter="url(#mk-shadow)">
+              <rect x="330" y="250" width="280" height="196" rx="12" class="mk-card"/>
+            </g>
+            <rect x="330" y="250" width="280" height="196" rx="12" fill="none" class="mk-frame"/>
+            <text x="350" y="284" class="mk-cellb" style="font-size:13px">Angebot Nr. 2026-084</text>
+            <rect x="548" y="266" width="44" height="22" rx="6" class="mk-pdf"/>
+            <text x="570" y="281" text-anchor="middle" class="mk-pdftxt">PDF</text>
+            <text x="350" y="303" class="mk-mut">Spülbohrung 18 m · Verrohrung DN 115</text>
+
+            <text x="350" y="332" class="mk-cell">Spülbohrung bis 18 m</text>
+            <text x="590" y="332" text-anchor="end" class="mk-cell">2.340,00 €</text>
+            <text x="350" y="356" class="mk-cell">Brunnenrohr, Filterkies, Tonsperre</text>
+            <text x="590" y="356" text-anchor="end" class="mk-cell">1.180,00 €</text>
+            <text x="350" y="380" class="mk-cell">Tauchpumpe, Einbau &amp; Anschluss</text>
+            <text x="590" y="380" text-anchor="end" class="mk-cell">690,00 €</text>
+            <line x1="350" y1="394" x2="590" y2="394" class="mk-line"/>
+            <text x="350" y="420" class="mk-total">Gesamt netto</text>
+            <text x="590" y="420" text-anchor="end" class="mk-total">4.210,00 €</text>
+          </svg>
+          <figcaption class="caption">Ihr Anfragen-Dashboard mit Status-Workflow und Angebots-PDF · Illustration</figcaption>
+        </figure>
+    </div>
+  </section>
+
+  <!-- ============ PROBLEM / LÖSUNG ============ -->
+  <section class="section" aria-labelledby="problem-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Der Alltag im Betrieb</span>
+        <h2 id="problem-title">Drei Abende Büro für einen Bohrauftrag? Muss nicht sein.</h2>
+        <p>Die Bohrung ist Ihr Handwerk. Das Drumherum — Anfragen sammeln, Rückfragen stellen, Angebote tippen — frisst die Zeit. Genau dafür ist BrunnenbauApp gebaut.</p>
+      </div>
+
+      <div class="compare">
+        <div class="compare-labels" aria-hidden="true">
+          <span class="caption">So läuft es heute</span>
+          <span class="caption" style="color:var(--accent-ink)">So läuft es mit BrunnenbauApp</span>
+        </div>
+
+        <div class="pair">
+          <div class="pain">
+            <span class="pair-label caption">Heute</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+                <line x1="18" y1="6" x2="6" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+              Anfragen liegen überall verstreut
+            </h3>
+            <p>Anrufbeantworter, WhatsApp, ein Zettel neben der Kaffeemaschine. Wer nicht schnell genug zurückruft, verliert den Auftrag an den nächsten Betrieb.</p>
+          </div>
+          <div class="fix">
+            <span class="pair-label caption" style="color:var(--accent-ink)">Mit BrunnenbauApp</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Eine Liste, nichts geht verloren
+            </h3>
+            <p>Jede Anfrage landet strukturiert im Dashboard — mit Standort, Bodenverhältnissen und Wunschtermin. Sie sehen sofort, was neu ist und was auf ein Angebot wartet.</p>
+          </div>
+        </div>
+
+        <div class="pair">
+          <div class="pain">
+            <span class="pair-label caption">Heute</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+                <line x1="18" y1="6" x2="6" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+              Jede zweite Anfrage braucht drei Rückrufe
+            </h3>
+            <p>Wie tief liegt das Grundwasser? Kommt das Bohrgerät durchs Gartentor? Gibt es Strom am Bohrpunkt? Ohne diese Angaben können Sie nicht kalkulieren.</p>
+          </div>
+          <div class="fix">
+            <span class="pair-label caption" style="color:var(--accent-ink)">Mit BrunnenbauApp</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Der Konfigurator fragt alles vorab
+            </h3>
+            <p>Ihre Kunden geben Zufahrt, Bodenart und geplante Nutzung direkt an — Gartenbewässerung mit Tröpfchenbewässerung, Hauswasserwerk oder Tauchpumpe mit smarter Steuerung. Die Anfrage kommt vollständig bei Ihnen an.</p>
+          </div>
+        </div>
+
+        <div class="pair">
+          <div class="pain">
+            <span class="pair-label caption">Heute</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+                <line x1="18" y1="6" x2="6" y2="18" stroke="var(--ink-soft)" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+              Angebote entstehen nachts am Küchentisch
+            </h3>
+            <p>Preise aus alten Rechnungen zusammensuchen, die Word-Vorlage zurechtrücken — und hoffen, dass keine Position vergessen ist.</p>
+          </div>
+          <div class="fix">
+            <span class="pair-label caption" style="color:var(--accent-ink)">Mit BrunnenbauApp</span>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Stückliste rein, PDF raus
+            </h3>
+            <p>Für jeden Brunnentyp liegt die Stückliste bereit — Spülbohrung, Rammbrunnen, Trockenbohrung. Tiefe und Positionen anpassen, und das Angebot geht als PDF auf Ihrem Briefpapier raus.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FUNKTIONEN ============ -->
+  <section class="section features-bg" id="funktionen" aria-labelledby="funktionen-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Funktionen</span>
+        <h2 id="funktionen-title">Sechs Module. Alles, was zwischen Anfrage und Auftrag liegt.</h2>
+        <p>Kein aufgeblähtes ERP, kein Schulungstag nötig. Jedes Modul erledigt genau eine Sache aus Ihrem Alltag.</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="9" cy="6" r="2.4" fill="var(--card)" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="15" cy="12" r="2.4" fill="var(--card)" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="7" cy="18" r="2.4" fill="var(--card)" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+          <h3>Brunnen-Konfigurator für Ihre Website</h3>
+          <p>Endkunden konfigurieren ihren Brunnen Schritt für Schritt: Brunnentyp, Bodenverhältnisse, Bewässerungszonen, Zufahrt fürs Bohrgerät. Sie erhalten eine vollständige Anfrage statt eines Anrufs mit Lücken.</p>
+        </article>
+
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3.5" y="4" width="17" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <line x1="7" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="7" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="7" y1="17" x2="11" y2="17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="17" cy="9" r="1.5" fill="var(--brand-accent)"/>
+          </svg>
+          <h3>Anfragen-Dashboard mit Status</h3>
+          <p>Neu, in Bearbeitung, Angebot erstellt, Auftrag erteilt — der Stand jeder Anfrage ist auf einen Blick klar. Notizen und Rückfragen bleiben an der Anfrage, nicht im E-Mail-Postfach.</p>
+        </article>
+
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6.5 3h7l4.5 4.5V21h-11.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M13.5 3v4.5H18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <line x1="9.5" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="9.5" y1="17" x2="15" y2="17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <h3>Angebote mit PDF-Export</h3>
+          <p>Materialstammdaten und Stücklisten je Brunnentyp sind hinterlegt. Das fertige Angebot exportieren Sie als PDF im Layout Ihres Briefpapiers — mit Ihren Positionen und Ihren Preisen.</p>
+        </article>
+
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="4" y="12.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="13" y="12.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="8.5" y="4.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+          <h3>Lieferanten- und Lagerverwaltung</h3>
+          <p>Einkaufspreise je Lieferant, Bestände vom Brunnenrohr DN 115 bis zur Tauchpumpe. Sie kalkulieren mit echten Kosten statt mit Schätzwerten vom letzten Jahr.</p>
+        </article>
+
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3.5" y="5.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <line x1="3.5" y1="10" x2="20.5" y2="10" stroke="currentColor" stroke-width="1.8"/>
+            <line x1="8" y1="3.5" x2="8" y2="7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="16" y1="3.5" x2="16" y2="7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="12" cy="15" r="2" fill="var(--brand-accent)"/>
+          </svg>
+          <h3>Bohrtermin-Kalender</h3>
+          <p>Bohrgerät und Kolonne planen, Termine je Auftrag festhalten — auch Wartungen und Brunnenregenerierungen fürs Folgejahr. Das Folgegeschäft ruft Sie an, nicht umgekehrt.</p>
+        </article>
+
+        <article class="feature">
+          <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 3.5c2.9 3.6 5 6.3 5 8.7a5 5 0 1 1-10 0c0-2.4 2.1-5.1 5-8.7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="18.5" cy="18.5" r="2" fill="var(--brand-accent)"/>
+            <circle cx="5.5" cy="18.5" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+          <h3>Ihre Marke, Ihr Auftritt</h3>
+          <p>Eigenes Logo, eigene Markenfarben — im Konfigurator auf Ihrer Website und auf jedem Angebot. Ihre Kunden sehen Ihren Betrieb, nicht unsere Software.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TESTABLAUF ============ -->
+  <section class="section" id="testablauf" aria-labelledby="testablauf-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">So läuft der Test</span>
+        <h2 id="testablauf-title">In fünf Minuten startklar — ohne Installation, ohne Verkaufsgespräch.</h2>
+        <p>Sie brauchen nur eine E-Mail-Adresse. Alles andere ist vorbereitet.</p>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <h3>E-Mail-Adresse eintragen</h3>
+          <p>Oben ins Feld, absenden, fertig. Wir fragen weder nach Zahlungsdaten noch nach einer Telefonnummer.</p>
+        </li>
+        <li>
+          <h3>Bestätigungslink anklicken</h3>
+          <p>Der Zugangslink kommt innerhalb weniger Minuten per E-Mail. Ein Klick — und Ihr eigener Testzugang steht bereit, nur für Ihren Betrieb.</p>
+        </li>
+        <li>
+          <h3>Sofort mit Beispieldaten arbeiten</h3>
+          <p>Fünf Beispielanfragen, Materialstamm und Stücklisten sind vorbereitet. Erstellen Sie Ihr erstes Angebots-PDF, tragen Sie einen Bohrtermin ein, stellen Sie Logo und Farben um.</p>
+        </li>
+        <li>
+          <h3>Nach 3 Tagen entscheiden</h3>
+          <p>Nach Ablauf des Tests werden Ihre Testdaten automatisch gelöscht — DSGVO-konform, ohne dass Sie etwas tun müssen.</p>
+          <span class="note">Schließen Sie vorher ein Abo ab, bleiben alle Daten erhalten.</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ KUNDENSTIMMEN ============ -->
+  <section class="section quotes-band" aria-labelledby="stimmen-title">
+    <div class="wrap">
+      <span class="eyebrow">Aus der Praxis</span>
+      <h2 id="stimmen-title">Was Kollegen aus dem Brunnenbau sagen</h2>
+      <div class="quote-grid">
+        <figure>
+          <blockquote>
+            <p>Früher habe ich Anfragen vom Anrufbeantworter abgetippt und dreimal zurückgerufen, bis alles beisammen war. Jetzt stehen Bohrtiefe, Bodenverhältnisse und ein Foto der Zufahrt schon in der Anfrage, bevor ich das erste Mal zum Hörer greife.</p>
+          </blockquote>
+          <figcaption>
+            <b>Heiko Wernicke</b>
+            <span>Wernicke Brunnen- und Pumpentechnik, Celle</span>
+          </figcaption>
+        </figure>
+        <figure>
+          <blockquote>
+            <p>Drei Angebote an einem Abend statt eins. Die Stückliste für die Spülbohrung liegt fertig im System — ich passe Tiefe und Verrohrung an, der Rest rechnet sich von selbst. Und das PDF sieht aus wie von uns, nicht wie aus irgendeinem Programm.</p>
+          </blockquote>
+          <figcaption>
+            <b>Jörg Kastner</b>
+            <span>Kastner Brunnenbau GmbH, Landshut</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PREIS ============ -->
+  <section class="section" id="preis" aria-labelledby="preis-title">
+    <div class="wrap">
+      <div class="price-head">
+        <span class="eyebrow">Preise</span>
+        <h2 id="preis-title">Klein anfangen oder gleich komplett.</h2>
+        <p>Zwei klare Pakete, beide monatlich kündbar und ohne Einrichtungsgebühr. Der 3-Tage-Test zeigt immer den vollen Funktionsumfang — danach entscheiden Sie, welches Paket zu Ihrem Betrieb passt.</p>
+      </div>
+
+      <div class="price-cards">
+
+        <div class="price-card">
+          <span class="plan">Konfigurator &amp; Interessenten</span>
+          <div class="price-amount"><b>9,90&nbsp;€</b><span>pro Monat, zzgl. USt.</span></div>
+          <p class="price-sub">Der Einstieg: Anfragen sammeln statt verpassen</p>
+          <ul class="price-list">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Brunnen-Konfigurator für Ihre Website — Endkunden übermitteln alle bohr-relevanten Angaben selbst</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Liste aller Interessenten im Dashboard, mit Status von „Neu“ bis „In Kontakt“</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Eigenes Logo und eigene Farben im Konfigurator</span>
+            </li>
+            <li class="is-muted">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 12h12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+              <span>Ohne Angebotserstellung, Material-, Lager- und Kalendermodul</span>
+            </li>
+          </ul>
+          <a class="btn btn-light" href="/register" target="_parent">Kostenlos testen</a>
+          <p class="price-note">Ideal, um Anfragen zu bündeln und später aufzustocken.</p>
+        </div>
+
+        <div class="price-card price-card--feature">
+          <span class="price-badge">Empfohlen</span>
+          <span class="plan">Komplett</span>
+          <div class="price-amount"><b>49,90&nbsp;€</b><span>pro Monat, zzgl. USt.</span></div>
+          <p class="price-sub">Von der Anfrage bis zum fertigen Angebot</p>
+          <ul class="price-list">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Alles aus „Konfigurator &amp; Interessenten“ inklusive</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Angebote mit Materialstamm und Stücklisten je Brunnentyp — als PDF auf Ihrem Briefpapier</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Lieferanten- und Lagerverwaltung, Bohrtermin-Kalender</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Unbegrenzte Anfragen, Angebote und Benutzer · Updates und Support inklusive</span>
+            </li>
+          </ul>
+          <a class="btn btn-light" href="/register" target="_parent">Erst testen, dann entscheiden</a>
+          <p class="price-note"><b>3 Tage kostenlos</b> — der Test endet automatisch, nicht in einem Abo.</p>
+        </div>
+
+      </div>
+
+      <ul class="price-points">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Monatlich kündbar, keine Mindestlaufzeit</span>
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Im Test jederzeit abschließbar — Ihre Daten bleiben erhalten</span>
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Serverstandort Deutschland, Auftragsverarbeitung nach DSGVO</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section faq-bg" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Häufige Fragen</span>
+        <h2 id="faq-title">Was Betriebe vor dem Test wissen wollen</h2>
+      </div>
+
+      <div class="faq-list">
+        <details>
+          <summary>Was passiert nach den drei Testtagen mit meinen Daten?</summary>
+          <div class="faq-body">
+            <p>Ihr Testzugang und alle darin angelegten Daten werden automatisch und vollständig gelöscht — DSGVO-konform, ohne dass Sie kündigen oder etwas veranlassen müssen. Schließen Sie während des Tests ein Abo ab, wird Ihr Testzugang zum echten Zugang: Alle Anfragen, Materialdaten und Einstellungen bleiben erhalten.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Was unterscheidet die beiden Pakete?</summary>
+          <div class="faq-body">
+            <p>Mit „Konfigurator &amp; Interessenten“ für 9,90&nbsp;€ im Monat stellen Sie den Brunnen-Konfigurator auf Ihre Website und sehen alle eingehenden Anfragen als Interessentenliste — ideal, um kein Vorhaben mehr zu verpassen. „Komplett“ für 49,90&nbsp;€ im Monat fügt alles hinzu, was danach kommt: Angebote mit Materialstamm und Stücklisten als PDF, Lieferanten- und Lagerverwaltung sowie den Bohrtermin-Kalender. Sie können jederzeit vom kleinen ins große Paket wechseln — Ihre Daten bleiben dabei erhalten.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Kann ich im Test meine eigenen Preise und Materialien hinterlegen?</summary>
+          <div class="faq-body">
+            <p>Ja. Der Materialstamm ist voll bearbeitbar: eigene Artikel, Einkaufs- und Verkaufspreise, Lieferanten und Stücklisten je Brunnentyp — Spülbohrung, Rammbrunnen oder Trockenbohrung. Viele Betriebe kalkulieren schon im Test ein echtes Angebot. Das ist der ehrlichste Praxistest.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Wie kommt der Konfigurator auf meine Website?</summary>
+          <div class="faq-body">
+            <p>Sie erhalten eine eigene Adresse (zum Beispiel anfrage.ihr-betrieb.de) und verlinken sie von Ihrer Website — etwa als Button „Brunnen anfragen“. Alternativ binden wir den Konfigurator direkt in Ihre Seite ein. Programmierkenntnisse brauchen Sie nicht; Logo und Farben stellen Sie selbst ein.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Hilft die App bei der Anzeige der Bohrung bei der Behörde?</summary>
+          <div class="faq-body">
+            <p>Eine Brunnenbohrung ist bei der unteren Wasserbehörde anzeigepflichtig. Die Anzeige selbst bleibt Sache Ihres Betriebs — aber alle Angaben, die das Formular verlangt, liegen strukturiert in der Anfrage: Bohrverfahren, geplante Bohrtiefe, Grundstücksdaten. Das Abtippen von Zetteln entfällt.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Welchen Support gibt es?</summary>
+          <div class="faq-body">
+            <p>E-Mail-Support mit Antwort an Werktagen innerhalb von 24 Stunden — auch schon während des Tests. Beim Start ins Abo helfen wir bei der Einrichtung: Materialstamm übernehmen, Briefpapier einrichten, Konfigurator verlinken.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Wie kündige ich?</summary>
+          <div class="faq-body">
+            <p>Monatlich und formlos: ein Klick im Konto oder eine kurze E-Mail genügt. Es gibt keine Mindestlaufzeit und keine Kündigungsfrist über den laufenden Monat hinaus. Vor dem Ende exportieren Sie Ihre Daten als CSV und Ihre Angebote als PDF.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABSCHLUSS-CTA ============ -->
+  <section class="cta-band" aria-labelledby="cta-title">
+    <div class="wrap cta-in">
+      <h2 id="cta-title">Der nächste Abend am Küchentisch gehört wieder Ihnen.</h2>
+      <div class="cta-side">
+        <a class="btn btn-light" href="/register" target="_parent">Kostenlosen Testzugang anfordern</a>
+        <p class="hero-note"><b>3 Tage</b><span class="sep" aria-hidden="true">·</span><b>voller Funktionsumfang</b><span class="sep" aria-hidden="true">·</span><b>keine Zahlungsdaten</b></p>
+        <p class="hero-alt"><a href="/konfigurator" target="_parent">Erst den Konfigurator aus Kundensicht ansehen</a></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <span class="brand" style="color:var(--on-dark)">
+          <svg width="24" height="24" viewBox="0 0 26 26" aria-hidden="true" focusable="false">
+            <circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".85"/>
+            <circle cx="13" cy="13" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".6"/>
+            <circle cx="13" cy="13" r="2.6" fill="var(--brand-accent)"/>
+          </svg>
+          BrunnenbauApp
+        </span>
+        <p>Anfrage- und Angebotsverwaltung für Brunnenbaubetriebe. Ein Produkt von EasyBrainLab.</p>
+      </div>
+      <nav class="foot-nav" aria-label="Rechtliches und weitere Seiten">
+        <a href="#">Impressum <span class="caption">(Platzhalter)</span></a>
+        <a href="/datenschutz" target="_parent">Datenschutzerklärung</a>
+        <a href="/konfigurator" target="_parent">Konfigurator-Demo ansehen</a>
+      </nav>
+    </div>
+    <div class="foot-legal">
+      <p>© 2026 EasyBrainLab</p>
+      <p>Alle Preise zzgl. gesetzlicher Umsatzsteuer.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* --- Mobile Navigation --- */
+  var head = document.querySelector(".site-head");
+  var menuBtn = document.getElementById("menu-btn");
+  var nav = document.getElementById("site-nav");
+
+  function closeNav(){
+    if(!head){ return; }
+    head.classList.remove("nav-open");
+    if(menuBtn){
+      menuBtn.setAttribute("aria-expanded","false");
+      menuBtn.setAttribute("aria-label","Menü öffnen");
+    }
+  }
+  if(menuBtn && head){
+    menuBtn.addEventListener("click", function(){
+      var open = head.classList.toggle("nav-open");
+      menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      menuBtn.setAttribute("aria-label", open ? "Menü schließen" : "Menü öffnen");
+    });
+  }
+  if(nav){
+    nav.addEventListener("click", function(e){
+      var t = e.target;
+      if(t && t.closest && t.closest("a")){ closeNav(); }
+    });
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){ closeNav(); }
+  });
+
+  /* --- Formular-Attrappe: Testzugang anfordern --- */
+  var form = document.getElementById("trial-form");
+  var input = document.getElementById("email-input");
+  var errorEl = document.getElementById("form-error");
+  var successEl = document.getElementById("form-success");
+
+  if(form && input && errorEl && successEl){
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      var value = input.value.trim();
+      var valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+      if(!valid){
+        errorEl.textContent = "Bitte geben Sie eine gültige E-Mail-Adresse ein, zum Beispiel name@ihr-betrieb.de.";
+        errorEl.classList.add("show");
+        input.focus();
+        return;
+      }
+      errorEl.textContent = "";
+      errorEl.classList.remove("show");
+      window.top.location.href = "/register?email=" + encodeURIComponent(value);
+    });
+    input.addEventListener("input", function(){
+      if(errorEl.classList.contains("show")){
+        errorEl.textContent = "";
+        errorEl.classList.remove("show");
+      }
+    });
+  }
+
+  /* --- CTA-Links: zum Formular scrollen und E-Mail-Feld fokussieren --- */
+  var gotoLinks = document.querySelectorAll("[data-goto-form]");
+  function focusEmail(){
+    closeNav();
+    if(input && form && !form.hidden){
+      window.setTimeout(function(){
+        input.focus({ preventScroll: true });
+      }, reduceMotion ? 0 : 650);
+    }
+  }
+  for(var i = 0; i < gotoLinks.length; i++){
+    gotoLinks[i].addEventListener("click", focusEmail);
+  }
+})();
+
+/* --- Interaktiver Brunnen-Konfigurator (Hero-Demo) --- */
+(function(){
+  var demo = document.getElementById("konfigurator");
+  if(!demo){ return; }
+  var steps = demo.querySelectorAll(".cfg-step");
+  var total = steps.length;
+  var result = document.getElementById("cfg-result");
+  var countEl = document.getElementById("cfg-count");
+  var fillEl = document.getElementById("cfg-fill");
+  var progressEl = document.getElementById("cfg-progress");
+  var backBtn = document.getElementById("cfg-back");
+  var hintEl = document.getElementById("cfg-hint");
+  var summaryEl = document.getElementById("cfg-summary");
+  var restartBtn = document.getElementById("cfg-restart");
+  var opts = demo.querySelectorAll(".cfg-opt");
+  var answers = {};
+  var order = ["art", "nutzung", "tiefe"];
+  var labels = { art: "Brunnenart", nutzung: "Nutzung", tiefe: "Grundwassertiefe" };
+  var current = 1;
+
+  function render(step){
+    var isResult = step > total;
+    for(var i = 0; i < steps.length; i++){
+      var n = parseInt(steps[i].getAttribute("data-step"), 10);
+      steps[i].classList.toggle("is-active", n === step);
+    }
+    result.hidden = !isResult;
+    progressEl.style.visibility = isResult ? "hidden" : "visible";
+    backBtn.hidden = step <= 1 || isResult;
+    hintEl.hidden = isResult;
+    if(isResult){
+      fillEl.style.width = "100%";
+    } else {
+      countEl.textContent = "Schritt " + step + " von " + total;
+      fillEl.style.width = Math.round(step / total * 100) + "%";
+    }
+    current = step;
+  }
+
+  function buildSummary(){
+    while(summaryEl.firstChild){ summaryEl.removeChild(summaryEl.firstChild); }
+    for(var i = 0; i < order.length; i++){
+      var key = order[i];
+      if(!answers[key]){ continue; }
+      var li = document.createElement("li");
+      var b = document.createElement("b");
+      b.textContent = labels[key] + ": ";
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(answers[key]));
+      summaryEl.appendChild(li);
+    }
+  }
+
+  function selectOption(btn){
+    answers[btn.getAttribute("data-key")] = btn.getAttribute("data-val");
+    var stepEl = btn.closest(".cfg-step");
+    var siblings = stepEl.querySelectorAll(".cfg-opt");
+    for(var i = 0; i < siblings.length; i++){
+      siblings[i].setAttribute("aria-pressed", siblings[i] === btn ? "true" : "false");
+    }
+    if(current < total){
+      render(current + 1);
+    } else {
+      buildSummary();
+      render(total + 1);
+      if(result && typeof result.focus === "function"){ result.focus(); }
+    }
+  }
+
+  for(var i = 0; i < opts.length; i++){
+    opts[i].addEventListener("click", function(e){ selectOption(e.currentTarget); });
+  }
+  backBtn.addEventListener("click", function(){ if(current > 1){ render(current - 1); } });
+  restartBtn.addEventListener("click", function(){
+    answers = {};
+    for(var i = 0; i < opts.length; i++){ opts[i].setAttribute("aria-pressed", "false"); }
+    render(1);
+  });
+
+  render(1);
+})();
+</script>
+
+</body>
+</html>
