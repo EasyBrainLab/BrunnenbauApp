@@ -118,10 +118,9 @@ Neue Env-Variable `APP_BASE_URL` (kanonische Basis-URL für Mail-Links; heute wi
 > Öffnen Sie Ihren Testzugang ab jetzt immer über diesen Link und melden Sie sich mit Ihrem Benutzernamen und Passwort an.
 >
 > **Wichtig zu Ihrem Testzeitraum:**
-> - Der Testzugang ist **3 Tage** gültig (bis {{Datum/Uhrzeit}}).
-> - Sie haben in dieser Zeit **vollen Funktionsumfang**.
-> - Wenn Sie bis dahin **kein Abo abschließen, werden alle in diesem Testzugang angelegten Daten automatisch und vollständig gelöscht** (DSGVO-konform).
-> - Schließen Sie ein Abo ab, **bleiben alle Ihre Daten erhalten** — Sie arbeiten nahtlos weiter.
+> - Der Testzugang ist **3 Tage** voll nutzbar (bis {{Datum/Uhrzeit}}) — mit **vollem Funktionsumfang**.
+> - Nach den 3 Tagen wird Ihr Zugang **pausiert**. Schließen Sie ein Abo ab, geht es **nahtlos mit allen Ihren Daten** weiter.
+> - Ohne Abo werden Ihre Testdaten anschließend **endgültig gelöscht** (DSGVO-konform).
 >
 > Ein Abo können Sie jederzeit direkt aus dem Tool starten (Schaltfläche „Abo abschließen"). Es gibt zwei Pakete: **Konfigurator & Interessenten** (9,90 €/Monat) und **Komplett** (49,90 €/Monat).
 >
@@ -170,13 +169,14 @@ function planHasFeature(plan, feature) {
 
 ### 4.4 3-Tage-Lebenszyklus (Löschjob)
 
+**Festgelegte Fristen:** `TRIAL_DAYS = 3`, `GRACE_DAYS = 21` → **Sperre am Tag 3, endgültige Löschung am Tag 24** (nach Registrierung). Als benannte Konstanten führen, damit eine Anpassung ein Einzeiler bleibt.
+
 Kein Scheduler vorhanden → **In-Process-Job** genügt (eine Backend-Instanz, `restart: unless-stopped`): `node-cron` (neue Dependency) oder simples `setInterval` (stündlich) beim Serverstart in `server.js` nach `initDatabase()`. Zwei idempotente Stufen:
 
-1. **Sperren (Tag 3):** `UPDATE subscriptions SET status='expired', purge_at = NOW() + INTERVAL '<Grace>' WHERE status='trialing' AND trial_ends_at < NOW()`; `tenants.plan='expired'`. → Der Nutzer sieht beim Login nur noch eine Sperr-/Upgrade-Seite (Login bleibt möglich, damit er noch ein Abo abschließen kann).
-2. **Endgültig löschen (`purge_at < NOW()`):** **zuerst Upload-Dateien einsammeln** (`inquiry_files`, `diagnostic_files`, `supplier_documents`, `well_type_graphics`, `company_documents` → `stored_name`; `cost_items.image_url`; `company_settings.logo_path`) und aus `backend/uploads/{,suppliers,materials,graphics,company-docs}` löschen — **dann** `DELETE FROM tenants WHERE tenant_id=$1` (die `ON DELETE CASCADE`-Fremdschlüssel räumen alle ~30 Kindtabellen automatisch). Jeden Lauf loggen (Löschkonzept-Nachweis).
+1. **Sperren (Tag 3):** `UPDATE subscriptions SET status='expired', purge_at = trial_ends_at + INTERVAL '21 days' WHERE status='trialing' AND trial_ends_at < NOW()`; `tenants.plan='expired'`. → Der Nutzer sieht beim Login nur noch eine Sperr-/Upgrade-Seite (Login bleibt möglich, damit er noch ein Abo abschließen kann). Genau hier ist der Konversionshebel: Wer während der 21 Tage doch abschließt, behält alle Daten.
+2. **Endgültig löschen (Tag 24, `purge_at < NOW()`):** **zuerst Upload-Dateien einsammeln** (`inquiry_files`, `diagnostic_files`, `supplier_documents`, `well_type_graphics`, `company_documents` → `stored_name`; `cost_items.image_url`; `company_settings.logo_path`) und aus `backend/uploads/{,suppliers,materials,graphics,company-docs}` löschen — **dann** `DELETE FROM tenants WHERE tenant_id=$1` (die `ON DELETE CASCADE`-Fremdschlüssel räumen alle ~30 Kindtabellen automatisch). Jeden Lauf loggen (Löschkonzept-Nachweis).
 
-> **Deine Vorgabe vs. Empfehlung:** Du hast „nach 3 Tagen löschen" gesagt. Technisch setze ich das als Baseline um. **Empfehlung:** `<Grace>` = z. B. 14 Tage — d. h. am Tag 3 wird der Zugang **gesperrt** (nicht sofort gelöscht), endgültig gelöscht wird erst nach der Grace-Frist. Vorteil: Wer am Tag 4 doch ein Abo abschließt, **behält seine Daten** (genau das verspricht die Willkommens-Mail). Reine Sofortlöschung am Tag 3 kostet nachweislich Konversion. Wenn du strikt 3 Tage willst: `<Grace>` = 0.
-> Optional: Erinnerungs-Mail am Tag 2 („noch 1 Tag") und eine „Ihre Daten sind noch da"-Mail im Grace-Fenster.
+Begleitende E-Mails: Erinnerung am **Tag 2** („noch 1 Tag voller Zugang"), Sperr-Info am **Tag 3** („Zugang pausiert — mit Abo geht es sofort weiter, Ihre Daten bleiben 21 Tage erhalten") und eine Win-back-Mail im Grace-Fenster.
 
 ### 4.5 Abo-Abschluss mit Stripe
 
@@ -226,11 +226,15 @@ Wichtig, unabhängig davon: Vor dem Live-Betrieb die **Tenant-Isolation** aller 
 | 6 | Stripe: `billing.js` (Checkout, Portal, Webhook), Plan-Sync, Preise/Env, Testmodus durchspielen | 3–5 Tage |
 | 7 | Rechtstexte, Trial-Instanz/Subdomains (optional), Isolationstest | 2–4 Tage |
 
-## 8. Offene Entscheidungen für dich
+## 8. Getroffene Entscheidungen (final)
 
-1. **Löschung strikt am Tag 3** oder **Sperre am Tag 3 + Grace-Fenster** (empfohlen, z. B. 14 Tage), damit ein später Abschluss die Daten behält?
-2. **Trial = Vollzugriff** (empfohlen, wie hier angenommen) — bestätigt?
-3. **E-Mail-Verifizierung**: reicht die Bestätigungs-E-Mail (sofortiges Testen, wie du beschrieben hast), oder soll der Account erst nach Klick auf den Link aktiv sein (strengeres Double-Opt-In)?
-4. **Hosting**: MVP mit `?tenant=slug` zuerst, oder gleich die Trial-Subdomains (`slug.test.easybrainlab.com`) aufsetzen?
-5. **Preise** final: 9,90 € / 49,90 € zzgl. USt., monatlich kündbar?
-6. **Paketwechsel A↔B**: nur über Stripe Customer Portal (einfachster Weg) — ok?
+| # | Entscheidung | Festlegung |
+|---|---|---|
+| 1 | Lebenszyklus | **Tag 3 sperren, Tag 24 endgültig löschen** (21 Tage Grace). Konstanten `TRIAL_DAYS=3`, `GRACE_DAYS=21`. |
+| 2 | Trial-Umfang | **Vollzugriff** während der 3 Tage. |
+| 3 | E-Mail-Bestätigung | **Kein harter Aktivierungs-Klick** — sofortiges Testen bleibt möglich (Auto-Login nach Registrierung). Die Bestätigungs-E-Mail wird **werbefrei** gestaltet und **IP + Zeitstempel** von Registrierung protokolliert, sodass sie zugleich als Double-Opt-In-Nachweis dient. |
+| 4 | Hosting | **MVP zuerst mit `?tenant=<slug>`** auf gemeinsamer Trial-Instanz; Trial-Subdomains (`slug.test.easybrainlab.com`) als Phase 2. |
+| 5 | Preise | **9,90 €** (Konfigurator & Interessenten) / **49,90 €** (Komplett), je zzgl. USt., monatlich kündbar — wie auf der Live-Landingpage. |
+| 6 | Paketwechsel A↔B | Über das **Stripe Customer Portal** (kein eigener UI-Aufwand). |
+
+Damit sind alle konzeptionellen Fragen entschieden; die Umsetzung kann phasenweise nach §7 beginnen (Phase 1–5 ohne externe Abhängigkeiten; Phase 6 Stripe benötigt vorab: Stripe-Preis-IDs/Keys sowie die Rechtstexte aus §6).
