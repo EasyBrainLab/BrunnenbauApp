@@ -5,6 +5,7 @@ const { dbGet, dbRun } = require('../database');
 const { hashPassword, verifyPassword } = require('../services/encryption');
 const { getPermissionsForRole } = require('../services/roles');
 const { seedTenantData } = require('../services/templateSeed');
+const { sendTrialWelcomeMail } = require('../email');
 
 // POST /api/auth/register — Neuen Tenant + Owner-User anlegen
 router.post('/register', async (req, res) => {
@@ -36,10 +37,10 @@ router.post('/register', async (req, res) => {
     // Hinweis: Gleiche E-Mail in verschiedenen Tenants ist erlaubt
     const tenantId = crypto.randomUUID();
 
-    // Tenant anlegen
+    // Tenant anlegen (startet als 3-Tage-Trial)
     await dbRun(
       'INSERT INTO tenants (tenant_id, company_name, slug, plan, is_active) VALUES ($1, $2, $3, $4, 1)',
-      [tenantId, companyName, slug, 'free']
+      [tenantId, companyName, slug, 'trial']
     );
 
     // Owner-User anlegen
@@ -69,6 +70,32 @@ router.post('/register', async (req, res) => {
     // für den neuen Tenant provisionieren – eigene Kopie, nicht geteilt.
     await seedTenantData(tenantId);
 
+    // 3-Tage-Trial-Abo anlegen (best-effort: darf die Registrierung nicht blockieren)
+    let trialEndsAt = null;
+    try {
+      const sub = await dbGet(
+        `INSERT INTO subscriptions (tenant_id, plan, status, trial_ends_at)
+         VALUES ($1, 'trial', 'trialing', NOW() + INTERVAL '3 days')
+         ON CONFLICT (tenant_id) DO NOTHING
+         RETURNING trial_ends_at`,
+        [tenantId]
+      );
+      trialEndsAt = sub?.trial_ends_at || null;
+    } catch (subErr) {
+      console.error('Trial-Subscription konnte nicht angelegt werden:', subErr.message);
+    }
+
+    // Bestaetigungs-/Willkommens-E-Mail mit persoenlichem Account-Link.
+    // Fire-and-forget: der SMTP-Versand darf die Registrierungs-Antwort nicht verzoegern/blockieren.
+    try {
+      const base = (process.env.APP_BASE_URL || process.env.FRONTEND_URL || '').replace(/\/$/, '');
+      const accountLink = `${base}/admin?tenant=${encodeURIComponent(slug)}`;
+      sendTrialWelcomeMail(email, { companyName, accountLink, trialEndsAt })
+        .catch((mailErr) => console.error('Willkommens-E-Mail konnte nicht versendet werden:', mailErr.message));
+    } catch (mailErr) {
+      console.error('Willkommens-E-Mail (Setup) fehlgeschlagen:', mailErr.message);
+    }
+
     // Session setzen
     const createdUser = await dbGet('SELECT id FROM users WHERE tenant_id = $1 AND email = $2', [tenantId, email]);
     req.session.userId = createdUser.id;
@@ -77,7 +104,8 @@ router.post('/register', async (req, res) => {
     req.session.isAdmin = true; // Backward compatible
 
     res.status(201).json({
-      tenant: { tenantId, companyName, slug, plan: 'free' },
+      tenant: { tenantId, companyName, slug, plan: 'trial' },
+      subscription: { plan: 'trial', status: 'trialing', trial_ends_at: trialEndsAt },
       user: {
         email,
         username,
@@ -195,10 +223,16 @@ router.get('/me', async (req, res) => {
     const tenantId = req.session.tenantId || 'default';
     const tenant = await dbGet('SELECT tenant_id, company_name, slug, plan FROM tenants WHERE tenant_id = $1', [tenantId]);
 
+    // Abo-/Trial-Status (best-effort: Legacy-DBs ohne subscriptions liefern null)
+    const subscription = await dbGet(
+      'SELECT plan, status, trial_ends_at, current_period_end, cancel_at_period_end, purge_at FROM subscriptions WHERE tenant_id = $1',
+      [tenantId]
+    ).catch(() => null);
+
     if (req.session.userId) {
       const user = await dbGet('SELECT id, email, username, role, display_name FROM users WHERE id = $1', [req.session.userId]);
       const permissions = await getPermissionsForRole(tenantId, user.role);
-      return res.json({ user: { ...user, permissions }, tenant });
+      return res.json({ user: { ...user, permissions }, tenant, subscription });
     }
 
     // Legacy admin
@@ -210,6 +244,7 @@ router.get('/me', async (req, res) => {
         permissions: await getPermissionsForRole(tenantId, 'owner'),
       },
       tenant,
+      subscription,
     });
   } catch (err) {
     console.error('Auth /me fehlgeschlagen:', err);

@@ -389,11 +389,76 @@ async function sendDiagnosticCompanyNotification(diagnostic, tenantId) {
   });
 }
 
+// Datum/Uhrzeit deutsch formatieren (ohne Locale-Abhaengigkeit)
+function formatDeDateTime(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())} Uhr`;
+}
+
+// Willkommens-/Bestaetigungs-E-Mail fuer einen neuen Test-Account.
+// System-Mail: createTransporter() OHNE tenantId -> Plattform-SMTP aus .env.
+// Bewusst werbefrei gehalten (dient zugleich als Double-Opt-In-Nachweis).
+async function sendTrialWelcomeMail(to, { companyName, accountLink, trialEndsAt }) {
+  const transporter = await createTransporter();
+  const from = process.env.EMAIL_FROM || 'noreply@brunnenbauapp.de';
+  const endStr = trialEndsAt ? formatDeDateTime(trialEndsAt) : 'in 3 Tagen';
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif; color:#101a2e; max-width:600px;">
+      <h2 style="color:#1b59b7;">Ihr Testzugang zur BrunnenbauApp ist bereit</h2>
+      <p>Hallo ${companyName || ''},</p>
+      <p>willkommen — Ihr kostenloser Testzugang für <strong>${companyName || 'Ihren Betrieb'}</strong> ist eingerichtet.</p>
+
+      <p style="margin:24px 0;">
+        <a href="${accountLink}" style="background:#1b59b7; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:8px; font-weight:bold; display:inline-block;">Zu meinem Testzugang</a>
+      </p>
+      <p style="font-size:14px; color:#5b6672;">Öffnen Sie Ihren Testzugang ab jetzt immer über diesen Link und melden Sie sich mit Ihrem Benutzernamen und Passwort an:<br>
+        <a href="${accountLink}">${accountLink}</a></p>
+
+      <h3 style="color:#1b59b7; margin-top:28px;">Wichtig zu Ihrem Testzeitraum</h3>
+      <ul style="line-height:1.6;">
+        <li>Ihr Testzugang ist <strong>3 Tage</strong> voll nutzbar (bis ${endStr}) — mit vollem Funktionsumfang.</li>
+        <li>Nach den 3 Tagen wird Ihr Zugang <strong>pausiert</strong>. Schließen Sie ein Abo ab, geht es nahtlos mit allen Ihren Daten weiter.</li>
+        <li>Ohne Abo werden Ihre Testdaten anschließend endgültig gelöscht (DSGVO-konform).</li>
+      </ul>
+
+      <p style="line-height:1.6;">Ein Abo können Sie jederzeit direkt im Tool starten. Es gibt zwei Pakete:
+        <strong>Konfigurator &amp; Interessenten</strong> (9,90 €/Monat) und <strong>Komplett</strong> (49,90 €/Monat), je zzgl. USt., monatlich kündbar.</p>
+
+      <p style="margin-top:24px; color:#5b6672; font-size:14px;">Fragen? Antworten Sie einfach auf diese E-Mail.<br>Ihr BrunnenbauApp-Team · EasyBrainLab</p>
+    </div>
+  `;
+
+  const text = [
+    `Ihr Testzugang zur BrunnenbauApp ist bereit`,
+    ``,
+    `Hallo ${companyName || ''},`,
+    `willkommen — Ihr kostenloser Testzugang fuer ${companyName || 'Ihren Betrieb'} ist eingerichtet.`,
+    ``,
+    `Ihr persoenlicher Zugang: ${accountLink}`,
+    `Oeffnen Sie Ihren Testzugang ab jetzt immer ueber diesen Link und melden Sie sich mit Benutzername und Passwort an.`,
+    ``,
+    `Wichtig zu Ihrem Testzeitraum:`,
+    `- Ihr Testzugang ist 3 Tage voll nutzbar (bis ${endStr}) - mit vollem Funktionsumfang.`,
+    `- Nach den 3 Tagen wird Ihr Zugang pausiert. Mit Abo geht es nahtlos mit allen Daten weiter.`,
+    `- Ohne Abo werden Ihre Testdaten anschliessend endgueltig geloescht (DSGVO-konform).`,
+    ``,
+    `Zwei Pakete: Konfigurator & Interessenten (9,90 EUR/Monat) und Komplett (49,90 EUR/Monat), je zzgl. USt., monatlich kuendbar.`,
+    ``,
+    `Ihr BrunnenbauApp-Team - EasyBrainLab`,
+  ].join('\n');
+
+  await transporter.sendMail({ from, to, subject: 'Ihr Testzugang zur BrunnenbauApp ist bereit', html, text });
+}
+
 module.exports = {
   sendCustomerConfirmation,
   sendCompanyNotification,
   sendPrivacyPolicyEmail,
   sendDiagnosticReport,
   sendDiagnosticCompanyNotification,
+  sendTrialWelcomeMail,
   WELL_TYPE_LABELS,
 };
