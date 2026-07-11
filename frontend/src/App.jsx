@@ -24,9 +24,11 @@ import AdminCompany from './pages/AdminCompany';
 import AdminDocumentLayout from './pages/AdminDocumentLayout';
 import AdminDocumentLayoutEditor from './pages/AdminDocumentLayoutEditor';
 import AdminAuthorityLinks from './pages/AdminAuthorityLinks';
+import AdminSubscription from './pages/AdminSubscription';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
+import RequireFeature from './components/RequireFeature';
 import { DialogProvider } from './context/DialogContext';
 
 const AdminCalendar = lazy(() => import('./pages/AdminCalendar'));
@@ -58,21 +60,22 @@ export default function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/anfrage/:id" element={<AdminDetail />} />
+              <Route path="/admin/abo" element={<AdminSubscription />} />
               <Route path="/admin/doktor" element={<AdminDiagnostics />} />
               <Route path="/admin/doktor/:id" element={<AdminDiagnosticDetail />} />
-              <Route path="/admin/kosten" element={<AdminCosts />} />
-              <Route path="/admin/lieferanten" element={<AdminSuppliers />} />
-              <Route path="/admin/lager" element={<AdminInventory />} />
+              <Route path="/admin/kosten" element={<RequireFeature feature="costs"><AdminCosts /></RequireFeature>} />
+              <Route path="/admin/lieferanten" element={<RequireFeature feature="suppliers"><AdminSuppliers /></RequireFeature>} />
+              <Route path="/admin/lager" element={<RequireFeature feature="inventory"><AdminInventory /></RequireFeature>} />
               <Route path="/admin/wertelisten" element={<AdminValueLists />} />
               <Route path="/admin/felder" element={<AdminFieldConfig />} />
-              <Route path="/admin/grafiken" element={<AdminGraphics />} />
+              <Route path="/admin/grafiken" element={<RequireFeature feature="costs"><AdminGraphics /></RequireFeature>} />
               <Route path="/admin/hilfe" element={<AdminHelp />} />
-              <Route path="/admin/ki-angebote" element={<AdminOfferAssistant />} />
+              <Route path="/admin/ki-angebote" element={<RequireFeature feature="quotes"><AdminOfferAssistant /></RequireFeature>} />
               <Route path="/admin/firma" element={<AdminCompany />} />
-              <Route path="/admin/dokumentlayout" element={<AdminDocumentLayout />} />
-              <Route path="/admin/dokumentlayout/editor" element={<AdminDocumentLayoutEditor />} />
+              <Route path="/admin/dokumentlayout" element={<RequireFeature feature="quotes"><AdminDocumentLayout /></RequireFeature>} />
+              <Route path="/admin/dokumentlayout/editor" element={<RequireFeature feature="quotes"><AdminDocumentLayoutEditor /></RequireFeature>} />
               <Route path="/admin/behoerden-links" element={<AdminAuthorityLinks />} />
-              <Route path="/admin/kalender" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense>} />
+              <Route path="/admin/kalender" element={<RequireFeature feature="calendar"><Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminCalendar /></Suspense></RequireFeature>} />
               <Route path="/admin/benutzer" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminUsers /></Suspense>} />
               <Route path="/admin/email-einstellungen" element={<Suspense fallback={<div className="text-center py-12 text-gray-500">Laden...</div>}><AdminSmtp /></Suspense>} />
             </Route>

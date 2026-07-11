@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPut, apiDelete, withTenantContext } from '../api';
 import { useValueList } from '../hooks/useValueList';
+import { useAuth } from '../context/AuthContext';
 import ResponsePanel from '../components/ResponsePanel';
 import QuoteGenerator from '../components/QuoteGenerator';
 import ChatHistory from '../components/ChatHistory';
@@ -230,6 +231,7 @@ export default function AdminDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { confirm } = useDialog();
+  const { hasFeature } = useAuth();
   const { STATUS_OPTIONS, WELL_TYPE_LABELS, COVER_LABELS, wellTypeItems, coverItems } = useStatusAndWellTypes();
   const [inquiry, setInquiry] = useState(null);
   const [notes, setNotes] = useState('');
@@ -554,18 +556,20 @@ export default function AdminDetail() {
       {/* Kommunikations-Archiv */}
       <ChatHistory inquiryId={id} onStatusChange={(status) => setInquiry((prev) => ({ ...prev, status }))} />
 
-      {/* Antwort an Kunden */}
-      <ResponsePanel inquiryId={id} inquiry={inquiry} />
+      {/* Antwort an Kunden (Angebots-/Quotes-Feature) */}
+      {hasFeature('quotes') && <ResponsePanel inquiryId={id} inquiry={inquiry} />}
 
-      {/* Bohrtermine */}
-      <DrillingSchedule
-        inquiryId={id}
-        inquiryStatus={inquiry.status}
-        onStatusChange={(status) => setInquiry((prev) => ({ ...prev, status }))}
-      />
+      {/* Bohrtermine (Kalender-Feature) */}
+      {hasFeature('calendar') && (
+        <DrillingSchedule
+          inquiryId={id}
+          inquiryStatus={inquiry.status}
+          onStatusChange={(status) => setInquiry((prev) => ({ ...prev, status }))}
+        />
+      )}
 
-      {/* Angebotsgenerator */}
-      <QuoteGenerator inquiryId={id} wellType={inquiry.well_type} />
+      {/* Angebotsgenerator (Angebots-/Quotes-Feature) */}
+      {hasFeature('quotes') && <QuoteGenerator inquiryId={id} wellType={inquiry.well_type} />}
 
       {/* Vorschriften-Info */}
       <RegulationsInfo zip={inquiry.zip_code} />

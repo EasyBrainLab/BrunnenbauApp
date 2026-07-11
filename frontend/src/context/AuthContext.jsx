@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
   const [tenant, setTenant] = useState(null);
   const [publicTenant, setPublicTenant] = useState(null);
   const [company, setCompany] = useState(null);
+  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
@@ -44,17 +45,20 @@ export function AuthProvider({ children }) {
         invalidateValueListCache();
         setUser(authData.user);
         setTenant(authData.tenant);
+        setSubscription(authData.subscription || null);
         setActiveTenantContext(authData.tenant || bootstrapTenant);
       } else {
         invalidateValueListCache();
         setUser(null);
         setTenant(null);
+        setSubscription(null);
         setActiveTenantContext(bootstrapTenant);
       }
     } catch {
       invalidateValueListCache();
       setUser(null);
       setTenant(null);
+      setSubscription(null);
       setActiveTenantContext(null);
     } finally {
       setLoading(false);
@@ -87,6 +91,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
+    setSubscription(data.subscription || null);
     setActiveTenantContext(data.tenant);
     return data;
   };
@@ -106,6 +111,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(data.user);
     setTenant(data.tenant);
+    setSubscription(data.subscription || null);
     setActiveTenantContext(data.tenant);
     return data;
   };
@@ -115,6 +121,7 @@ export function AuthProvider({ children }) {
     invalidateValueListCache();
     setUser(null);
     setTenant(null);
+    setSubscription(null);
     setActiveTenantContext(publicTenant);
   };
 
@@ -138,6 +145,7 @@ export function AuthProvider({ children }) {
     hasPermission: (permission) => user?.role === 'owner' || (user?.permissions || []).includes(permission),
     plan: tenant?.plan || null,
     hasFeature: (feature) => planHasFeature(tenant?.plan, feature),
+    subscription,
     login,
     loginLegacy,
     register,

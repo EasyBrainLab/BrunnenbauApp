@@ -194,10 +194,15 @@ router.post('/login', async (req, res) => {
     await dbRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
 
     const permissions = await getPermissionsForRole(user.tenant_id, user.role);
+    const subscription = await dbGet(
+      'SELECT plan, status, trial_ends_at, current_period_end, cancel_at_period_end, purge_at FROM subscriptions WHERE tenant_id = $1',
+      [user.tenant_id]
+    ).catch(() => null);
 
     res.json({
       user: { id: user.id, email: user.email, username: user.username, role: user.role, displayName: user.display_name, permissions },
       tenant: { tenantId: tenant.tenant_id, companyName: tenant.company_name, slug: tenant.slug, plan: tenant.plan },
+      subscription,
     });
   } catch (err) {
     console.error('Login-Fehler:', err);
