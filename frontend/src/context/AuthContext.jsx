@@ -4,6 +4,15 @@ import { invalidateValueListCache } from '../hooks/useValueList';
 
 const AuthContext = createContext(null);
 
+// Spiegelt backend/src/services/plans.js: gate-faehige Module und die Plaene mit Vollzugriff.
+// Bei Aenderungen dort hier mitziehen. Massgeblich fuer die Sicherheit bleibt das Backend.
+const GATED_FEATURES = ['quotes', 'costs', 'suppliers', 'inventory', 'calendar'];
+const FULL_PLANS = ['trial', 'complete', 'pro'];
+function planHasFeature(plan, feature) {
+  if (!GATED_FEATURES.includes(feature)) return true;
+  return FULL_PLANS.includes(plan);
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenant, setTenant] = useState(null);
@@ -127,6 +136,8 @@ export function AuthProvider({ children }) {
     isAdmin: user?.role === 'owner' || user?.role === 'admin',
     permissions: user?.permissions || [],
     hasPermission: (permission) => user?.role === 'owner' || (user?.permissions || []).includes(permission),
+    plan: tenant?.plan || null,
+    hasFeature: (feature) => planHasFeature(tenant?.plan, feature),
     login,
     loginLegacy,
     register,

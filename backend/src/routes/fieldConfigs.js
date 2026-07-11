@@ -1,6 +1,7 @@
 const express = require('express');
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission, getTenantPlan } = require('../middleware/tenantContext');
+const { planHasFeature } = require('../services/plans');
 
 const router = express.Router();
 
@@ -32,11 +33,22 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Abo-Gating fuer die /distinct-Vorschlaege: Material -> 'costs', Lieferanten -> 'suppliers'.
+const DISTINCT_FEATURE_BY_TABLE = { cost_items: 'costs', suppliers: 'suppliers' };
+
 // GET /api/field-configs/distinct?field_key=material.manufacturer — Vorschläge (Auth)
 router.get('/distinct', requireAuth, async (req, res) => {
   try {
     const src = DISTINCT_SOURCES[req.query.field_key];
     if (!src) return res.json([]);
+    // Kein Umgehen des costs-/suppliers-Gates ueber die Autocomplete-Quelle.
+    const feature = DISTINCT_FEATURE_BY_TABLE[src.table];
+    if (feature) {
+      const plan = await getTenantPlan(req.tenantId);
+      if (!planHasFeature(plan, feature)) {
+        return res.status(403).json({ error: 'Diese Funktion ist in Ihrem aktuellen Paket nicht enthalten.', feature, upgradeRequired: true });
+      }
+    }
     const rows = await dbAll(
       `SELECT DISTINCT ${src.column} AS v FROM ${src.table}
        WHERE tenant_id = $1 AND ${src.column} IS NOT NULL AND ${src.column} <> ''

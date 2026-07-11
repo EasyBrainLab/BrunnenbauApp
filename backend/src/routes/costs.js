@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission, requirePlanFeature } = require('../middleware/tenantContext');
 const { getCompanySettingsAsync } = require('../companySettings');
 const {
   buildDocumentTemplateContext,
@@ -14,6 +14,9 @@ const {
 const router = express.Router();
 
 router.use(requireAuth);
+
+// Abo-Gating: Material/Stuecklisten/Kosten/Quotes nur mit Feature 'costs' (auch Lesen).
+router.use(requirePlanFeature('costs'));
 
 router.use((req, res, next) => {
   if (req.method === 'GET') return next();

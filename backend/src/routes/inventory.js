@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission, requirePlanFeature } = require('../middleware/tenantContext');
 
 router.use(requireAuth);
+// Abo-Gating: Lager nur mit Feature 'inventory' (auch Lesen).
+router.use(requirePlanFeature('inventory'));
 router.use((req, res, next) => {
   if (req.method === 'GET') return next();
   return requirePermission('inventory_manage')(req, res, next);

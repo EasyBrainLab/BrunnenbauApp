@@ -9,7 +9,7 @@ const { sendCustomerConfirmation, sendCompanyNotification, sendPrivacyPolicyEmai
 const nodemailer = require('nodemailer');
 const { generateQuotePdf, generatePrivacyPolicyPdf } = require('../pdfGenerator');
 const { getCompanySettingsAsync, getSettingsKeys, getEmailSignature } = require('../companySettings');
-const { requireAuth: tenantRequireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth: tenantRequireAuth, requirePermission, requirePlanFeature } = require('../middleware/tenantContext');
 const { buildDefaultPrivacyPolicyText, getPrivacyPolicy, formatGermanDate, todayIso } = require('../privacyPolicy');
 const {
   DEFAULT_LAYOUT,
@@ -461,13 +461,13 @@ router.get('/stats', requireAuth, async (req, res) => {
 // ==================== Antwortvorlagen ====================
 
 // GET /api/admin/templates
-router.get('/templates', requireAuth, async (req, res) => {
+router.get('/templates', requireAuth, requirePlanFeature('quotes'), async (req, res) => {
   const templates = await dbAll('SELECT * FROM response_templates WHERE tenant_id = $1 ORDER BY sort_order, id', [req.tenantId]);
   res.json(templates);
 });
 
 // POST /api/admin/templates
-router.post('/templates', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.post('/templates', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
   if (!name || !subject || !body_text) {
     return res.status(400).json({ error: 'Name, Betreff und Text sind erforderlich' });
@@ -480,7 +480,7 @@ router.post('/templates', requireAuth, requirePermission('offers_manage'), async
 });
 
 // PUT /api/admin/templates/:id
-router.put('/templates/:id', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.put('/templates/:id', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   const { name, subject, body_html, body_text, category, sort_order } = req.body;
   await dbRun(
     'UPDATE response_templates SET name = $1, subject = $2, body_html = $3, body_text = $4, category = $5, sort_order = $6 WHERE id = $7 AND tenant_id = $8',
@@ -490,13 +490,13 @@ router.put('/templates/:id', requireAuth, requirePermission('offers_manage'), as
 });
 
 // DELETE /api/admin/templates/:id
-router.delete('/templates/:id', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.delete('/templates/:id', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   await dbRun('DELETE FROM response_templates WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Vorlage geloescht' });
 });
 
 // POST /api/admin/inquiries/:id/send-response — Vorlage rendern + per Email senden
-router.post('/inquiries/:id/send-response', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.post('/inquiries/:id/send-response', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   try {
     const { template_id, subject, body_text, placeholders } = req.body;
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
@@ -617,7 +617,7 @@ router.get('/inquiries/:id/messages/export', requireAuth, async (req, res) => {
 // ==================== PDF-Angebotsgenerierung ====================
 
 // POST /api/admin/inquiries/:id/generate-pdf/:quoteId
-router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   try {
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -664,7 +664,7 @@ router.post('/inquiries/:id/generate-pdf/:quoteId', requireAuth, requirePermissi
 // ==================== Bohrtermine ====================
 
 // GET /api/admin/inquiries/:id/drilling-schedule
-router.get('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) => {
+router.get('/inquiries/:id/drilling-schedule', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   const schedules = await dbAll(
     'SELECT * FROM drilling_schedules WHERE inquiry_id = $1 AND tenant_id = $2 ORDER BY drill_date ASC',
     [req.params.id, req.tenantId]
@@ -673,7 +673,7 @@ router.get('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) => 
 });
 
 // POST /api/admin/inquiries/:id/drilling-schedule — Bohrtage anlegen
-router.post('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) => {
+router.post('/inquiries/:id/drilling-schedule', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   const { dates } = req.body; // [{ drill_date, start_time, notes }]
   if (!Array.isArray(dates) || dates.length === 0) {
     return res.status(400).json({ error: 'Mindestens ein Termin erforderlich' });
@@ -716,7 +716,7 @@ router.post('/inquiries/:id/drilling-schedule', requireAuth, async (req, res) =>
 });
 
 // PUT /api/admin/drilling-schedule/:scheduleId — Einzelnen Termin anpassen
-router.put('/drilling-schedule/:scheduleId', requireAuth, async (req, res) => {
+router.put('/drilling-schedule/:scheduleId', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   const { drill_date, start_time, notes } = req.body;
 
   const schedule = await dbGet('SELECT * FROM drilling_schedules WHERE id = $1 AND tenant_id = $2', [req.params.scheduleId, req.tenantId]);
@@ -745,13 +745,13 @@ router.put('/drilling-schedule/:scheduleId', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/admin/drilling-schedule/:scheduleId
-router.delete('/drilling-schedule/:scheduleId', requireAuth, async (req, res) => {
+router.delete('/drilling-schedule/:scheduleId', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   await dbRun('DELETE FROM drilling_schedules WHERE id = $1 AND tenant_id = $2', [req.params.scheduleId, req.tenantId]);
   res.json({ message: 'Termin geloescht' });
 });
 
 // POST /api/admin/inquiries/:id/send-drilling-info — Termininfo an Kunden senden
-router.post('/inquiries/:id/send-drilling-info', requireAuth, async (req, res) => {
+router.post('/inquiries/:id/send-drilling-info', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   try {
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -883,7 +883,7 @@ router.delete('/authority-links/:id', requireAuth, requirePermission('authority_
 // ==================== Kalender-Events ====================
 
 // GET /api/admin/calendar/events — Alle Events (Kundentermine + Bohrtermine)
-router.get('/calendar/events', requireAuth, async (req, res) => {
+router.get('/calendar/events', requireAuth, requirePlanFeature('calendar'), async (req, res) => {
   const statusColors = {
     neu: '#3f93d3',
     in_bearbeitung: '#f59e0b',
@@ -964,7 +964,7 @@ router.get('/calendar/events', requireAuth, async (req, res) => {
 // ==================== PDF per Email senden ====================
 
 // POST /api/admin/inquiries/:id/send-quote/:quoteId
-router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, requirePermission('offers_manage'), async (req, res) => {
+router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, requirePlanFeature('quotes'), requirePermission('offers_manage'), async (req, res) => {
   try {
     const inquiry = await dbGet('SELECT * FROM inquiries WHERE inquiry_id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
     if (!inquiry) return res.status(404).json({ error: 'Anfrage nicht gefunden' });
@@ -1061,7 +1061,7 @@ router.get('/public/bootstrap', async (req, res) => {
 });
 
 // GET /api/admin/company-settings — Firmendaten lesen (oeffentlich fuer Basis-Infos)
-router.get('/document-templates', requireAuth, async (req, res) => {
+router.get('/document-templates', requireAuth, requirePlanFeature('quotes'), async (req, res) => {
   try {
     const documentType = req.query.document_type || null;
     const templates = await getDocumentTemplatesAsync(req.tenantId, documentType);
@@ -1076,7 +1076,7 @@ router.get('/document-templates', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/document-templates', requireAuth, requirePermission('company_manage'), async (req, res) => {
+router.post('/document-templates', requireAuth, requirePlanFeature('quotes'), requirePermission('company_manage'), async (req, res) => {
   const {
     document_type,
     name,
@@ -1136,7 +1136,7 @@ router.post('/document-templates', requireAuth, requirePermission('company_manag
   res.status(201).json({ message: 'Dokumentvorlage erstellt' });
 });
 
-router.put('/document-templates/:id', requireAuth, requirePermission('company_manage'), async (req, res) => {
+router.put('/document-templates/:id', requireAuth, requirePlanFeature('quotes'), requirePermission('company_manage'), async (req, res) => {
   const existing = await getDocumentTemplateByIdAsync(req.params.id, req.tenantId);
   if (!existing) {
     return res.status(404).json({ error: 'Dokumentvorlage nicht gefunden' });
@@ -1213,7 +1213,7 @@ router.put('/document-templates/:id', requireAuth, requirePermission('company_ma
   res.json({ message: 'Dokumentvorlage gespeichert' });
 });
 
-router.delete('/document-templates/:id', requireAuth, requirePermission('company_manage'), async (req, res) => {
+router.delete('/document-templates/:id', requireAuth, requirePlanFeature('quotes'), requirePermission('company_manage'), async (req, res) => {
   await dbRun('DELETE FROM document_templates WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenantId]);
   res.json({ message: 'Dokumentvorlage geloescht' });
 });

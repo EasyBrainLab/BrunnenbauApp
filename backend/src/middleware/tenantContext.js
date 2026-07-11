@@ -1,5 +1,6 @@
 const { getDb, dbGet, isPostgres } = require('../database');
 const { getPermissionsForRole } = require('../services/roles');
+const { planHasFeature } = require('../services/plans');
 
 function normalizeSlug(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -174,6 +175,49 @@ function requirePermission(...permissions) {
   };
 }
 
+// --- Plan-basiertes Feature-Gating (Abo-Stufen) ---
+// Kleiner In-Memory-Cache fuer den Tenant-Plan (Zugriffsentscheidung pro Request,
+// aber Plan aendert sich selten). Bei Plan-Wechsel (Stripe-Webhook, Sperr-/Loeschjob)
+// clearTenantPlanCache(tenantId) aufrufen.
+const planCache = new Map(); // tenantId -> { plan, ts }
+const PLAN_CACHE_TTL_MS = 60 * 1000;
+
+async function getTenantPlan(tenantId) {
+  const id = tenantId || 'default';
+  const cached = planCache.get(id);
+  if (cached && (Date.now() - cached.ts) < PLAN_CACHE_TTL_MS) return cached.plan;
+  const row = await dbGet('SELECT plan FROM tenants WHERE tenant_id = $1', [id]);
+  const plan = row?.plan || 'free';
+  planCache.set(id, { plan, ts: Date.now() });
+  return plan;
+}
+
+function clearTenantPlanCache(tenantId) {
+  if (tenantId) planCache.delete(tenantId);
+  else planCache.clear();
+}
+
+// Prueft, ob das Abo (der Plan) des Tenants ein Feature enthaelt.
+// Orthogonal zu requirePermission; MUSS nach requireAuth laufen (nutzt req.tenantId).
+// Der Plan ist tenant-, nicht rollengebunden -> owner wird NICHT durchgelassen.
+function requirePlanFeature(feature) {
+  return async (req, res, next) => {
+    try {
+      const tenantId = req.tenantId || req.session?.tenantId || 'default';
+      const plan = await getTenantPlan(tenantId);
+      if (planHasFeature(plan, feature)) return next();
+      return res.status(403).json({
+        error: 'Diese Funktion ist in Ihrem aktuellen Paket nicht enthalten.',
+        feature,
+        plan,
+        upgradeRequired: true,
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 // Tenant aus Slug aufloesen (fuer oeffentliche Wizard-Seiten)
 function resolveTenant(req, res, next) {
   const slug = req.params.tenantSlug || req.query.tenant || req.query.tenantSlug;
@@ -296,4 +340,4 @@ async function resolveTenantFromSlugAsync(slug) {
   return tenant ? tenant.tenant_id : 'default';
 }
 
-module.exports = { requireAuth, requireRole, requirePermission, resolveTenant, attachTenantContext, resolveTenantFromSlug, resolveTenantFromSlugAsync };
+module.exports = { requireAuth, requireRole, requirePermission, requirePlanFeature, getTenantPlan, clearTenantPlanCache, resolveTenant, attachTenantContext, resolveTenantFromSlug, resolveTenantFromSlugAsync };

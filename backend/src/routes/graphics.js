@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission, requirePlanFeature } = require('../middleware/tenantContext');
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/graphics — Grafik hochladen + mit target_key verlinken (Auth)
-router.post('/', requireAuth, requirePermission('costs_manage'), upload.single('graphic'), async (req, res) => {
+router.post('/', requireAuth, requirePlanFeature('costs'), requirePermission('costs_manage'), upload.single('graphic'), async (req, res) => {
   try {
     const targetKey = req.body.target_key;
     if (!targetKey) return res.status(400).json({ error: 'target_key erforderlich' });
@@ -61,7 +61,7 @@ router.post('/', requireAuth, requirePermission('costs_manage'), upload.single('
 });
 
 // DELETE /api/graphics/:targetKey — Grafik entfernen (Auth)
-router.delete('/:targetKey', requireAuth, requirePermission('costs_manage'), async (req, res) => {
+router.delete('/:targetKey', requireAuth, requirePlanFeature('costs'), requirePermission('costs_manage'), async (req, res) => {
   try {
     const row = await dbGet('SELECT id, stored_name FROM well_type_graphics WHERE tenant_id = $1 AND target_key = $2', [req.tenantId, req.params.targetKey]);
     if (!row) return res.status(404).json({ error: 'Grafik nicht gefunden' });

@@ -5,12 +5,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { dbGet, dbAll, dbRun } = require('../database');
-const { requireAuth, requirePermission } = require('../middleware/tenantContext');
+const { requireAuth, requirePermission, requirePlanFeature } = require('../middleware/tenantContext');
 
 const ENC_KEY = process.env.SUPPLIER_ENC_KEY || 'brunnenbau-default-enc-key-32ch';
 const ENC_IV_LEN = 16;
 
 router.use(requireAuth);
+// Abo-Gating: Lieferanten nur mit Feature 'suppliers' (auch Lesen).
+router.use(requirePlanFeature('suppliers'));
 router.use((req, res, next) => {
   if (req.method === 'GET') return next();
   return requirePermission('suppliers_manage')(req, res, next);

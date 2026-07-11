@@ -4,12 +4,15 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { dbAll, dbGet, dbRun } = require('../database');
-const { requireAuth } = require('../middleware/tenantContext');
+const { requireAuth, requirePlanFeature } = require('../middleware/tenantContext');
 const { callClaude, isConfigured } = require('../services/aiClient');
 const { knowledgeText, searchKnowledge } = require('../services/assistantKnowledge');
 const { getCompanySettingsAsync } = require('../companySettings');
 
 const router = express.Router();
+
+// Abo-Gating: KI-Angebots-Assistent gehoert zum Feature 'quotes' (nur Stufe B / Trial).
+router.use(requireAuth, requirePlanFeature('quotes'));
 
 const DOCS_DIR = path.join(__dirname, '..', '..', 'uploads', 'company-docs');
 const upload = multer({
