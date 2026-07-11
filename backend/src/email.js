@@ -453,6 +453,42 @@ async function sendTrialWelcomeMail(to, { companyName, accountLink, trialEndsAt 
   await transporter.sendMail({ from, to, subject: 'Ihr Testzugang zur BrunnenbauApp ist bereit', html, text });
 }
 
+// Sperr-Benachrichtigung: der 3-Tage-Test ist abgelaufen, der Zugang ist pausiert.
+async function sendTrialExpiredMail(to, { companyName, accountLink, graceDays = 21 }) {
+  const transporter = await createTransporter();
+  const from = process.env.EMAIL_FROM || 'noreply@brunnenbauapp.de';
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif; color:#101a2e; max-width:600px;">
+      <h2 style="color:#1b59b7;">Ihr Testzeitraum ist abgelaufen</h2>
+      <p>Hallo ${companyName || ''},</p>
+      <p>Ihr 3-tägiger Testzugang für <strong>${companyName || 'Ihren Betrieb'}</strong> ist abgelaufen — Ihr Zugang ist ab jetzt <strong>pausiert</strong>.</p>
+      <p><strong>Ihre Daten sind noch da.</strong> Schließen Sie jetzt ein Abo ab, geht es <strong>nahtlos mit allen Ihren Angaben</strong> weiter. Ohne Abo werden Ihre Testdaten in <strong>${graceDays} Tagen</strong> endgültig gelöscht.</p>
+      <p style="margin:24px 0;">
+        <a href="${accountLink}" style="background:#1b59b7; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:8px; font-weight:bold; display:inline-block;">Jetzt Abo abschließen &amp; weitermachen</a>
+      </p>
+      <p style="font-size:14px; color:#5b6672;">Oder öffnen Sie Ihren Zugang direkt: <a href="${accountLink}">${accountLink}</a></p>
+      <p style="margin-top:24px; color:#5b6672; font-size:14px;">Fragen? Antworten Sie einfach auf diese E-Mail.<br>Ihr BrunnenbauApp-Team · EasyBrainLab</p>
+    </div>
+  `;
+
+  const text = [
+    `Ihr Testzeitraum ist abgelaufen`,
+    ``,
+    `Hallo ${companyName || ''},`,
+    `Ihr 3-taegiger Testzugang fuer ${companyName || 'Ihren Betrieb'} ist abgelaufen - Ihr Zugang ist ab jetzt pausiert.`,
+    ``,
+    `Ihre Daten sind noch da. Schliessen Sie jetzt ein Abo ab, geht es nahtlos mit allen Angaben weiter.`,
+    `Ohne Abo werden Ihre Testdaten in ${graceDays} Tagen endgueltig geloescht.`,
+    ``,
+    `Zugang / Abo abschliessen: ${accountLink}`,
+    ``,
+    `Ihr BrunnenbauApp-Team - EasyBrainLab`,
+  ].join('\n');
+
+  await transporter.sendMail({ from, to, subject: 'Ihr BrunnenbauApp-Testzugang ist pausiert', html, text });
+}
+
 module.exports = {
   sendCustomerConfirmation,
   sendCompanyNotification,
@@ -460,5 +496,6 @@ module.exports = {
   sendDiagnosticReport,
   sendDiagnosticCompanyNotification,
   sendTrialWelcomeMail,
+  sendTrialExpiredMail,
   WELL_TYPE_LABELS,
 };

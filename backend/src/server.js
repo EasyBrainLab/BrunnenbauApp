@@ -201,6 +201,14 @@ initDatabase().then(async () => {
     console.error('Default-Template-Seeding fehlgeschlagen:', err.message);
   }
 
+  // Trial-Lebenszyklus (Sperre Tag 3 / Loeschung Tag 24) im Hintergrund starten.
+  try {
+    const { startTrialLifecycleScheduler } = require('./jobs/trialLifecycle');
+    startTrialLifecycleScheduler();
+  } catch (err) {
+    console.error('Trial-Lifecycle-Scheduler konnte nicht gestartet werden:', err.message);
+  }
+
   app.listen(PORT, () => {
     console.log(`Brunnenbau-Backend läuft auf Port ${PORT}`);
   });
