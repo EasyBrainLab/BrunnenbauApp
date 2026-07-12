@@ -425,7 +425,7 @@ async function sendTrialWelcomeMail(to, { companyName, accountLink, trialEndsAt 
       </ul>
 
       <p style="line-height:1.6;">Ein Abo können Sie jederzeit direkt im Tool starten. Es gibt zwei Pakete:
-        <strong>Konfigurator &amp; Interessenten</strong> (9,90 €/Monat) und <strong>Komplett</strong> (49,90 €/Monat), je zzgl. USt., monatlich kündbar.</p>
+        <strong>Konfigurator &amp; Interessenten</strong> (10 €/Monat) und <strong>Komplett</strong> (40 €/Monat), je zzgl. USt., monatlich kündbar.</p>
 
       <p style="margin-top:24px; color:#5b6672; font-size:14px;">Fragen? Antworten Sie einfach auf diese E-Mail.<br>Ihr BrunnenbauApp-Team · EasyBrainLab</p>
     </div>
@@ -445,7 +445,7 @@ async function sendTrialWelcomeMail(to, { companyName, accountLink, trialEndsAt 
     `- Nach den 3 Tagen wird Ihr Zugang pausiert. Mit Abo geht es nahtlos mit allen Daten weiter.`,
     `- Ohne Abo werden Ihre Testdaten anschliessend endgueltig geloescht (DSGVO-konform).`,
     ``,
-    `Zwei Pakete: Konfigurator & Interessenten (9,90 EUR/Monat) und Komplett (49,90 EUR/Monat), je zzgl. USt., monatlich kuendbar.`,
+    `Zwei Pakete: Konfigurator & Interessenten (10 EUR/Monat) und Komplett (40 EUR/Monat), je zzgl. USt., monatlich kuendbar.`,
     ``,
     `Ihr BrunnenbauApp-Team - EasyBrainLab`,
   ].join('\n');

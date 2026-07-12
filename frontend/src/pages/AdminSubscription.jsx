@@ -16,7 +16,7 @@ const PACKAGES = [
   {
     tier: 'leads',
     name: 'Konfigurator & Interessenten',
-    price: '9,90',
+    price: '10',
     tagline: 'Anfragen sammeln statt verpassen',
     features: [
       'Brunnen-Konfigurator für Ihre Website',
@@ -28,7 +28,7 @@ const PACKAGES = [
   {
     tier: 'complete',
     name: 'Komplett',
-    price: '49,90',
+    price: '40',
     tagline: 'Von der Anfrage bis zum fertigen Angebot',
     recommended: true,
     features: [
