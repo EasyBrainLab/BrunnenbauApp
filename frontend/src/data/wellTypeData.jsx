@@ -22,7 +22,7 @@ export const COST_INFO = {
       { name: 'Brunnenrohr DN 100 (6-8m)', price: '150-300' },
       { name: 'Filterkies', price: '50-100' },
       { name: 'Spuelbohrung Arbeit', price: '400-1200' },
-      { name: 'Genehmigung/Anzeige', price: '50-200' },
+      { name: 'Behoerdliche Anzeige/Genehmigung', price: 'nach Gebuehrensatzung der Behoerde' },
     ],
   },
   handpumpe: {
@@ -34,7 +34,7 @@ export const COST_INFO = {
       { name: 'Schwengelpumpe', price: '200-600' },
       { name: 'Brunnenrohr + Filter', price: '200-400' },
       { name: 'Bohrung + Einbau', price: '500-1500' },
-      { name: 'Genehmigung', price: '50-200' },
+      { name: 'Behoerdliche Genehmigung', price: 'nach Gebuehrensatzung der Behoerde' },
     ],
   },
   tauchpumpe: {
@@ -47,7 +47,7 @@ export const COST_INFO = {
       { name: 'Brunnenrohr + Filter', price: '200-500' },
       { name: 'Elektroinstallation', price: '200-400' },
       { name: 'Bohrung + Einbau', price: '800-2000' },
-      { name: 'Genehmigung', price: '50-200' },
+      { name: 'Behoerdliche Genehmigung', price: 'nach Gebuehrensatzung der Behoerde' },
     ],
   },
   hauswasserwerk: {
@@ -60,7 +60,7 @@ export const COST_INFO = {
       { name: 'Brunnenrohr + Filter', price: '300-600' },
       { name: 'Verrohrung im Haus', price: '500-1500' },
       { name: 'Bohrung', price: '1000-2500' },
-      { name: 'Genehmigung', price: '100-400' },
+      { name: 'Behoerdliche Genehmigung', price: 'nach Gebuehrensatzung der Behoerde' },
     ],
   },
   tiefbrunnen: {
@@ -73,7 +73,7 @@ export const COST_INFO = {
       { name: 'Brunnenausbau (Rohre, Filter)', price: '600-2000' },
       { name: 'Bohrung (Rotary/Rammkerndrehbohrung)', price: '2000-6000' },
       { name: 'Steuerung + Elektrik', price: '500-1500' },
-      { name: 'Genehmigung + Gutachten', price: '300-1000' },
+      { name: 'Behoerdliche Genehmigung + Gutachten', price: 'nach Aufwand und Gebuehrensatzung' },
     ],
   },
   industrie: {
@@ -86,7 +86,7 @@ export const COST_INFO = {
       { name: 'Brunnenausbau (gross)', price: '2000-8000' },
       { name: 'Bohrung + Ausbau', price: '3000-15000' },
       { name: 'Steuerung + Technik', price: '1000-5000' },
-      { name: 'Genehmigung + Gutachten + Monitoring', price: '1000-5000' },
+      { name: 'Behoerdliche Genehmigung + Gutachten + Monitoring', price: 'nach Aufwand und Gebuehrensatzung' },
     ],
   },
   beratung: {

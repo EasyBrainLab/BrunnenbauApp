@@ -13,22 +13,36 @@ async function seedSuppliers() {
     return;
   }
 
+  // BEISPIELDATEN — bewusst durchgaengig fiktiv und als solche erkennbar.
+  //
+  // Ein frueherer Stand enthielt reale Firmen- und Markennamen mit frei erfundenen
+  // Ansprechpartnern und E-Mail-Adressen unter deren echter Domain
+  // (z. B. "GRUNDFOS Vertrieb Deutschland", Kontakt "Martin Scholz" <scholz@grundfos.de>).
+  // Das ist gleich mehrfach angreifbar: Markenrecht, Namensrecht der erfundenen Person,
+  // Wettbewerbsrecht — und die Daten landen ueber die Lieferantenverwaltung in
+  // Bestellungen und Kalkulationen.
+  //
+  // Regeln fuer diese Datei:
+  //   - Keine realen Firmen-, Marken- oder Herstellernamen.
+  //   - Domains ausschliesslich unter example.com/.de (nach RFC 2606 fuer genau
+  //     diesen Zweck reserviert und niemals real vergeben).
+  //   - Keine real waehlbaren Rufnummern.
   const suppliers = [
     {
       supplier_number: 'LF-001',
-      name: 'Brunnenhandel Müller GmbH',
+      name: 'Musterhandel Brunnentechnik GmbH (Beispiel)',
       supplier_type: 'haendler',
-      contact_person: 'Thomas Müller',
-      contact_person_email: 'mueller@brunnenhandel.de',
-      contact_person_phone: '0351 1234567',
-      email: 'info@brunnenhandel.de',
-      order_email: 'bestellung@brunnenhandel.de',
-      phone: '0351 1234560',
-      website: 'https://www.brunnenhandel.de',
-      street: 'Industriestr. 12',
+      contact_person: 'Erika Musterfrau',
+      contact_person_email: 'kontakt@example.com',
+      contact_person_phone: '',
+      email: 'info@example.com',
+      order_email: 'bestellung@example.com',
+      phone: '',
+      website: 'https://www.example.com',
+      street: 'Musterstrasse 12',
       zip_code: '01234',
-      city: 'Dresden',
-      customer_number: 'KD-88421',
+      city: 'Musterstadt',
+      customer_number: 'KD-00001',
       payment_terms_days: 30,
       discount_percent: 3,
       discount_days: 10,
@@ -36,43 +50,43 @@ async function seedSuppliers() {
       shipping_costs: 'Ab 250 EUR frei Haus',
       preferred_order_method: 'email',
       rating: 5,
-      notes: 'Hauptlieferant fuer Brunnenrohre und Filterrohre. Zuverlaessig und guenstig.',
+      notes: 'Beispieldatensatz. Bitte durch Ihren echten Lieferanten fuer Brunnen- und Filterrohre ersetzen.',
     },
     {
       supplier_number: 'LF-002',
-      name: 'PumpenTechnik Sachsen AG',
+      name: 'Beispiel Pumpentechnik AG (Beispiel)',
       supplier_type: 'hersteller',
-      contact_person: 'Andrea Bergmann',
-      contact_person_email: 'bergmann@pumpentechnik-sachsen.de',
-      contact_person_phone: '0371 9876543',
-      email: 'info@pumpentechnik-sachsen.de',
-      order_email: 'auftraege@pumpentechnik-sachsen.de',
-      phone: '0371 9876540',
-      website: 'https://www.pumpentechnik-sachsen.de',
-      street: 'Pumpenweg 5',
+      contact_person: 'Max Mustermann',
+      contact_person_email: 'kontakt@example.com',
+      contact_person_phone: '',
+      email: 'info@example.com',
+      order_email: 'auftraege@example.com',
+      phone: '',
+      website: 'https://www.example.com',
+      street: 'Beispielweg 5',
       zip_code: '09111',
-      city: 'Chemnitz',
-      customer_number: 'SA-20145',
+      city: 'Beispielstadt',
+      customer_number: 'KD-00002',
       payment_terms_days: 14,
       delivery_time: '5-7 Werktage',
       shipping_costs: 'Pauschal 15 EUR',
       preferred_order_method: 'email',
       rating: 4,
-      notes: 'Spezialist fuer Tauch- und Tiefenpumpen. Technische Beratung sehr gut.',
+      notes: 'Beispieldatensatz. Bitte durch Ihren echten Lieferanten fuer Tauch- und Tiefenpumpen ersetzen.',
     },
     {
       supplier_number: 'LF-003',
-      name: 'Baustoffe Weber OHG',
+      name: 'Musterbaustoffe OHG (Beispiel)',
       supplier_type: 'haendler',
-      contact_person: 'Klaus Weber',
-      contact_person_email: 'k.weber@baustoffe-weber.de',
-      contact_person_phone: '0800 5553210',
-      email: 'info@baustoffe-weber.de',
-      phone: '0800 5553210',
-      website: 'https://www.baustoffe-weber.de',
-      street: 'Am Bauhof 3',
+      contact_person: 'Erika Musterfrau',
+      contact_person_email: 'kontakt@example.com',
+      contact_person_phone: '',
+      email: 'info@example.com',
+      phone: '',
+      website: 'https://www.example.com',
+      street: 'Am Musterhof 3',
       zip_code: '04103',
-      city: 'Leipzig',
+      city: 'Musterdorf',
       payment_terms_days: 21,
       discount_percent: 2,
       discount_days: 7,
@@ -80,49 +94,27 @@ async function seedSuppliers() {
       shipping_costs: 'Ab 100 EUR frei Haus',
       preferred_order_method: 'telefon',
       rating: 4,
-      notes: 'Filterkies, Quellton, Zement und allg. Baumaterial. Schnelle Lieferung regional.',
+      notes: 'Beispieldatensatz. Bitte durch Ihren echten Lieferanten fuer Filterkies, Quellton und Zement ersetzen.',
     },
     {
       supplier_number: 'LF-004',
-      name: 'GRUNDFOS Vertrieb Deutschland',
-      supplier_type: 'hersteller',
-      contact_person: 'Martin Scholz',
-      contact_person_email: 'scholz@grundfos.de',
-      contact_person_phone: '040 2345678',
-      email: 'vertrieb@grundfos.de',
-      order_email: 'order@grundfos.de',
-      phone: '040 2345670',
-      website: 'https://www.grundfos.de',
-      street: 'Pumpenfabrikstr. 1',
-      zip_code: '22769',
-      city: 'Hamburg',
-      customer_number: 'GF-D-10892',
-      payment_terms_days: 30,
-      delivery_time: '7-14 Werktage',
-      preferred_order_method: 'shop',
-      shop_url: 'https://shop.grundfos.de',
-      rating: 5,
-      notes: 'Premium-Pumpen. Laengere Lieferzeit, aber hoechste Qualitaet.',
-    },
-    {
-      supplier_number: 'LF-005',
-      name: 'RohrMax Handelsgesellschaft',
+      name: 'Beispiel Rohrhandel KG (Beispiel)',
       supplier_type: 'haendler',
-      contact_person: 'Sabine Krause',
-      contact_person_email: 's.krause@rohrmax.de',
-      phone: '030 7654321',
-      email: 'info@rohrmax.de',
-      order_email: 'bestellen@rohrmax.de',
-      website: 'https://www.rohrmax.de',
-      street: 'Rohrstrasse 88',
+      contact_person: 'Max Mustermann',
+      contact_person_email: 'kontakt@example.com',
+      email: 'info@example.com',
+      order_email: 'bestellen@example.com',
+      phone: '',
+      website: 'https://www.example.com',
+      street: 'Beispielstrasse 88',
       zip_code: '10115',
-      city: 'Berlin',
+      city: 'Musterstadt',
       payment_terms_days: 14,
       delivery_time: '2-4 Werktage',
       shipping_costs: 'Ab 500 EUR frei Haus, sonst 25 EUR',
       preferred_order_method: 'email',
       rating: 3,
-      notes: 'Alternativlieferant fuer PVC-Rohre und Fittings.',
+      notes: 'Beispieldatensatz. Bitte durch Ihren echten Lieferanten fuer PVC-Rohre und Fittings ersetzen.',
     },
   ];
 
@@ -160,45 +152,50 @@ async function seedSuppliers() {
 
   // Verknuepfung: Lieferanten <-> Kostenpositionen
   const costItems = db.prepare('SELECT id, name FROM cost_items').all();
-  const supplierRows = db.prepare('SELECT id, name FROM suppliers').all();
+  const supplierRows = db.prepare('SELECT id, name, supplier_number FROM suppliers').all();
 
   const linkStmt = db.prepare(`
     INSERT OR IGNORE INTO cost_item_suppliers (cost_item_id, supplier_id, supplier_article_number, supplier_price)
     VALUES (?, ?, ?, ?)
   `);
 
-  // Brunnenhandel Mueller -> Rohre + Filter
-  const mueller = supplierRows.find(s => s.name.includes('Müller'));
+  // Zuordnung ueber die Lieferantennummer statt ueber den Firmennamen: Die Namen sind
+  // austauschbare Beispieldaten und sollen vom Betrieb ersetzt werden — eine Suche nach
+  // dem Namen wuerde nach der ersten Umbenennung stillschweigend nichts mehr finden.
+  const bySupplierNumber = (number) => supplierRows.find(s => s.supplier_number === number);
+
+  // LF-001 Musterhandel Brunnentechnik -> Rohre + Filter
+  const rohrhandel = bySupplierNumber('LF-001');
   const rohrItems = costItems.filter(c => /rohr|filter.*rohr|aufsatz/i.test(c.name));
-  if (mueller) {
+  if (rohrhandel) {
     for (const item of rohrItems) {
-      linkStmt.run(item.id, mueller.id, `BHM-${item.id}00`, null);
+      linkStmt.run(item.id, rohrhandel.id, `LF1-${item.id}`, null);
     }
   }
 
-  // PumpenTechnik Sachsen -> Pumpen
-  const pumpen = supplierRows.find(s => s.name.includes('PumpenTechnik'));
+  // LF-002 Beispiel Pumpentechnik -> Pumpen
+  const pumpenlieferant = bySupplierNumber('LF-002');
   const pumpenItems = costItems.filter(c => /pumpe|hauswasserwerk/i.test(c.name));
-  if (pumpen) {
+  if (pumpenlieferant) {
     for (const item of pumpenItems) {
-      linkStmt.run(item.id, pumpen.id, `PTS-${item.id}00`, null);
+      linkStmt.run(item.id, pumpenlieferant.id, `LF2-${item.id}`, null);
     }
   }
 
-  // Baustoffe Weber -> Kies, Ton, Zement
-  const weber = supplierRows.find(s => s.name.includes('Weber'));
+  // LF-003 Musterbaustoffe -> Kies, Ton, Zement
+  const baustoffe = bySupplierNumber('LF-003');
   const bauItems = costItems.filter(c => /kies|ton|zement|abdicht/i.test(c.name));
-  if (weber) {
+  if (baustoffe) {
     for (const item of bauItems) {
-      linkStmt.run(item.id, weber.id, `BW-${item.id}`, null);
+      linkStmt.run(item.id, baustoffe.id, `LF3-${item.id}`, null);
     }
   }
 
-  // GRUNDFOS -> Pumpen (alternativ)
-  const grundfos = supplierRows.find(s => s.name.includes('GRUNDFOS'));
-  if (grundfos) {
-    for (const item of pumpenItems) {
-      linkStmt.run(item.id, grundfos.id, `GF-${item.id}`, null);
+  // LF-004 Beispiel Rohrhandel -> Rohre (Alternativlieferant, zeigt die Mehrfachzuordnung)
+  const alternativRohre = bySupplierNumber('LF-004');
+  if (alternativRohre) {
+    for (const item of rohrItems) {
+      linkStmt.run(item.id, alternativRohre.id, `LF4-${item.id}`, null);
     }
   }
 

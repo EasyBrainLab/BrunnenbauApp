@@ -53,8 +53,16 @@ export default function CostComparison({ selectedType }) {
   return (
     <div className="mt-4 p-4 bg-white border border-earth-200 rounded-xl">
       <h3 className="text-lg font-semibold text-gray-800 mb-1">Kostenvergleich Brunnenarten</h3>
+      {/* Preisangaben gegenueber Verbrauchern: Nach der PAngV ist der Endpreis
+          einschliesslich Umsatzsteuer anzugeben. Die frueher hier stehende Zusage
+          "Alle Preise inkl. Material, Arbeit und Genehmigung" wurde entfernt — sie
+          las sich wie eine verbindliche Inklusivleistung und widersprach den
+          Mehrkosten-Hinweisen an anderer Stelle im Konfigurator. */}
       <p className="text-xs text-gray-500 mb-4">
-        Richtwerte – Ihr tatsaechlicher Preis haengt von Tiefe, Boden und Standort ab. Alle Preise inkl. Material, Arbeit und Genehmigung.
+        Unverbindliche Richtwerte als Endpreise inkl. gesetzlicher Mehrwertsteuer. Es handelt sich
+        um eine grobe Orientierung, nicht um ein Angebot. Ihr tatsaechlicher Preis haengt von Tiefe,
+        Boden, Standort und Zufahrt ab; behoerdliche Gebuehren und Sonderleistungen koennen
+        hinzukommen.
       </p>
 
       <div className="space-y-3">
@@ -135,12 +143,20 @@ export default function CostComparison({ selectedType }) {
                     <>
                       <p className="text-xs font-semibold text-gray-500 mb-1">Typische Positionen:</p>
                       <div className="space-y-1">
-                        {info.typicalItems.map((item, i) => (
-                          <div key={i} className="flex justify-between text-xs text-gray-600">
-                            <span>{item.name}</span>
-                            <span className="font-medium">{item.price} EUR</span>
-                          </div>
-                        ))}
+                        {info.typicalItems.map((item, i) => {
+                          // Positionen ohne bezifferbaren Preis (z. B. behoerdliche Gebuehren,
+                          // die sich nach der kommunalen Gebuehrensatzung richten) tragen einen
+                          // Freitext statt einer Spanne — dann darf kein "EUR" angehaengt werden.
+                          const hasAmount = /^\d/.test(String(item.price).trim());
+                          return (
+                            <div key={i} className="flex justify-between gap-3 text-xs text-gray-600">
+                              <span>{item.name}</span>
+                              <span className={hasAmount ? 'font-medium whitespace-nowrap' : 'text-right italic text-gray-500'}>
+                                {hasAmount ? `${item.price} EUR` : item.price}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -151,8 +167,13 @@ export default function CostComparison({ selectedType }) {
         })}
       </div>
 
+      {/* Bewusst ohne hartcodierte Jahreszahl: Ein "Stand: 2025" veraltet still und
+          wirkt dann wie eine unrichtige Angabe. Der Unverbindlichkeitshinweis traegt
+          die Aussage auch ohne Datum. */}
       <p className="mt-4 text-xs text-gray-400 italic">
-        Stand: 2025 | Preise koennen je nach Region und Anbieter variieren. Fuer ein verbindliches Angebot kontaktieren Sie uns bitte.
+        Preise koennen je nach Region, Bodenverhaeltnissen und Anbieter deutlich abweichen. Diese
+        Uebersicht ist unverbindlich und begruendet keinen Anspruch. Ein verbindliches Angebot
+        erstellen wir Ihnen gern nach Pruefung Ihrer Anfrage.
       </p>
     </div>
   );

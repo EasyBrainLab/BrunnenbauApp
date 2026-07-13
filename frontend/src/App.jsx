@@ -25,6 +25,8 @@ import AdminDocumentLayout from './pages/AdminDocumentLayout';
 import AdminDocumentLayoutEditor from './pages/AdminDocumentLayoutEditor';
 import AdminAuthorityLinks from './pages/AdminAuthorityLinks';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import ImprintPage from './pages/ImprintPage';
+import ProviderPrivacyPage from './pages/ProviderPrivacyPage';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import { DialogProvider } from './context/DialogContext';
@@ -49,7 +51,13 @@ export default function App() {
             <Route path="/" element={<WizardPage />} />
             <Route path="/konfigurator" element={<WizardPage />} />
             <Route path="/doktor" element={<DoctorWizardPage />} />
+            {/* Datenschutzerklaerung des Brunnenbaubetriebs (Mandant) fuer dessen Endkunden. */}
             <Route path="/datenschutz" element={<PrivacyPolicyPage />} />
+            {/* Rechtstexte des Anbieters (Easy Brain Lab). Bewusst NICHT hinter isDemoMode()
+                gekapselt: Die Impressumspflicht nach § 5 DDG gilt auf jedem Host, auf dem der
+                Dienst oeffentlich erreichbar ist. */}
+            <Route path="/impressum" element={<ImprintPage />} />
+            <Route path="/datenschutz-anbieter" element={<ProviderPrivacyPage />} />
             <Route path="/bestaetigung/:inquiryId" element={<ConfirmationPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/admin" element={<AdminLogin />} />

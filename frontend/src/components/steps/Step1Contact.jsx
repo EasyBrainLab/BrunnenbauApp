@@ -223,6 +223,12 @@ export default function Step1Contact({ data, errors, onChange }) {
         </div>
       </div>
 
+      {/* Reine Bestaetigung der eingegebenen Adresse.
+          Hier stand frueher ein Button, der die Anschrift des Kunden in eine Google-Earth-URL
+          kodiert und damit an einen Drittanbieter uebertragen hat — eine Uebermittlung
+          personenbezogener Daten ohne Rechtsgrundlage und ohne Erwaehnung in der
+          Datenschutzerklaerung. Der praktische Nutzen war gering (der Kunde kennt sein
+          Grundstueck), das Risiko nicht. Bitte nicht wieder einbauen. */}
       {data.street && data.house_number && data.zip_code && data.city && (
         <div className="mt-4 p-4 bg-earth-50 border border-earth-200 rounded-lg flex items-center gap-3">
           <svg className="w-6 h-6 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,19 +239,8 @@ export default function Step1Contact({ data, errors, onChange }) {
             <p className="text-sm text-gray-700">
               <strong>{data.street} {data.house_number}, {data.zip_code} {data.city}</strong>
             </p>
-            <p className="text-xs text-gray-500">Grundstück in Google Earth anzeigen</p>
+            <p className="text-xs text-gray-500">Bitte prüfen Sie, ob die Adresse des Bohrstandorts stimmt.</p>
           </div>
-          <a
-            href={`https://earth.google.com/web/search/${encodeURIComponent(`${data.street} ${data.house_number}, ${data.zip_code} ${data.city}, Deutschland`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary text-sm px-4 py-2 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Google Earth
-          </a>
         </div>
       )}
 

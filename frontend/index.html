@@ -4,9 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brunnenbau – Ihr Anfrageportal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <!-- Schriftart Roboto wird lokal ausgeliefert (@fontsource/roboto, Import in src/main.jsx).
+         Bewusst KEINE Einbindung ueber fonts.googleapis.com: Dabei wuerde bei jedem
+         Seitenaufruf die IP-Adresse des Besuchers ohne Einwilligung an Google uebertragen
+         (vgl. LG Muenchen I, Urteil vom 20.01.2022 – 3 O 17493/20). Bitte nicht
+         wieder auf die CDN-Variante zurueckstellen. -->
   </head>
   <body class="bg-earth-50 text-gray-800 antialiased">
     <div id="root"></div>

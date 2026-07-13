@@ -1017,8 +1017,11 @@ router.post('/inquiries/:id/send-quote/:quoteId', requireAuth, requirePermission
 
 // ==================== Vorschriften ====================
 
-// GET /api/regulations?zip=12345
-router.get('/regulations', async (req, res) => {
+// GET /api/admin/regulations?zip=12345
+// requireAuth ist hier zwingend: Der Endpoint war frueher ungeschuetzt und damit ohne
+// Login abrufbar. Die Route wird ausschliesslich aus dem Admin-Bereich genutzt
+// (frontend/src/pages/AdminDetail.jsx) — ein oeffentlicher Zugriff ist nicht vorgesehen.
+router.get('/regulations', requireAuth, async (req, res) => {
   const { zip } = req.query;
   if (!zip || zip.length < 2) {
     return res.status(400).json({ error: 'PLZ erforderlich (mind. 2 Ziffern)' });

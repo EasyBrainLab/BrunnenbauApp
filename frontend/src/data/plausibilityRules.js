@@ -51,8 +51,13 @@ const RULES = [
       return hasPurpose(data.usage_purposes, 'Trinkwasser (nur nach entsprechender Prüfung möglich)');
     },
     type: 'info',
+    // Bewusst als Empfehlung und nicht als Rechtsaussage formuliert: Welche Anforderungen
+    // im Einzelfall gelten, richtet sich nach dem Trinkwasserrecht und der Beurteilung des
+    // Gesundheitsamts. Eine pauschale Auslegung ("darf nur ... verwendet werden") waere eine
+    // Rechtsauskunft im Einzelfall — die duerfen wir nach dem RDG nicht erteilen, und falsch
+    // waere sie obendrein angreifbar (§ 5 UWG).
     message:
-      'Wichtig: Brunnenwasser darf nur nach erfolgreicher Laboranalyse als Trinkwasser verwendet werden. Die Analyse umfasst mikrobiologische und chemische Pruefungen gemaess Trinkwasserverordnung. Wir koennen dies fuer Sie organisieren.',
+      'Wichtig: Bevor Sie Brunnenwasser als Trinkwasser nutzen, sollten Sie es in einem akkreditierten Labor mikrobiologisch und chemisch untersuchen lassen. Welche Anforderungen und Meldepflichten in Ihrem Fall gelten, klaeren Sie bitte mit dem zustaendigen Gesundheitsamt. Gern unterstuetzen wir Sie dabei, eine Untersuchung zu beauftragen.',
   },
   {
     id: 'household_handpump',
@@ -73,7 +78,7 @@ const RULES = [
     },
     type: 'warning',
     message:
-      'Gewerbliche und industrielle Nutzung unterliegt erhoehten Anforderungen. Es koennen spezielle Genehmigungen und Auflagen erforderlich sein. Wir empfehlen in diesem Fall einen Industriebrunnen und beraten Sie gerne zu den behoerdlichen Vorgaben.',
+      'Bei gewerblicher oder industrieller Nutzung koennen erhoehte Anforderungen, Genehmigungen und Auflagen gelten. Bitte klaeren Sie das Vorhaben mit der zustaendigen Behoerde ab. Technisch empfehlen wir in diesem Fall einen Industriebrunnen — dazu beraten wir Sie gern.',
   },
   {
     id: 'agricultural_permit_warning',
@@ -93,7 +98,7 @@ const RULES = [
     },
     type: 'warning',
     message:
-      'Eine Loeschwasserreserve unterliegt behoerdlichen Auflagen und erfordert eine Mindest-Foerdermenge. Bitte stimmen Sie sich mit Ihrer oertlichen Feuerwehr oder Baubehoerde ab. Wir beraten Sie gerne zu den technischen Anforderungen.',
+      'Fuer eine Loeschwasserreserve koennen besondere behoerdliche Anforderungen gelten, etwa an die Foerdermenge. Bitte stimmen Sie sich dazu mit Ihrer oertlichen Feuerwehr bzw. der Bauaufsicht ab. Zu den technischen Moeglichkeiten beraten wir Sie gern.',
   },
 ];
 

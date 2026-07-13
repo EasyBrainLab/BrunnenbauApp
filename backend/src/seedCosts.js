@@ -17,7 +17,7 @@ const costItems = [
   { name: 'Tauchpumpe 3" (bis 3000 L/h)', category: 'pumpe', unit: 'Stueck', unit_price: 450, description: 'Standard-Gartenpumpe', supplier: '' },
   { name: 'Tiefenpumpe 4" (bis 6000 L/h)', category: 'pumpe', unit: 'Stueck', unit_price: 1200, description: 'Fuer Tiefbrunnen', supplier: '' },
   { name: 'Hauswasserwerk komplett', category: 'pumpe', unit: 'Stueck', unit_price: 1500, description: 'Pumpe + Druckbehaelter + Steuerung', supplier: '' },
-  { name: 'Industriepumpe (Grundfos SP)', category: 'pumpe', unit: 'Stueck', unit_price: 4500, description: 'Hochleistungs-Unterwasserpumpe', supplier: '' },
+  { name: 'Industriepumpe (Tiefbrunnenpumpe)', category: 'pumpe', unit: 'Stueck', unit_price: 4500, description: 'Hochleistungs-Unterwasserpumpe', supplier: '' },
 
   // Arbeitszeit
   { name: 'Facharbeiter (pro Stunde)', category: 'arbeit', unit: 'Std', unit_price: 65, description: 'Brunnenbauer', supplier: '' },
@@ -105,7 +105,7 @@ const bomData = {
     { item: 'Aufsatzrohr DN 100', qty_min: 1, qty_max: 2 },
     { item: 'Filterkies (pro 25kg Sack)', qty_min: 20, qty_max: 50 },
     { item: 'Tonsperre / Quellton (pro 25kg)', qty_min: 5, qty_max: 10 },
-    { item: 'Industriepumpe (Grundfos SP)', qty_min: 1, qty_max: 2 },
+    { item: 'Industriepumpe (Tiefbrunnenpumpe)', qty_min: 1, qty_max: 2 },
     { item: 'Facharbeiter (pro Stunde)', qty_min: 40, qty_max: 80 },
     { item: 'Helfer (pro Stunde)', qty_min: 24, qty_max: 48 },
     { item: 'Drehbohrgeraet (pro Tag)', qty_min: 3, qty_max: 10 },

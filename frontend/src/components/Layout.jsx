@@ -76,13 +76,20 @@ export default function Layout() {
         <footer className="text-xs" style={headerStyle}>
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[#efefef]">
             <p>&copy; {new Date().getFullYear()} {showPlaceholder ? '[Ihr Firmenname]' : companyName}. Alle Rechte vorbehalten.</p>
+            {/* Rechtslinks. Auf dem Demo-/Vertriebshost ist Easy Brain Lab der Diensteanbieter,
+                dort gelten die eigenen Rechtstexte. Betreibt ein Brunnenbaubetrieb den
+                Konfigurator unter eigenem Namen, ist ER der Diensteanbieter und muss sein
+                eigenes Impressum verlinken — deshalb wird der Anbieter-Link dann nicht
+                angezeigt, statt ein fremdes (und damit falsches) Impressum auszuweisen. */}
             <div className="flex gap-5">
-              <a href="/datenschutz" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+              <Link to="/datenschutz" className="hover:text-white transition-colors">
                 Datenschutz
-              </a>
-              <a href="https://example.com/impressum" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                Impressum
-              </a>
+              </Link>
+              {demo && (
+                <Link to="/impressum" className="hover:text-white transition-colors">
+                  Impressum
+                </Link>
+              )}
             </div>
           </div>
         </footer>

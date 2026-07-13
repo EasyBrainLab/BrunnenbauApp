@@ -280,6 +280,16 @@ section[id],div[id]{scroll-margin-top:92px}
   color:var(--error-on-dark);font-size:.92rem;font-weight:600;
 }
 .form-error.show{display:block}
+.form-privacy{
+  width:100%;margin:.55rem 0 0;
+  font-size:.8rem;line-height:1.5;
+  color:var(--on-dark-soft);
+}
+.form-privacy a{
+  color:var(--on-dark);font-weight:600;
+  text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:var(--brand-accent);
+}
 .form-success{
   display:flex;align-items:flex-start;gap:.9rem;
   max-width:36em;
@@ -530,34 +540,21 @@ section[id],div[id]{scroll-margin-top:92px}
   color:var(--accent-ink);
 }
 
-/* ---------- Kundenstimmen ---------- */
-.quotes-band{background:var(--deep);color:var(--on-dark)}
-.quotes-band .eyebrow{color:color-mix(in srgb, var(--brand-accent) 68%, var(--brand-on-dark))}
-.quotes-band h2{color:var(--on-dark);font-size:clamp(1.55rem,2.6vw,2rem)}
-.quote-grid{
-  display:grid;grid-template-columns:1fr 1fr;
-  gap:clamp(2rem,5vw,4rem);
-  margin-top:clamp(2rem,4vw,3rem);
+/* ---------- Ehrlicher Produktstatus (ersetzt frueheres Kundenstimmen-Band) ---------- */
+.trust-band{background:var(--deep);color:var(--on-dark)}
+.trust-band .eyebrow{color:color-mix(in srgb, var(--brand-accent) 68%, var(--brand-on-dark))}
+.trust-band h2{color:var(--on-dark);font-size:clamp(1.55rem,2.6vw,2rem)}
+.trust-lead{color:var(--on-dark-soft);max-width:44em;font-size:1.06rem}
+.trust-list{
+  list-style:none;margin:clamp(2rem,4vw,3rem) 0 0;padding:0;
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:clamp(1.6rem,3.5vw,2.8rem);
 }
-.quote-grid figure{margin:0;min-width:0}
-.quote-grid blockquote{
-  margin:0 0 1.3rem;
-  font-size:clamp(1.08rem,1.6vw,1.22rem);
-  line-height:1.6;
-}
-.quote-grid blockquote p{margin:0;color:var(--on-dark)}
-.quote-grid blockquote::before{
-  content:"\201E";
-  display:block;
-  font-size:3.2rem;line-height:.5;
-  margin-bottom:1.1rem;
-  color:var(--brand-accent);
-  font-weight:700;
-}
-.quote-grid figcaption{font-size:.9rem;letter-spacing:.04em}
-.quote-grid figcaption b{display:block;font-size:.98rem;letter-spacing:0}
-.quote-grid figcaption span{color:var(--on-dark-soft)}
-@media (max-width: 780px){.quote-grid{grid-template-columns:1fr}}
+.trust-list li{display:flex;gap:.75rem;align-items:flex-start;min-width:0}
+.trust-list svg{flex:none;margin-top:.15em}
+.trust-list b{display:block;font-size:1.02rem;margin-bottom:.35em;color:var(--on-dark)}
+.trust-list p{margin:0;color:var(--on-dark-soft);font-size:.95rem;line-height:1.55}
+@media (max-width: 880px){.trust-list{grid-template-columns:1fr;gap:1.4rem}}
 
 /* ---------- Preis ---------- */
 .price-head{max-width:680px;margin:0 auto clamp(2.2rem,4vw,3.2rem);text-align:center}
@@ -603,6 +600,16 @@ section[id],div[id]{scroll-margin-top:92px}
   display:flex;flex-wrap:wrap;justify-content:center;gap:.8rem 1.8rem}
 .price-points li{display:flex;gap:.6rem;align-items:flex-start;font-size:.95rem;color:var(--ink-soft)}
 .price-points svg{flex:none;margin-top:.2em}
+/* Pflichthinweise zur Preisangabe: Kleinunternehmerregelung (§ 19 UStG — kein
+   Umsatzsteuerausweis) und Beschraenkung auf Unternehmer (§ 14 BGB). */
+.b2b-note{
+  max-width:880px;margin:clamp(1.6rem,3vw,2.2rem) auto 0;
+  padding:1rem 1.2rem;
+  border:1px solid var(--line-strong);border-radius:var(--radius);
+  background:var(--bg-tint);
+  font-size:.9rem;line-height:1.6;color:var(--ink-soft);
+}
+.b2b-note b{color:var(--ink)}
 @media (max-width: 760px){
   .price-cards{grid-template-columns:1fr;max-width:460px}
   .price-points{flex-direction:column;align-items:flex-start;max-width:460px}
@@ -727,6 +734,13 @@ section[id],div[id]{scroll-margin-top:92px}
             <input type="email" id="email-input" name="email" placeholder="name@ihr-betrieb.de" autocomplete="email" required>
             <button type="submit" class="btn btn-light btn-lg">Kostenlosen Testzugang anfordern</button>
             <p class="form-error" id="form-error" aria-live="polite"></p>
+            <!-- Informationspflicht nach Art. 13 DSGVO: Bei jeder Erhebung personenbezogener
+                 Daten muss der Zweck genannt und auf die Datenschutzerklaerung verwiesen werden. -->
+            <p class="form-privacy">
+              Ihre E-Mail-Adresse verwenden wir ausschließlich, um Ihren Testzugang einzurichten.
+              Es erfolgt keine Weitergabe an Dritte und kein Werbe-Newsletter.
+              Näheres in der <a href="/datenschutz-anbieter" target="_parent">Datenschutzerklärung</a>.
+            </p>
           </form>
           <div class="form-success" id="form-success" role="status" tabindex="-1" hidden>
             <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -828,7 +842,7 @@ section[id],div[id]{scroll-margin-top:92px}
         </ul>
       </div>
       <figure class="followup-mock">
-          <svg class="mockup" viewBox="0 0 640 460" role="img" aria-label="Stilisierte Ansicht des Anfragen-Dashboards: eine Tabelle mit vier Anfragen und Status-Kennzeichnungen, davor ein Angebots-PDF mit einer Summe von 4.210 Euro netto.">
+          <svg class="mockup" viewBox="0 0 640 460" role="img" aria-label="Stilisierte Beispielansicht des Anfragen-Dashboards mit frei erfundenen Musterdaten: eine Tabelle mit vier Anfragen und Status-Kennzeichnungen, davor ein Angebots-PDF. Die dargestellten Namen und Betraege sind reine Platzhalter und keine echten Vorgaenge oder Preise.">
             <defs>
               <filter id="mk-shadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.22"/>
@@ -859,9 +873,10 @@ section[id],div[id]{scroll-margin-top:92px}
             <text x="430" y="112" class="mk-col">STATUS</text>
             <line x1="30" y1="122" x2="542" y2="122" class="mk-line"/>
 
-            <!-- Zeile 1 -->
+            <!-- Zeile 1 · Bewusst nur Musternamen: erfundene, aber real klingende Personen-
+                 und Firmennamen koennen bestehende Namensrechte verletzen (§ 12 BGB). -->
             <text x="30" y="148" class="mk-cellb">0142</text>
-            <text x="95" y="148" class="mk-cell">Fam. Petzold, Werder</text>
+            <text x="95" y="148" class="mk-cell">Fam. Mustermann, Musterstadt</text>
             <text x="270" y="148" class="mk-cell">Spülbohrung · 18 m</text>
             <rect x="430" y="133" width="46" height="22" rx="11" class="mk-pill-new"/>
             <text x="453" y="148" text-anchor="middle" class="mk-pilltxt mk-pill-new-t">Neu</text>
@@ -869,7 +884,7 @@ section[id],div[id]{scroll-margin-top:92px}
 
             <!-- Zeile 2 -->
             <text x="30" y="190" class="mk-cell">0141</text>
-            <text x="95" y="190" class="mk-cell">Gärtnerei Lademann</text>
+            <text x="95" y="190" class="mk-cell">Musterhof Gartenbau</text>
             <text x="270" y="190" class="mk-cell">Rammbrunnen · 7 m</text>
             <rect x="430" y="175" width="102" height="22" rx="11" class="mk-pill-prog"/>
             <text x="481" y="190" text-anchor="middle" class="mk-pilltxt mk-pill-prog-t">In Bearbeitung</text>
@@ -877,7 +892,7 @@ section[id],div[id]{scroll-margin-top:92px}
 
             <!-- Zeile 3 -->
             <text x="30" y="232" class="mk-cell">0139</text>
-            <text x="95" y="232" class="mk-cell">K. Behrend, Nauen</text>
+            <text x="95" y="232" class="mk-cell">K. Musterfrau, Beispieldorf</text>
             <text x="270" y="232" class="mk-cell">Trockenbohrung · 12 m</text>
             <rect x="430" y="217" width="110" height="22" rx="11" class="mk-pill-quote"/>
             <text x="485" y="232" text-anchor="middle" class="mk-pilltxt mk-pill-quote-t">Angebot erstellt</text>
@@ -885,7 +900,7 @@ section[id],div[id]{scroll-margin-top:92px}
 
             <!-- Zeile 4 -->
             <text x="30" y="274" class="mk-cell">0138</text>
-            <text x="95" y="274" class="mk-cell">Fam. Yildiz, Ketzin</text>
+            <text x="95" y="274" class="mk-cell">Fam. Beispiel, Musterstadt</text>
             <text x="270" y="274" class="mk-cell">Spülbohrung · 22 m</text>
             <rect x="430" y="259" width="102" height="22" rx="11" class="mk-pill-done"/>
             <text x="481" y="274" text-anchor="middle" class="mk-pilltxt mk-pill-done-t">Auftrag erteilt</text>
@@ -913,7 +928,7 @@ section[id],div[id]{scroll-margin-top:92px}
             <text x="350" y="420" class="mk-total">Gesamt netto</text>
             <text x="590" y="420" text-anchor="end" class="mk-total">4.210,00 €</text>
           </svg>
-          <figcaption class="caption">Ihr Anfragen-Dashboard mit Status-Workflow und Angebots-PDF · Illustration</figcaption>
+          <figcaption class="caption">Ihr Anfragen-Dashboard mit Status-Workflow und Angebots-PDF · Illustration mit Musterdaten — Namen und Beträge sind Platzhalter, keine echten Vorgänge oder Preise</figcaption>
         </figure>
     </div>
   </section>
@@ -1094,57 +1109,68 @@ section[id],div[id]{scroll-margin-top:92px}
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">So läuft der Test</span>
-        <h2 id="testablauf-title">In fünf Minuten startklar — ohne Installation, ohne Verkaufsgespräch.</h2>
-        <p>Sie brauchen nur eine E-Mail-Adresse. Alles andere ist vorbereitet.</p>
+        <h2 id="testablauf-title">In wenigen Minuten startklar — ohne Installation, ohne Verkaufsgespräch.</h2>
+        <p>Sie legen einen Zugang an, alles Weitere ist vorbereitet.</p>
       </div>
 
+      <!-- Dieser Ablauf beschreibt exakt das, was die Anwendung tatsaechlich tut
+           (siehe backend/src/routes/auth.js und services/templateSeed.js).
+           Keine Schritte beschreiben, die es im Produkt nicht gibt — das waere
+           irrefuehrende Werbung nach § 5 UWG. -->
       <ol class="steps">
         <li>
-          <h3>E-Mail-Adresse eintragen</h3>
-          <p>Oben ins Feld, absenden, fertig. Wir fragen weder nach Zahlungsdaten noch nach einer Telefonnummer.</p>
+          <h3>Zugang anlegen</h3>
+          <p>Firmenname, E-Mail, Benutzername und ein Passwort — mehr braucht es nicht. Wir fragen weder nach Zahlungsdaten noch nach einer Telefonnummer.</p>
         </li>
         <li>
-          <h3>Bestätigungslink anklicken</h3>
-          <p>Der Zugangslink kommt innerhalb weniger Minuten per E-Mail. Ein Klick — und Ihr eigener Testzugang steht bereit, nur für Ihren Betrieb.</p>
+          <h3>Sofort loslegen</h3>
+          <p>Ihr Zugang steht direkt nach dem Absenden bereit, ganz ohne Wartezeit. Er gehört nur Ihrem Betrieb — Ihre Daten liegen getrennt von denen anderer Nutzer.</p>
         </li>
         <li>
-          <h3>Sofort mit Beispieldaten arbeiten</h3>
-          <p>Fünf Beispielanfragen, Materialstamm und Stücklisten sind vorbereitet. Erstellen Sie Ihr erstes Angebots-PDF, tragen Sie einen Bohrtermin ein, stellen Sie Logo und Farben um.</p>
+          <h3>Mit vorbereiteten Stammdaten arbeiten</h3>
+          <p>Materialstamm, Stücklisten je Brunnentyp und Kostensätze sind bereits angelegt. Erstellen Sie Ihr erstes Angebots-PDF, tragen Sie einen Bohrtermin ein, stellen Sie Logo und Farben auf Ihren Betrieb um.</p>
         </li>
         <li>
-          <h3>Nach 3 Tagen entscheiden</h3>
-          <p>Nach Ablauf des Tests werden Ihre Testdaten automatisch gelöscht — DSGVO-konform, ohne dass Sie etwas tun müssen.</p>
-          <span class="note">Schließen Sie vorher ein Abo ab, bleiben alle Daten erhalten.</span>
+          <h3>Nach drei Tagen entscheiden</h3>
+          <p>Der Test läuft in kein Abo über: Es liegen keine Zahlungsdaten vor, es kann also gar nichts abgebucht werden. Möchten Sie weitermachen, sprechen wir über das passende Paket.</p>
+          <span class="note">Möchten Sie nicht weitermachen, löschen wir Ihren Zugang samt aller Daten — eine formlose E-Mail genügt.</span>
         </li>
       </ol>
     </div>
   </section>
 
-  <!-- ============ KUNDENSTIMMEN ============ -->
-  <section class="section quotes-band" aria-labelledby="stimmen-title">
+  <!-- ============ EHRLICHER PRODUKTSTATUS ============ -->
+  <!-- Bewusst OHNE Kundenstimmen: Erfundene oder ungepruefte Testimonials sind nach
+       Anhang zu § 3 Abs. 3 UWG Nr. 23b/23c ein Per-se-Wettbewerbsverstoss. Hier stehen
+       ausschliesslich Aussagen ueber uns selbst, die nachpruefbar zutreffen. -->
+  <section class="section trust-band" aria-labelledby="ehrlich-title">
     <div class="wrap">
-      <span class="eyebrow">Aus der Praxis</span>
-      <h2 id="stimmen-title">Was Kollegen aus dem Brunnenbau sagen</h2>
-      <div class="quote-grid">
-        <figure>
-          <blockquote>
-            <p>Früher habe ich Anfragen vom Anrufbeantworter abgetippt und dreimal zurückgerufen, bis alles beisammen war. Jetzt stehen Bohrtiefe, Bodenverhältnisse und ein Foto der Zufahrt schon in der Anfrage, bevor ich das erste Mal zum Hörer greife.</p>
-          </blockquote>
-          <figcaption>
-            <b>Heiko Wernicke</b>
-            <span>Wernicke Brunnen- und Pumpentechnik, Celle</span>
-          </figcaption>
-        </figure>
-        <figure>
-          <blockquote>
-            <p>Drei Angebote an einem Abend statt eins. Die Stückliste für die Spülbohrung liegt fertig im System — ich passe Tiefe und Verrohrung an, der Rest rechnet sich von selbst. Und das PDF sieht aus wie von uns, nicht wie aus irgendeinem Programm.</p>
-          </blockquote>
-          <figcaption>
-            <b>Jörg Kastner</b>
-            <span>Kastner Brunnenbau GmbH, Landshut</span>
-          </figcaption>
-        </figure>
-      </div>
+      <span class="eyebrow">Klartext</span>
+      <h2 id="ehrlich-title">Ein junges Produkt — und was das für Sie bedeutet.</h2>
+      <p class="trust-lead">Sie finden hier keine Kundenstimmen. BrunnenbauApp ist neu am Markt, und wir halten nichts davon, Zitate zu erfinden, die es nie gegeben hat. Stattdessen sagen wir Ihnen, woran Sie sind.</p>
+      <ul class="trust-list">
+        <li>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <b>Sie prüfen selbst, statt uns zu glauben</b>
+            <p>Der Konfigurator oben ist keine Attrappe — klicken Sie sich durch. Den vollständigen Funktionsumfang testen Sie kostenlos, bevor Sie irgendetwas bezahlen.</p>
+          </div>
+        </li>
+        <li>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <b>Sie sprechen direkt mit dem Entwickler</b>
+            <p>Kein Callcenter, keine Ticket-Warteschleife. Hinter BrunnenbauApp steht ein Einzelunternehmen — Ihre Rückmeldung landet dort, wo die Software gebaut wird.</p>
+          </div>
+        </li>
+        <li>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <b>Sie binden sich nicht</b>
+            <p>Monatlich kündbar, keine Mindestlaufzeit, keine Einrichtungsgebühr. Wenn die App Ihnen keine Zeit spart, hören Sie einfach wieder auf.</p>
+          </div>
+        </li>
+      </ul>
     </div>
   </section>
 
@@ -1161,7 +1187,7 @@ section[id],div[id]{scroll-margin-top:92px}
 
         <div class="price-card">
           <span class="plan">Konfigurator &amp; Interessenten</span>
-          <div class="price-amount"><b>10&nbsp;€</b><span>pro Monat, zzgl. USt.</span></div>
+          <div class="price-amount"><b>10&nbsp;€</b><span>pro Monat</span></div>
           <p class="price-sub">Der Einstieg: Anfragen sammeln statt verpassen</p>
           <ul class="price-list">
             <li>
@@ -1188,7 +1214,7 @@ section[id],div[id]{scroll-margin-top:92px}
         <div class="price-card price-card--feature">
           <span class="price-badge">Empfohlen</span>
           <span class="plan">Komplett</span>
-          <div class="price-amount"><b>40&nbsp;€</b><span>pro Monat, zzgl. USt.</span></div>
+          <div class="price-amount"><b>40&nbsp;€</b><span>pro Monat</span></div>
           <p class="price-sub">Von der Anfrage bis zum fertigen Angebot</p>
           <ul class="price-list">
             <li>
@@ -1209,25 +1235,40 @@ section[id],div[id]{scroll-margin-top:92px}
             </li>
           </ul>
           <a class="btn btn-light" href="/register" target="_parent">Erst testen, dann entscheiden</a>
-          <p class="price-note"><b>3 Tage kostenlos</b> — der Test endet automatisch, nicht in einem Abo.</p>
+          <p class="price-note"><b>3 Tage kostenlos</b> — aus dem Test entsteht kein Abo und keine Zahlungspflicht.</p>
         </div>
 
       </div>
 
+      <!-- Hier stehen nur nachpruefbare Zusagen. Aussagen wie "Serverstandort Deutschland"
+           wurden entfernt, weil sie sich aus dem Betrieb heraus nicht belegen lassen —
+           unbelegte Werbeaussagen sind nach § 5 UWG angreifbar. -->
       <ul class="price-points">
         <li>
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Monatlich kündbar, keine Mindestlaufzeit</span>
+          <span>Monatlich kündbar, keine Mindestlaufzeit, keine Einrichtungsgebühr</span>
         </li>
         <li>
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Im Test jederzeit abschließbar — Ihre Daten bleiben erhalten</span>
+          <span>Kein Tracking, keine Werbe-Cookies, keine Weitergabe Ihrer Daten zu Werbezwecken</span>
         </li>
         <li>
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Serverstandort Deutschland, Auftragsverarbeitung nach DSGVO</span>
+          <span>Ihre Daten gehören Ihnen — Sie erhalten sie jederzeit auf Anfrage</span>
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="var(--brand-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Serverstandort Deutschland — gehostet bei Hetzner</span>
         </li>
       </ul>
+
+      <p class="b2b-note">
+        Als Kleinunternehmer im Sinne des § 19 UStG erheben wir keine Umsatzsteuer und weisen diese
+        daher nicht aus. Die genannten Preise sind die tatsächlich zu zahlenden Endpreise; es kommt
+        nichts hinzu. BrunnenbauApp richtet sich <b>ausschließlich an Gewerbetreibende, Selbstständige
+        und Unternehmer im Sinne des § 14 BGB</b>. Ein Vertragsschluss mit Verbrauchern (§ 13 BGB) ist
+        ausgeschlossen.
+      </p>
     </div>
   </section>
 
@@ -1243,7 +1284,7 @@ section[id],div[id]{scroll-margin-top:92px}
         <details>
           <summary>Was passiert nach den drei Testtagen mit meinen Daten?</summary>
           <div class="faq-body">
-            <p>Ihr Testzugang und alle darin angelegten Daten werden automatisch und vollständig gelöscht — DSGVO-konform, ohne dass Sie kündigen oder etwas veranlassen müssen. Schließen Sie während des Tests ein Abo ab, wird Ihr Testzugang zum echten Zugang: Alle Anfragen, Materialdaten und Einstellungen bleiben erhalten.</p>
+            <p>Sie entscheiden. Möchten Sie nicht weitermachen, löschen wir Ihren Zugang und alle darin angelegten Daten vollständig — eine formlose E-Mail an <a href="mailto:support@easybrainlab.com">support@easybrainlab.com</a> genügt. Ein Abo entsteht aus dem Test nicht: Es liegen keine Zahlungsdaten vor, es kann also nichts abgebucht werden. Entscheiden Sie sich für ein Paket, bleiben alle Anfragen, Materialdaten und Einstellungen erhalten.</p>
           </div>
         </details>
         <details>
@@ -1255,13 +1296,13 @@ section[id],div[id]{scroll-margin-top:92px}
         <details>
           <summary>Kann ich im Test meine eigenen Preise und Materialien hinterlegen?</summary>
           <div class="faq-body">
-            <p>Ja. Der Materialstamm ist voll bearbeitbar: eigene Artikel, Einkaufs- und Verkaufspreise, Lieferanten und Stücklisten je Brunnentyp — Spülbohrung, Rammbrunnen oder Trockenbohrung. Viele Betriebe kalkulieren schon im Test ein echtes Angebot. Das ist der ehrlichste Praxistest.</p>
+            <p>Ja. Der Materialstamm ist voll bearbeitbar: eigene Artikel, Einkaufs- und Verkaufspreise, Lieferanten und Stücklisten je Brunnentyp — Spülbohrung, Rammbrunnen oder Trockenbohrung. Am aussagekräftigsten ist es, wenn Sie im Test gleich ein echtes Angebot durchrechnen — das ist der ehrlichste Praxistest.</p>
           </div>
         </details>
         <details>
           <summary>Wie kommt der Konfigurator auf meine Website?</summary>
           <div class="faq-body">
-            <p>Sie erhalten eine eigene Adresse (zum Beispiel anfrage.ihr-betrieb.de) und verlinken sie von Ihrer Website — etwa als Button „Brunnen anfragen“. Alternativ binden wir den Konfigurator direkt in Ihre Seite ein. Programmierkenntnisse brauchen Sie nicht; Logo und Farben stellen Sie selbst ein.</p>
+            <p>Sie erhalten für Ihren Betrieb eine eigene Adresse bei uns (zum Beispiel ihr-betrieb.brunnenbauapp.de) und verlinken sie von Ihrer Website — etwa als Button „Brunnen anfragen“. Bei der Einbindung unterstützen wir Sie. Programmierkenntnisse brauchen Sie nicht; Logo und Farben stellen Sie selbst ein.</p>
           </div>
         </details>
         <details>
@@ -1273,13 +1314,13 @@ section[id],div[id]{scroll-margin-top:92px}
         <details>
           <summary>Welchen Support gibt es?</summary>
           <div class="faq-body">
-            <p>E-Mail-Support mit Antwort an Werktagen innerhalb von 24 Stunden — auch schon während des Tests. Beim Start ins Abo helfen wir bei der Einrichtung: Materialstamm übernehmen, Briefpapier einrichten, Konfigurator verlinken.</p>
+            <p>E-Mail-Support unter <a href="mailto:support@easybrainlab.com">support@easybrainlab.com</a> — auch schon während des Tests. Wir antworten werktags, so schnell es geht. Beim Start helfen wir Ihnen bei der Einrichtung: Materialstamm übernehmen, Briefpapier einrichten, Konfigurator verlinken.</p>
           </div>
         </details>
         <details>
           <summary>Wie kündige ich?</summary>
           <div class="faq-body">
-            <p>Monatlich und formlos: ein Klick im Konto oder eine kurze E-Mail genügt. Es gibt keine Mindestlaufzeit und keine Kündigungsfrist über den laufenden Monat hinaus. Vor dem Ende exportieren Sie Ihre Daten als CSV und Ihre Angebote als PDF.</p>
+            <p>Monatlich und formlos: Eine kurze E-Mail an <a href="mailto:support@easybrainlab.com">support@easybrainlab.com</a> genügt. Es gibt keine Mindestlaufzeit und keine Kündigungsfrist über den laufenden Monat hinaus. Vor dem Ende sichern Sie Ihre Angebote als PDF; auf Wunsch stellen wir Ihnen Ihre Daten zur Verfügung.</p>
           </div>
         </details>
       </div>
@@ -1313,17 +1354,19 @@ section[id],div[id]{scroll-margin-top:92px}
           </svg>
           BrunnenbauApp
         </span>
-        <p>Anfrage- und Angebotsverwaltung für Brunnenbaubetriebe. Ein Produkt von EasyBrainLab.</p>
+        <p>Anfrage- und Angebotsverwaltung für Brunnenbaubetriebe. Ein Produkt von Easy Brain Lab, Inhaber Dirk Warmuth.</p>
       </div>
       <nav class="foot-nav" aria-label="Rechtliches und weitere Seiten">
-        <a href="#">Impressum <span class="caption">(Platzhalter)</span></a>
-        <a href="/datenschutz" target="_parent">Datenschutzerklärung</a>
+        <!-- Impressumspflicht nach § 5 DDG: Der Link muss von jeder Seite aus
+             mit hoechstens zwei Klicks erreichbar und als "Impressum" bezeichnet sein. -->
+        <a href="/impressum" target="_parent">Impressum</a>
+        <a href="/datenschutz-anbieter" target="_parent">Datenschutzerklärung</a>
         <a href="/konfigurator" target="_parent">Konfigurator-Demo ansehen</a>
       </nav>
     </div>
     <div class="foot-legal">
-      <p>© 2026 EasyBrainLab</p>
-      <p>Alle Preise zzgl. gesetzlicher Umsatzsteuer.</p>
+      <p>© 2026 Easy Brain Lab · Dirk Warmuth</p>
+      <p>Angebot ausschließlich für Unternehmer (§ 14 BGB). Kein Ausweis von Umsatzsteuer gemäß § 19 UStG.</p>
     </div>
   </div>
 </footer>

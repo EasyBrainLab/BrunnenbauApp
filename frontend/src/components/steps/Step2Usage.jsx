@@ -276,7 +276,7 @@ export default function Step2Usage({ data, onChange, onFileChange }) {
                       value={gardenData.pump_type || ''}
                       onChange={(e) => updateGardenData('pump_type', e.target.value)}
                       className="form-input"
-                      placeholder="z. B. Gardena 4000/5"
+                      placeholder="z. B. Gartenpumpe 4000 l/h"
                     />
                   </div>
                   <div>
@@ -349,26 +349,22 @@ export default function Step2Usage({ data, onChange, onFileChange }) {
                   multiple={true}
                   onChange={onFileChange}
                   value={data.aerial_image_file}
-                  helpText="Tipp: Erstellen Sie einen Screenshot Ihres Grundstücks über Google Maps oder Google Earth (Satellitenansicht). So können wir die Bewässerungszonen besser planen."
+                  helpText="Tipp: Ein Screenshot Ihres Grundstücks aus einem Online-Kartendienst (Satellitenansicht) oder eine einfache Handskizze reichen völlig. So können wir die Bewässerungszonen besser planen."
                 />
               </div>
 
               {/* Info-Boxen */}
               <div className="space-y-3">
+                {/* Bewusst ohne Nennung oder Verlinkung fremder Hersteller/Marken:
+                    Ein Link auf ein kommerzielles Fremdangebot wirkt wie eine Empfehlung
+                    und schafft unnoetige marken- und wettbewerbsrechtliche Angriffsflaeche. */}
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     <span className="font-semibold">Planungshilfe:</span>{' '}
-                    Mit dem{' '}
-                    <a
-                      href="https://my-garden.gardena.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-700"
-                    >
-                      Gardena MyGarden Planner
-                    </a>{' '}
-                    können Sie Ihren Garten online planen und die Bewässerungszonen einzeichnen.
-                    Exportieren Sie den Plan und laden Sie ihn oben als Bild hoch.
+                    Skizzieren Sie Ihre Bewässerungszonen am einfachsten auf einem Luftbild oder
+                    einem Lageplan Ihres Grundstücks — Zonen, Wunschpositionen der Sprinkler und
+                    vorhandene Leitungen einzeichnen und das Bild oben hochladen. Eine einfache
+                    Handskizze genügt uns völlig.
                   </p>
                 </div>
 

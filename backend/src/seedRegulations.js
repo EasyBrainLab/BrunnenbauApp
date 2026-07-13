@@ -1,140 +1,111 @@
-// Seed-Skript: Basis-Vorschriften pro Bundesland
+// Seed-Skript: Zustaendigkeitshinweise pro Bundesland
+//
+// WICHTIG — BITTE VOR AENDERUNGEN LESEN:
+//
+// Diese Datei enthaelt BEWUSST KEINE konkreten Schwellenwerte, Bohrtiefen,
+// Entnahmemengen, Fristen oder Gebuehren mehr. Ein frueherer Stand tat das und
+// war nachweislich fehlerhaft (z. B. widersprachen sich fuer Baden-Wuerttemberg
+// die Angaben ">100 m3/a" und ">3600 m3/a" innerhalb desselben Datensatzes;
+// "Tiefbohrungen ab 100 m genehmigungspflichtig" war frei erfunden; die
+// Behoerdenkuerzel LLUR und TLUG existieren in dieser Form nicht mehr).
+//
+// Warum wir das nicht "einfach richtig recherchieren":
+//   1. Anzeige- und Erlaubnispflichten richten sich nach den Landeswassergesetzen,
+//      kommunalen Satzungen, Wasserschutzgebietsverordnungen und dem Einzelfall.
+//      Eine statische Tabelle kann das nicht zutreffend abbilden.
+//   2. Falsche Rechtsaussagen gegenueber Verbrauchern sind irrefuehrend (§ 5 UWG)
+//      und damit abmahnfaehig.
+//   3. Konkrete Rechtsauskuenfte im Einzelfall sind Rechtsdienstleistung und nach
+//      dem RDG nicht zulaessig.
+//
+// Verlaesslich und rechtlich unbedenklich ist genau eine Aussage: Zustaendig ist
+// die untere Wasserbehoerde. Genau die geben wir weiter — mit der Aufforderung,
+// dort vor Baubeginn nachzufragen. Bitte hier keine Zahlenwerte ergaenzen.
+
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 
 const { initDatabase, getDb } = require('./database');
 
-const regulations = [
-  {
-    state: 'Baden-Wuerttemberg',
-    authority_name: 'Untere Wasserbehoerde (Landratsamt)',
-    permit_type: 'Anzeigepflicht ab 0m, Erlaubnis bei >100m3/a',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LGRB (Landesamt fuer Geologie) erforderlich. Grundwasserentnahme >3600 m3/a erlaubnispflichtig.',
-  },
-  {
-    state: 'Bayern',
-    authority_name: 'Untere Wasserbehoerde (Landratsamt)',
-    permit_type: 'Erlaubnisfreier Gemeingebrauch bis Bagatellgrenze',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LfU Bayern. Eigenverbrauch fuer Garten oft erlaubnisfrei. Tiefbohrungen ab 100m genehmigungspflichtig.',
-  },
-  {
-    state: 'Berlin',
-    authority_name: 'Senatsverwaltung fuer Umwelt, Mobilitaet, Verbraucher- und Klimaschutz',
-    permit_type: 'Wasserrechtliche Erlaubnis erforderlich',
-    max_depth: null,
-    special_rules: 'Wasserschutzgebiete beachten. Genehmigung durch Umweltamt des Bezirks.',
-  },
-  {
-    state: 'Brandenburg',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Anzeigepflicht, Erlaubnis bei groesserer Entnahme',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LBGR Brandenburg. Erlaubnisfreie Entnahme fuer den Haushalt bis bestimmte Grenzen.',
-  },
-  {
-    state: 'Bremen',
-    authority_name: 'Senator fuer Klimaschutz, Umwelt, Mobilitaet',
-    permit_type: 'Wasserrechtliche Erlaubnis',
-    max_depth: null,
-    special_rules: 'Kompaktes Stadtgebiet – besondere Auflagen in Wasserschutzgebieten.',
-  },
-  {
-    state: 'Hamburg',
-    authority_name: 'Behoerde fuer Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)',
-    permit_type: 'Wasserrechtliche Erlaubnis erforderlich',
-    max_depth: null,
-    special_rules: 'Grundwasserentnahme in Hamburg grundsaetzlich erlaubnispflichtig.',
-  },
-  {
-    state: 'Hessen',
-    authority_name: 'Untere Wasserbehoerde (Landkreis/kreisfreie Stadt)',
-    permit_type: 'Anzeigepflicht + Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim HLNUG. Geringe Mengen fuer den Eigengebrauch koennen erlaubnisfrei sein.',
-  },
-  {
-    state: 'Mecklenburg-Vorpommern',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Anzeigepflicht + Erlaubnis ab Schwellenwert',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LUNG M-V erforderlich.',
-  },
-  {
-    state: 'Niedersachsen',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Erlaubnisfreier Gemeingebrauch moeglich',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LBEG Niedersachsen. Eigengebrauch im Rahmen des Gemeingebrauchs oft erlaubnisfrei.',
-  },
-  {
-    state: 'Nordrhein-Westfalen',
-    authority_name: 'Untere Wasserbehoerde (Kreis/kreisfreie Stadt)',
-    permit_type: 'Wasserrechtliche Erlaubnis erforderlich',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim Geologischen Dienst NRW. In NRW ist Grundwasserentnahme generell erlaubnispflichtig.',
-  },
-  {
-    state: 'Rheinland-Pfalz',
-    authority_name: 'Untere Wasserbehoerde (Kreisverwaltung)',
-    permit_type: 'Anzeige + Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LGB Rheinland-Pfalz. Erlaubnis durch Struktur- und Genehmigungsdirektion.',
-  },
-  {
-    state: 'Saarland',
-    authority_name: 'Landesamt fuer Umwelt- und Arbeitsschutz',
-    permit_type: 'Wasserrechtliche Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige erforderlich. Genehmigung durch das Landesamt.',
-  },
-  {
-    state: 'Sachsen',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Anzeigepflicht + Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LfULG Sachsen. Erlaubnisfreier Gemeingebrauch fuer geringe Mengen.',
-  },
-  {
-    state: 'Sachsen-Anhalt',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Anzeigepflicht + Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LAGB Sachsen-Anhalt erforderlich.',
-  },
-  {
-    state: 'Schleswig-Holstein',
-    authority_name: 'Untere Wasserbehoerde (Kreis)',
-    permit_type: 'Anzeigepflicht + Erlaubnis ab Schwellenwert',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim LLUR. Eigengebrauch kann erlaubnisfrei sein.',
-  },
-  {
-    state: 'Thueringen',
-    authority_name: 'Untere Wasserbehoerde (Landkreis)',
-    permit_type: 'Anzeigepflicht + Erlaubnis',
-    max_depth: null,
-    special_rules: 'Bohranzeige beim TLUG Thueringen erforderlich.',
-  },
+// Einheitlicher Hinweistext. Konjunktivisch formuliert, ohne Zahlenwerte,
+// mit klarer Verweisung an die zustaendige Stelle.
+const GENERIC_RULES =
+  'Ob eine Brunnenbohrung angezeigt werden muss und ob fuer die Wasserentnahme eine '
+  + 'wasserrechtliche Erlaubnis erforderlich ist, richtet sich nach dem Landeswasserrecht '
+  + 'und den oertlichen Gegebenheiten (z. B. Lage in einem Wasserschutzgebiet, geplante '
+  + 'Entnahmemenge, Art der Nutzung). Das laesst sich nur im Einzelfall beantworten. '
+  + 'Bitte klaeren Sie das Vorhaben vor Baubeginn mit der zustaendigen Behoerde ab. '
+  + 'Fuer die Bohrung selbst kann zusaetzlich eine Anzeige beim geologischen Landesamt '
+  + 'erforderlich sein. Gern unterstuetzen wir Sie dabei, die erforderlichen Angaben '
+  + 'zusammenzustellen.';
+
+const GENERIC_PERMIT =
+  'Anzeige- und/oder Erlaubnispflicht moeglich – bitte im Einzelfall bei der zustaendigen Behoerde klaeren';
+
+// In den Flaechenlaendern ist die untere Wasserbehoerde beim Landkreis bzw. der
+// kreisfreien Stadt angesiedelt, in den Stadtstaaten bei der Landesverwaltung.
+// Bewusst ohne konkrete Amtsnamen: Behoerdenbezeichnungen aendern sich (siehe
+// LLUR/TLUG) und veralteten Angaben ist niemandem geholfen.
+const AUTHORITY_FLAECHENLAND = 'Untere Wasserbehoerde des Landkreises bzw. der kreisfreien Stadt';
+const AUTHORITY_STADTSTAAT = 'Zustaendige Wasserbehoerde des Landes (Bezirksamt bzw. Senatsverwaltung)';
+
+const STADTSTAATEN = ['Berlin', 'Bremen', 'Hamburg'];
+
+const STATES = [
+  'Baden-Wuerttemberg',
+  'Bayern',
+  'Berlin',
+  'Brandenburg',
+  'Bremen',
+  'Hamburg',
+  'Hessen',
+  'Mecklenburg-Vorpommern',
+  'Niedersachsen',
+  'Nordrhein-Westfalen',
+  'Rheinland-Pfalz',
+  'Saarland',
+  'Sachsen',
+  'Sachsen-Anhalt',
+  'Schleswig-Holstein',
+  'Thueringen',
 ];
 
+const regulations = STATES.map((state) => ({
+  state,
+  authority_name: STADTSTAATEN.includes(state) ? AUTHORITY_STADTSTAAT : AUTHORITY_FLAECHENLAND,
+  permit_type: GENERIC_PERMIT,
+  max_depth: null,
+  special_rules: GENERIC_RULES,
+}));
+
+// Bewusst idempotent (UPSERT statt "skip, wenn vorhanden"):
+// Bestehende Datenbanken enthalten noch die frueheren, fehlerhaften Rechtsangaben.
+// Wuerde das Skript vorhandene Datensaetze ueberspringen, blieben genau die
+// falschen Aussagen im Produktivbestand stehen. Der Lauf ueberschreibt sie daher.
 async function seedRegulations() {
   await initDatabase();
   const db = getDb();
 
-  const existing = db.prepare('SELECT COUNT(*) as count FROM regulations').get();
-  if (existing.count > 0) {
-    console.log('Vorschriften existieren bereits. Ueberspringe.');
-    process.exit(0);
-  }
+  let inserted = 0;
+  let updated = 0;
 
   for (const reg of regulations) {
-    db.prepare(
-      'INSERT INTO regulations (state, authority_name, permit_type, max_depth, special_rules) VALUES (?, ?, ?, ?, ?)'
-    ).run(reg.state, reg.authority_name, reg.permit_type, reg.max_depth, reg.special_rules);
+    const existing = db.prepare('SELECT id FROM regulations WHERE state = ?').get(reg.state);
+
+    if (existing) {
+      db.prepare(
+        'UPDATE regulations SET authority_name = ?, permit_type = ?, max_depth = ?, special_rules = ? WHERE state = ?'
+      ).run(reg.authority_name, reg.permit_type, reg.max_depth, reg.special_rules, reg.state);
+      updated += 1;
+    } else {
+      db.prepare(
+        'INSERT INTO regulations (state, authority_name, permit_type, max_depth, special_rules) VALUES (?, ?, ?, ?, ?)'
+      ).run(reg.state, reg.authority_name, reg.permit_type, reg.max_depth, reg.special_rules);
+      inserted += 1;
+    }
   }
 
-  console.log(`${regulations.length} Bundesland-Vorschriften eingefuegt.`);
+  console.log(`Zustaendigkeitshinweise: ${inserted} neu angelegt, ${updated} aktualisiert.`);
+  console.log('Frueher enthaltene Schwellenwerte und Behoerdenkuerzel wurden dabei entfernt.');
   process.exit(0);
 }
 
